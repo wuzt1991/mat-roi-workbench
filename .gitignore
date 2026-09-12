@@ -1,0 +1,14 @@
+node_modules/
+.DS_Store
+.runtime-archives/
+dist/
+dist-builder/
+outputs/
+*.sqlite
+*.sqlite-*
+*.db
+*.db-*
+.env
+.env.*
+desktop-profile/
+

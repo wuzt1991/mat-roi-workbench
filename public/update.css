@@ -1,0 +1,8 @@
+.update-controls{display:flex;align-items:center;gap:8px;min-width:0}
+.update-status{display:block;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.update-controls .btn{height:30px;padding:0 9px;font-size:11px}
+@media(max-width:1200px){
+  .update-status{max-width:120px}
+  .topbar-right{gap:8px}
+  .update-controls .btn{padding:0 7px}
+}

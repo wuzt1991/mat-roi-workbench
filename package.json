@@ -1,0 +1,28 @@
+{
+  "name": "mat-roi-workbench",
+  "productName": "地垫工作台",
+  "version": "1.1.1",
+  "private": true,
+  "description": "地垫投放测算与账本工作台",
+  "main": "desktop.cjs",
+  "author": "Mat Workbench",
+  "license": "UNLICENSED",
+  "engines": { "node": ">=24" },
+  "dependencies": {
+    "electron-updater": "6.6.2"
+  },
+  "scripts": {
+    "start": "node server/index.cjs",
+    "desktop": "electron .",
+    "test": "node --test test/*.test.cjs test/*.test.js",
+    "check": "node scripts/check.cjs",
+    "package": "node scripts/package.cjs",
+    "package:win": "electron-builder --config electron-builder.config.cjs --win nsis --x64 --publish never",
+    "release": "electron-builder --config electron-builder.config.cjs --win nsis --x64 --publish always"
+  },
+  "devDependencies": {
+    "@electron/packager": "20.3.0",
+    "electron": "42.6.1",
+    "electron-builder": "26.0.12"
+  }
+}

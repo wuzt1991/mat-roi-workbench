@@ -1,0 +1,4 @@
+@media(max-width:1100px){
+  body{min-width:0}
+  .topbar-right{min-width:0}
+}
