@@ -1,14 +1,23 @@
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
+const path=require('node:path');
 const P=require('../public/product-transfer.js');
 const Excel=require('../public/assets/exceljs.min.js');
 
-const template='/Users/wuzt/Library/Containers/com.tencent.xinWeChat/Data/Documents/xwechat_files/sippyt_35b1/msg/file/2026-09/hcwh005_平台【商品】20260907142153398.xlsx';
-const source='/Users/wuzt/Desktop/淘宝地垫上架 1/淘宝参考图/hcwh005_平台【商品】20260911095949190.xlsx';
+const template=fs.readFileSync(path.join(__dirname,'../public/assets/product-template.xlsx'));
+async function sourceWorkbook(){
+  const book=new Excel.Workbook(),sheet=book.addWorksheet('商品');sheet.addRow(P.HEADERS);
+  for(let i=1;i<=139;i++){
+    const row=Array(29).fill('');
+    Object.assign(row,{0:i,1:'抖音',2:'测试店铺',3:'繁花仿亚麻硅藻泥脚垫',4:'碎花;40*60cm【升级吸水款】基础款',17:`product-${i}`,18:`sku-${i}`,19:19.98,20:'在售',21:9991});
+    sheet.addRow(row);
+  }
+  return book.xlsx.writeBuffer();
+}
 
 test('商品转表识别表头、材质和尺寸，并生成 139 条静态数据',async()=>{
-  const result=await P.analyze(fs.readFileSync(template),fs.readFileSync(source));
+  const result=await P.analyze(template,await sourceWorkbook());
   assert.equal(result.headers.length,29);
   assert.equal(result.summary.sourceRows,139);
   assert.equal(result.summary.exceptionRows,0);
@@ -26,8 +35,8 @@ test('商品转表识别表头、材质和尺寸，并生成 139 条静态数据
 });
 
 test('商品转表导出复制模板样式并清除公式，输出 29 列和 139 条数据',async()=>{
-  const result=await P.analyze(fs.readFileSync(template),fs.readFileSync(source));
-  const bytes=await P.exportWorkbook(fs.readFileSync(template),result);
+  const result=await P.analyze(template,await sourceWorkbook());
+  const bytes=await P.exportWorkbook(template,result);
   const book=new Excel.Workbook();await book.xlsx.load(bytes);const sheet=book.worksheets[0];
   assert.equal(sheet.columnCount,29);assert.equal(sheet.rowCount,140);
   assert.equal(sheet.getCell('R2').formula,undefined);assert.equal(sheet.getCell('S2').formula,undefined);
