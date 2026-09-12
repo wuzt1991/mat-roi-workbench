@@ -54,7 +54,7 @@ test('未保存修改阻止重启安装，保存完成后允许',async()=>{
 });
 
 test('更新服务不改写 SQLite 数据目录和工作区文件',async t=>{
-  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'mat-update-test-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'mat-update-test-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true,maxRetries:5,retryDelay:50}));
   const store=new Store(dir),state=M.seed();store.write(state,0);store.close();
   const dbPath=path.join(dir,'workbench.sqlite'),before=fs.readFileSync(dbPath);
   const updater=new FakeUpdater(),service=new UpdateService({updater,config:null,canQuit:()=>true});service.start();updater.emit('update-downloaded',{version:'1.1.2'});await service.quitAndInstall();
