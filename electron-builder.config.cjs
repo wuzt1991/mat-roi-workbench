@@ -36,5 +36,5 @@ module.exports = {
     deleteAppDataOnUninstall: false,
     runAfterFinish: true
   },
-  publish: owner && repo ? [{ provider: 'github', owner, repo, private: false }] : []
+  publish: owner && repo ? [{ provider: 'github', owner, repo, private: false, releaseType: 'release' }] : []
 };
