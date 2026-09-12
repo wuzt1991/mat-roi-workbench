@@ -11,6 +11,7 @@ permissions:
 jobs:
   build-windows:
     runs-on: windows-latest
+    timeout-minutes: 45
     steps:
       - name: Check out source
         uses: actions/checkout@v4
@@ -26,6 +27,7 @@ jobs:
 
       - name: Run tests
         run: npm test
+        timeout-minutes: 10
 
       - name: Check JavaScript
         run: npm run check
