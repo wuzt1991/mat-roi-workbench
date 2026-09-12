@@ -38,21 +38,21 @@ npm run package:win
 
 本地 `package:win` 永远使用 `--publish never`，产物写入 `dist-builder/`。配置了 owner 和 repo 后，electron-builder 会生成 NSIS 安装包、`latest.yml` 和 blockmap 元数据。未设置这两个变量时不会写入虚构仓库，构建仍可用于静态检查，但不能发布更新源。
 
-## 发布 v1.1.3
+## 发布 v1.1.4
 
 在 Windows runner 上创建 tag 会运行测试、语法检查、NSIS 构建，并使用 GitHub Actions 内置 `GITHUB_TOKEN` 创建或更新 Release：
 
 ```sh
-npm version 1.1.3 --no-git-tag-version
+npm version 1.1.4 --no-git-tag-version
 git add package.json package-lock.json
-git commit -m "release: v1.1.3"
-git tag v1.1.3
-git push origin main v1.1.3
+git commit -m "release: v1.1.4"
+git tag v1.1.4
+git push origin main v1.1.4
 ```
 
 工作流从 `github.repository_owner` 和 `github.event.repository.name` 设置 `MAT_UPDATE_OWNER`、`MAT_UPDATE_REPO`，因此仓库名称不需要硬编码。Release 资产至少包含：
 
-- `地垫工作台-1.1.3-windows-x64.exe`
+- `地垫工作台-1.1.4-windows-x64.exe`
 - `latest.yml`
 - 对应的 `.blockmap`
 
@@ -60,7 +60,7 @@ git push origin main v1.1.3
 
 ## 旧 ZIP 版迁移
 
-旧 ZIP/解压版没有安装器，也没有自动更新元数据。用户首次迁移时需要手动运行 v1.1.3 NSIS 安装包，并选择原来的安装位置或新的位置。应用数据目录保持原路径：
+旧 ZIP/解压版没有安装器，也没有自动更新元数据。用户首次迁移时需要手动运行 v1.1.4 NSIS 安装包，并选择原来的安装位置或新的位置。应用数据目录保持原路径：
 
 - Windows：`%LOCALAPPDATA%\MatROIWorkbench\workbench.sqlite`
 - macOS（仅保留既有数据，不提供自动更新）：`~/Library/Application Support/MatROIWorkbench/workbench.sqlite`
