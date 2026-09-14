@@ -23,6 +23,8 @@
     ['菠萝圈',[['','',1.25,19.5,true]]],['天鹅绒',[['','',.85,12.5,true]]],
     ['金钻绒',[['','',.8,11.5,true]]],['圈绒',[[8,'',2.6,18.5,true]]]
   ];
+  const materialNameKey=name=>String(name??'').normalize('NFKC').replace(/\s/g,'').toLowerCase();
+  function duplicateMaterialName(materials){const seen=new Set();for(const m of materials){const key=materialNameKey(m.name);if(seen.has(key))return m.name;seen.add(key);}return '';}
   const safeId=v=>String(v??'').split('').map(ch=>/[A-Za-z0-9_.-]/.test(ch)?ch:ch.codePointAt(0).toString(16)).join('')||'base';
   const ruleId=(name,thickness='',variant='')=>`rule-${safeId(name)}-${safeId(thickness||'base')}-${safeId(variant||'base')}`;
   const ruleKey=(thickness='',variant='')=>`${thickness??''}|${variant??''}`;
@@ -58,13 +60,13 @@
   }
   function finalizeState(s){
     s.materials=(s.materials||[]).map(normalizeMaterial);
+    for(const m of s.materials)if(m.builtinKey===undefined){const index=BUILTIN_MATERIALS.findIndex(([name],i)=>m.id===`mat-builtin-${i}`||(m.weightRules||[]).some(r=>r.id?.startsWith(`rule-${safeId(name)}-`))||materialNameKey(m.name)===materialNameKey(name));if(index>=0)m.builtinKey=index;}
     for(const [name] of BUILTIN_MATERIALS){
-      if(s.materials.some(m=>m.name===name))continue;
+      if(s.materials.some(m=>m.builtinKey===BUILTIN_MATERIALS.findIndex(x=>x[0]===name)||materialNameKey(m.name)===materialNameKey(name)))continue;
       const rules=builtinRules(name),price=Number(rules.find(r=>r.default)?.costPerSqm??rules[0]?.costPerSqm??0);
-      s.materials.push({id:`mat-builtin-${BUILTIN_MATERIALS.findIndex(x=>x[0]===name)}`,name,price,description:'',active:true,history:[{id:`quote-builtin-${BUILTIN_MATERIALS.findIndex(x=>x[0]===name)}`,date:today(),price,note:'内置材料规则'}],weightRules:rules});
+      s.materials.push({id:`mat-builtin-${BUILTIN_MATERIALS.findIndex(x=>x[0]===name)}`,name,builtinKey:BUILTIN_MATERIALS.findIndex(x=>x[0]===name),price,description:'',active:true,history:[{id:`quote-builtin-${BUILTIN_MATERIALS.findIndex(x=>x[0]===name)}`,date:today(),price,note:'内置材料规则'}],weightRules:rules});
     }
     s.plans=(s.plans||[]).map(p=>{const rule=materialRule(s.materials.find(m=>m.id===p.materialId),p);const next={...p,params:normalizeParams(p.params)};if(rule?.id)next.materialRuleId=rule.id;else delete next.materialRuleId;return next;});
-    if(Array.isArray(s.prefs?.skuColumns)&&s.prefs.skuColumns.join('|')==='price|share|weight|material|cost|roi')s.prefs.skuColumns=defaultSkuColumns.slice();
     for(const h of (s.records||[])) if(h.frame){
       h.frame.materials=(h.frame.materials||[]).map(normalizeMaterial);
       const fp=h.frame.plan, fm=h.frame.materials.find(m=>m.id===fp?.materialId), fr=materialRule(fm,fp||{});
@@ -85,7 +87,7 @@
     if(item.weight!==''&&item.weight!==undefined&&item.weight!==null)return item.weight;
     const area=productionArea(size);if(!Number.isFinite(area))return '';
     const configured=item.materialRule?.coefficient ?? material?.weightRule?.coefficient ?? material?.weightCoefficient;
-    if(Number.isFinite(Number(configured))&&Number(configured)>=0)return area*Number(configured);
+    if(Number.isFinite(Number(configured))&&Number(configured)>=0)return area*Number(configured)+(item.packagingWeight??0);
     const source=`${material?.name||''} ${material?.description||''} ${size?.name||''}`;
     const compactName=String(material?.name||'').replace(/[\s\u3000]/g,'');
     const compactSource=source.replace(/[\s\u3000]/g,'');
@@ -108,7 +110,7 @@
       return materialMatches&&Math.abs(Number(key.match(/\d+(?:\.\d+)?/)[0])-thickness)<0.011;
     });
     const rule=specific||fixedWeightRules.find(([key])=>matchesMaterial(key)&&!/\d/.test(key))|| (allowAliases&&compactName.includes('硅藻泥')?fixedWeightRules.find(([key])=>key==='硅藻泥'):null);
-    return rule?area*rule[1]:'';
+    return rule?area*rule[1]+(item.packagingWeight??0):'';
   }
   const skuColumns=s=>[...(s.prefs?.skuColumns??defaultSkuColumns)];
   // Persisted weights and frozen records remain in kg; convert only at input/output boundaries.
@@ -152,7 +154,9 @@
   function calculate(state,plan,overrides={}) {
     const p=normalizeParams({...plan.params,...overrides}),mat=state.materials.find(m=>m.id===plan.materialId),rule=materialRule(mat,plan),template=state.shippingTemplates.find(t=>t.id===plan.shippingId),errors=[];
     if(!mat||!nonnegative(mat.price))errors.push('请选择材料并填写单价');
+    if(rule&&!nonnegative(rule.costPerSqm))errors.push('请填写非负且有效的材料规则成本');
 
+    if(plan.packagingWeight!==undefined&&(!nonnegative(plan.packagingWeight)||plan.packagingWeight>1000))errors.push('请填写 0 至 1,000,000 g 的固定包装重量');
     if(plan.needsMaterialReview)errors.push('请核对材料报价，旧规格曾使用厚度估算');
     if(!plan.items.length)errors.push('请添加规格、售价和订单占比');
     for(const k of ['fee','tax','recovery','other','returnCost'])if(!nonnegative(p[k])||(['fee','tax','recovery'].includes(k)&&p[k]>100))errors.push('请检查费用和比例');
@@ -164,7 +168,7 @@
     if(!['shipped','all'].includes(p.otherFeeScope))errors.push('请设置其他费用发生范围');
     for(const k of ['spend','actualRoi'])if(p[k]!==''&&!nonnegative(p[k]))errors.push('请检查广告消耗和支付 ROI');
     const rows=plan.items.map(item=>{
-      const size=state.sizes.find(s=>s.id===item.sizeId),area=productionArea(size),unitCost=Number.isFinite(Number(rule?.costPerSqm))?Number(rule.costPerSqm):Number(mat?.price),material=area*unitCost,weight=derivedWeight(size,mat,{...item,materialRule:rule},template?.type==='regional'),ship=shippingCost(template,weight);
+      const size=state.sizes.find(s=>s.id===item.sizeId),area=productionArea(size),unitCost=rule?(nonnegative(rule.costPerSqm)?rule.costPerSqm:NaN):Number(mat?.price),material=area*unitCost,weight=derivedWeight(size,mat,{...item,materialRule:rule,packagingWeight:plan.packagingWeight??0},template?.type==='regional'),ship=shippingCost(template,weight);
       if(!validSize(size)||!Number.isFinite(area))errors.push('请补齐规格的销售尺寸和实际生产尺寸');
       if(!positive(item.price)||!nonnegative(item.share)||item.share>100)errors.push('请补齐售价和订单占比');
       if(ship.error)errors.push(`${size?sizeLabel(size):'规格'}：${ship.error}`);
@@ -180,6 +184,8 @@
     const valid=errors.length===0;
     return {valid,errors:[...new Set(errors)],rows,total,price,cost,margin,netMargin,refundTotal:summary.refundTotal,shippedRefund:summary.shippedRefund,refundRates:{unshipped:summary.unshipped,shippedOnly:summary.shippedOnly,returnRefund:summary.returnRefund,firstHour:summary.firstHour},otherFeeScope:p.otherFeeScope,roi:valid&&margin>0?price/margin:null,netRoi:valid&&netMargin>0?price/netMargin:null,rate:valid&&price>0?margin/price:null,gmv,profit:valid?profit:null,orders,investment:valid?investment:null,revenue:sum('revenue'),netRevenue:sum('netRevenue'),goods:sum('goods'),shipping:sum('shipping'),fees:sum('fees'),tax:sum('tax'),other:sum('other')};
   }
+  function frameMaterialPrice(frame){const m=frame.materials.find(m=>m.id===frame.plan.materialId);return materialRule(m,frame.plan)?.costPerSqm??m?.price;}
+  function setFrameMaterialPrice(frame,price){const m=frame.materials.find(m=>m.id===frame.plan.materialId),r=materialRule(m,frame.plan);m.price=price;if(r)r.costPerSqm=price;}
   function makeFrame(state,plan) {const {history,...values}=plan;return clone({plan:values,materials:state.materials.filter(m=>m.id===plan.materialId),sizes:state.sizes.filter(s=>plan.items.some(i=>i.sizeId===s.id)),shippingTemplates:state.shippingTemplates.filter(t=>t.id===plan.shippingId)});}
   function summarize(r){return Object.fromEntries(['price','cost','margin','netMargin','roi','netRoi','gmv','profit','investment','orders','revenue','netRevenue','goods','shipping','fees','tax','other'].map(k=>[k,r[k]]));}
   function confirmRecord(state,{frame,date,note='',previousId=null,reason=''}) {
@@ -191,7 +197,8 @@
     if(state.records.some(h=>h.kind==='daily'&&h.status==='confirmed'&&h.planId===p.id&&h.date===date&&h.id!==previousId))throw Error('这个计划当天已入账，请打开原记录进行更正');
     const plan=state.plans.find(x=>x.id===p.id),shop=state.shops.find(x=>x.id===p.shopId);
     if(!plan||!shop)throw Error('记录所属的店铺或计划不存在');
-    const h={id:uid('record'),kind:'daily',status:'confirmed',date,note,reason,previousId,planId:p.id,shopId:p.shopId,planName:plan.name,shopName:shop.name,createdAt:new Date().toISOString(),frame:clone(frame),result:summarize(r)};
+    const frozen=clone(frame);setFrameMaterialPrice(frozen,frameMaterialPrice(frozen));
+    const h={id:uid('record'),kind:'daily',status:'confirmed',date,note,reason,previousId,planId:p.id,shopId:p.shopId,planName:plan.name,shopName:shop.name,createdAt:new Date().toISOString(),frame:frozen,result:summarize(r)};
     if(previous){previous.status='superseded';previous.replacedBy=h.id;}
     state.records.push(h);return h;
   }
@@ -239,11 +246,12 @@
         return Number.isFinite(total)&&total<=100+1e-9&&(first===''||Number.isFinite(first)&&first<=total+1e-9)&&(!Object.prototype.hasOwnProperty.call(params,'otherFeeScope')||['shipped','all'].includes(params.otherFeeScope));
       };
       if(!s||s.version!==3||!['shops','plans','materials','sizes','shippingTemplates','records'].every(k=>unique(s[k])))return false;
-      if(!s.shops.length||!s.materials.length||!s.shippingTemplates.length)return false;
+      if(!s.shops.length||!s.materials.length||!s.shippingTemplates.length||duplicateMaterialName(s.materials))return false;
       if(s.shops.some(x=>!text(x.name)||!x.name.trim()||typeof x.deleted!=='boolean'))return false;
-      if(s.materials.some(x=>!text(x.name)||!x.name.trim()||!nonnegative(x.price)||typeof x.active!=='boolean'||!Array.isArray(x.history)||x.history.some(h=>!nonnegative(h.price)||!text(h.date)||!text(h.note))||x.weightRules!==undefined&&(!Array.isArray(x.weightRules)||x.weightRules.length>100||x.weightRules.some(r=>!text(r.id)||!text(r.variant)||!draft(r.thickness)||!nonnegative(r.coefficient)||!draft(r.costPerSqm)||typeof r.default!=='boolean')||new Set(x.weightRules.map(r=>`${r.thickness}|${r.variant}`)).size!==x.weightRules.length)))return false;
+      if(s.materials.some(x=>!text(x.name)||!x.name.trim()||!nonnegative(x.price)||typeof x.active!=='boolean'||!Array.isArray(x.history)||x.history.some(h=>!nonnegative(h.price)||!text(h.date)||!text(h.note))||x.weightRules!==undefined&&(!Array.isArray(x.weightRules)||x.weightRules.length>100||x.weightRules.some(r=>!text(r.id)||!text(r.variant)||!(r.thickness===''||positive(r.thickness)&&r.thickness<=10000)||!nonnegative(r.coefficient)||!nonnegative(r.costPerSqm)||typeof r.default!=='boolean')||new Set(x.weightRules.map(r=>`${r.thickness}|${r.variant}`)).size!==x.weightRules.length)))return false;
       if(s.sizes.some(x=>!validSize(x))||s.shippingTemplates.some(t=>!validTemplate(t)))return false;
       for(const p of s.plans){
+        if(p.packagingWeight!==undefined&&(!nonnegative(p.packagingWeight)||p.packagingWeight>1000))return false;
         if(!text(p.name)||!p.name.trim()||typeof p.deleted!=='boolean'||!s.shops.some(x=>x.id===p.shopId)||!s.materials.some(x=>x.id===p.materialId)||p.materialRuleId!==undefined&&!s.materials.find(x=>x.id===p.materialId)?.weightRules?.some(r=>r.id===p.materialRuleId)||!s.shippingTemplates.some(x=>x.id===p.shippingId)||!p.params||!Object.keys(defaults).every(k=>draft(p.params[k]))||!validRefundParams(p.params)||!Array.isArray(p.items)||new Set(p.items.map(x=>x.sizeId)).size!==p.items.length||p.items.some(i=>!s.sizes.some(x=>x.id===i.sizeId)||!['price','share','weight'].every(k=>draft(i[k]))))return false;
       }
       const dates=new Set();
@@ -271,6 +279,6 @@
       return s.prefs&&Array.isArray(s.prefs.ids)&&s.prefs.ids.length>=1&&s.prefs.ids.length<=4&&new Set(s.prefs.ids).size===s.prefs.ids.length&&s.prefs.ids.every(id=>metricList.some(x=>x.id===id));
     }catch{return false;}
   }
-  const api={clone,uid,today,number,draft,positive,nonnegative,validDate,ceilRoi,defaults,defaultRefundRates,metricList,skuColumnList,defaultSkuColumns,skuColumns,toGrams,fromGrams,sizeLabel,productionArea,derivedWeight,validSize,validTemplate,shippingCost,normalizeParams,refundMetrics,calculate,makeFrame,summarize,confirmRecord,ledger,newPlan,migrate,initialState,seed,validateBackup,regionalShippingTemplate,ZTO_REGIONAL_RATES,REGULAR_SHIPPING_RATES,BUILTIN_MATERIALS,normalizeMaterial,materialRule};
+  const api={clone,uid,today,number,draft,positive,nonnegative,validDate,ceilRoi,defaults,defaultRefundRates,metricList,skuColumnList,defaultSkuColumns,skuColumns,toGrams,fromGrams,sizeLabel,productionArea,derivedWeight,validSize,validTemplate,shippingCost,normalizeParams,refundMetrics,calculate,frameMaterialPrice,setFrameMaterialPrice,makeFrame,summarize,confirmRecord,ledger,newPlan,migrate,initialState,seed,validateBackup,regionalShippingTemplate,ZTO_REGIONAL_RATES,REGULAR_SHIPPING_RATES,BUILTIN_MATERIALS,materialNameKey,duplicateMaterialName,normalizeMaterial,materialRule};
   if(typeof module==='object')module.exports=api;else root.MatModel=api;
 })(typeof window==='object'?window:{});

@@ -40,10 +40,17 @@
   };
   const normalized = value => text(value).replace(/[\s\u3000]/g,'').replace(/[（）()]/g,'').toLowerCase();
   const number = value => {
+    if(text(value)===''||typeof value==='boolean')return null;
     if (typeof value === 'number') return Number.isFinite(value) ? value : null;
     const n = Number(String(value ?? '').replace(/,/g,'').trim());
     return Number.isFinite(n) ? n : null;
   };
+  const MAX_VALUE=1e12;
+  const MAX_FILE_BYTES=15*1024*1024,MAX_ROWS=5000,MAX_COLUMNS=200;
+  function checkFileSize(bytes){if((bytes?.byteLength??bytes?.length??0)>MAX_FILE_BYTES)throw Object.assign(Error('ERP 文件超过 15 MB，请拆分后导入'),{code:'IMPORT_LIMIT'});}
+  const validValue=v=>number(v)!==null&&number(v)>=0&&number(v)<=MAX_VALUE;
+  const validDimension=v=>number(v)!==null&&number(v)>0&&number(v)<=10000;
+  function numericIssues(values){return [['price',19],['inventory',21]].flatMap(([field,index])=>validValue(values[index])?[]:[{code:'INVALID_NUMBER',field,message:`${FIELD_ALIASES[field][0]}需为 0 至 ${MAX_VALUE} 的有限数字`}]);}
   function withMaterialSuffix(value,material){
     const source=text(value);if(!source||!material)return source;
     const escaped=text(material).replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
@@ -97,23 +104,27 @@
     }
     return used;
   }
+  const dimensionPattern=/(\d+(?:\.\d+)?)\s*(mm|cm|m|毫米|厘米|公分|米)?\s*(?:\*|x|-)+\s*(\d+(?:\.\d+)?)\s*(mm|cm|m|毫米|厘米|公分|米)?/i;
+  const dimensionText=input=>text(input).normalize('NFKC').replace(/[＊×✕✖乘至到]/g,'*').replace(/[－–—]/g,'-');
   function parseDimensions(input){
-    const raw=text(input).replace(/[０-９]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xfee0)).replace(/[＊×✕✖乘至到]/g,'*').replace(/[－–—]/g,'-');
-    const pair=raw.match(/(\d+(?:\.\d+)?)\s*(?:\*|x|X|-)+\s*(\d+(?:\.\d+)?)/);
-    let values=pair ? [number(pair[1]),number(pair[2])] : [...raw.matchAll(/\d+(?:\.\d+)?/g)].map(x=>number(x[0])).filter(x=>x!==null).slice(0,2);
-    values=values.filter(x=>x!==null&&x>0&&x<=10000);
-    if(values.length<2)return {ok:false,raw,reason:'无法从规格名称识别长宽'};
+    const raw=dimensionText(input),pair=raw.match(dimensionPattern);
+    const factors={mm:.1,'毫米':.1,cm:1,'厘米':1,'公分':1,m:100,'米':100};
+    let values;
+    if(pair){const u1=(pair[2]||pair[4]||'cm').toLowerCase(),u2=(pair[4]||pair[2]||'cm').toLowerCase();values=[Number(pair[1])*factors[u1],Number(pair[3])*factors[u2]];}
+    else {const tokens=[...raw.matchAll(/(\d+(?:\.\d+)?)\s*(mm|cm|m|毫米|厘米|公分|米)?/ig)].slice(0,2),unit=tokens.findLast(x=>x[2])?.[2]||'cm';values=tokens.map(x=>Number(x[1])*factors[(x[2]||unit).toLowerCase()]);}
+    if(values.length<2||!values.every(validDimension))return {ok:false,raw,reason:'长宽需为大于 0、不超过 10000 cm 的数字'};
     const [width,length]=values;
     return {ok:true,width,length,label:`${width}*${length}`,area:width*length/10000,raw};
   }
   function resolveWeightRule(material,source,rules=DEFAULT_RULES){
     const candidates=(rules.weightRules||WEIGHT_RULES).filter(x=>x.material===material);
-    const thicknessMatch=text(source).match(/(\d+(?:\.\d+)?)\s*毫米|(?:^|[^\d])(\d+(?:\.\d+)?)\s*mm/i);
+    const thicknessMatch=dimensionText(source).replace(dimensionPattern,' ').match(/(\d+(?:\.\d+)?)\s*毫米|(?:^|[^\d])(\d+(?:\.\d+)?)\s*mm/i);
     const thickness=thicknessMatch?number(thicknessMatch[1]||thicknessMatch[2]):null;
-    const variant=candidates.find(x=>x.variant&&text(source).includes(x.variant));
+    const variants=candidates.filter(x=>x.variant&&normalized(source).includes(normalized(x.variant))).sort((a,b)=>b.variant.length-a.variant.length);
+    const variant=variants.find(x=>thickness!==null&&number(x.thickness)===thickness)||variants.find(x=>x.thickness===''||x.thickness===undefined)||variants.find(x=>x.default)||variants[0];
     if(variant)return {...variant,source:'包边变体'};
-    if(thickness!==null){const exact=candidates.find(x=>x.thickness!==undefined&&Math.abs(number(x.thickness)-thickness)<0.011);if(exact)return {...exact,source:`厚度 ${thickness}mm`};}
-    const fallback=candidates.find(x=>x.default) || candidates[0];
+    if(thickness!==null){const exact=candidates.find(x=>!x.variant&&number(x.thickness)!==null&&Math.abs(number(x.thickness)-thickness)<0.011);if(exact)return {...exact,source:`厚度 ${thickness}mm`};}
+    const fallback=candidates.find(x=>!x.variant&&x.default) || candidates.find(x=>!x.variant);
     return fallback ? {...fallback,source:'默认规则'} : null;
   }
   function identifyMaterial(productName,specName,rules=DEFAULT_RULES){
@@ -128,9 +139,11 @@
     return {ok:true,name,rule:known||{weightPerSqm:weightRule.coefficient,costPerSqm:null},weightRule,reason:`命中关键词：${keyword}（${weightRule.source}）`};
   }
   function sourceRowsFromSheet(sheet){
+    if(sheet.rowCount>MAX_ROWS+40||sheet.columnCount>MAX_COLUMNS)throw Object.assign(Error('ERP 数据超过 5000 行或 200 列，请拆分后导入'),{code:'IMPORT_LIMIT'});
     const rows=[];sheet.eachRow({includeEmpty:true},row=>rows.push(row.values.slice(1).map(text)));return rows;
   }
   function readWorkbook(bytes){
+    checkFileSize(bytes);
     if(!Excel) throw Error('Excel 组件未加载');
     const book=new Excel.Workbook();
     return book.xlsx.load(bytes).then(()=>book);
@@ -147,11 +160,13 @@
     return {book,sheet:chosen,rows:sourceRowsFromSheet(chosen),header:detected};
   }
   function transformRows(sourceRows, options={}){
+    if(sourceRows.length>MAX_ROWS+40)throw Object.assign(Error('ERP 数据超过 5000 行，请拆分后导入'),{code:'IMPORT_LIMIT'});
     const rules=normalizeRules(options.rules), header=options.header || detectHeaderRow(sourceRows,Object.values(FIELD_ALIASES).flat()), map=options.map || mapFields(header.headers);
     const exceptions=[], rows=[];
     const required=['shop','productName','specName','productId','specId','price','status','inventory'];
     sourceRows.slice(header.rowIndex+1).forEach((raw,offset)=>{
       if(raw.every(v=>text(v)===''))return;
+      if(rows.length>=MAX_ROWS)throw Object.assign(Error('ERP 数据超过 5000 行，请拆分后导入'),{code:'IMPORT_LIMIT'});
       const rowNumber=header.rowIndex+offset+2, get=field=>map[field]===undefined?'':raw[map[field]];
       const productName=text(get('productName')), sourceSpecName=text(get('specName'));
       const material=identifyMaterial(productName,sourceSpecName,rules), dimensions=parseDimensions(sourceSpecName);
@@ -166,11 +181,13 @@
       const area=dimensions.ok?dimensions.area:null;
       const weight=area!==null&&number(weightCoefficient)!==null?area*number(weightCoefficient):'';
       const cost=area!==null&&rule&&number(rule.costPerSqm)!==null?area*number(rule.costPerSqm):'';
+      if(!validValue(rule?.costPerSqm))rowExceptions.push({code:'RULE',message:'请在材料库填写有效的非负规则成本'});
       const out=Array(29).fill('');
       const put=(i,v)=>{out[i]=v===undefined||v===null?'':v;};
       put(0,number(get('seq')) ?? (rows.length+1));put(1,text(get('platform')));put(2,text(get('shop')));put(3,productName);put(4,specName);put(5,material.name);put(6,material.name);put(7,dimensions.ok?dimensions.label:'');put(8,area??'');put(9,dimensions.ok?dimensions.width:'');put(10,dimensions.ok?dimensions.length:'');put(11,weight);put(12,cost);
       put(13,'');put(14,'');put(15,text(get('productCode')));put(16,text(get('merchantCode')));put(17,text(get('productId')));put(18,text(get('specId')));put(19,number(get('price'))??text(get('price')));put(20,text(get('status')));put(21,number(get('inventory'))??text(get('inventory')));put(22,text(get('specType')));put(23,specName);put(24,text(get('goodsCode')));put(25,text(get('goodsShort')));put(26,specName);put(27,text(get('specId')));put(28,text(get('specShort')));
       const ids=[17,18,27];ids.forEach(i=>{if(out[i]!==''&&out[i]!==null)out[i]=String(out[i]);});
+      rowExceptions.push(...numericIssues(out));
       if(rowExceptions.length)exceptions.push({rowNumber,source:raw.slice(),output:out.slice(),issues:rowExceptions,reviewed:false});
       rows.push({rowNumber,values:out,material:material.name,dimensions,area,weight,cost,issues:rowExceptions});
     });
@@ -190,31 +207,31 @@
           row.values[4] = replaceMaterialSuffix(row.values[4],previousMaterial,patch.material);
           row.values[23] = row.values[26] = row.values[4];
         }
-        if (patch.width) row.values[9] = number(patch.width);
-        if (patch.length) row.values[10] = number(patch.length);
-        if (patch.productId) row.values[17] = String(patch.productId);
-        if (patch.specId) row.values[18] = String(patch.specId);
-        if (patch.price !== undefined && patch.price !== '') {
-          row.values[19] = number(patch.price) ?? patch.price;
-        }
+        for(const [field,index] of [['width',9],['length',10],['price',19],['inventory',21]])if(patch[field]!==undefined)row.values[index]=number(patch[field])??text(patch[field]);
+        if(patch.productId!==undefined)row.values[17]=text(patch.productId);
+        if(patch.specId!==undefined)row.values[18]=text(patch.specId);
+        row.values[27]=row.values[18];
         if (row.values[9] && row.values[10]) {
           row.values[7] = `${row.values[9]}*${row.values[10]}`;
           row.values[8] = row.values[9] * row.values[10] / 10000;
           const rule = next.rules?.materials?.[row.values[5]];
-          const weightRule = resolveWeightRule(row.values[5], row.values[4], next.rules);
+          const weightRule = resolveWeightRule(row.values[5], `${row.values[3]} ${row.values[4]}`, next.rules);
           if (weightRule) row.values[11] = row.values[8] * number(weightRule.coefficient);
-          if (rule && number(rule.costPerSqm) !== null) {
-            row.values[12] = row.values[8] * number(rule.costPerSqm);
-          }
+          const unitCost=weightRule?.costPerSqm??rule?.costPerSqm;
+          row.values[12]=validValue(unitCost)?row.values[8]*number(unitCost):'';
         }
         row.reviewed = true;
       }
       const unresolved=[];
-      const reviewRule=resolveWeightRule(row.values[5],row.values[4],next.rules);
+      const reviewRule=resolveWeightRule(row.values[5],`${row.values[3]} ${row.values[4]}`,next.rules);
       if(!row.values[5] || !reviewRule || number(reviewRule.coefficient)===null || number(reviewRule.coefficient)<0)unresolved.push({code:'MATERIAL',message:'材质没有可用重量规则'});
-      if(!(number(row.values[9])>0&&number(row.values[10])>0))unresolved.push({code:'DIMENSION',message:'长宽需为大于 0 的数字'});
+      if(![row.values[9],row.values[10]].every(validDimension))unresolved.push({code:'DIMENSION',message:'长宽需为大于 0、不超过 10000 cm 的数字'});
+      if(!validValue(reviewRule?.costPerSqm??next.rules?.materials?.[row.values[5]]?.costPerSqm))unresolved.push({code:'RULE',message:'请在材料库填写有效的非负规则成本'});
+      unresolved.push(...numericIssues(row.values));
       if(!row.values[17] || !row.values[18])unresolved.push({code:'ID',message:'商品 ID 或规格 ID 不能为空'});
-      if(row.issues?.some(i=>i.code==='MISSING_FIELD'&&i.field!=='merchantNew'))unresolved.push(...row.issues.filter(i=>i.code==='MISSING_FIELD'&&i.field!=='merchantNew'));
+      for(const [field,index] of [['shop',2],['productName',3],['specName',4],['status',20]])if(!text(row.values[index]))unresolved.push({code:'MISSING_FIELD',field,message:`缺少${FIELD_ALIASES[field][0]}`});
+      row.material=row.values[5];row.area=row.values[8];row.weight=row.values[11];row.cost=row.values[12];row.issues=unresolved;
+      row.dimensions={ok:[row.values[9],row.values[10]].every(validDimension),width:row.values[9],length:row.values[10],label:row.values[7],area:row.values[8],raw:row.dimensions?.raw};
       if(unresolved.length)next.exceptions.push({rowNumber:row.rowNumber,source:row.source,output:row.values.slice(),issues:unresolved,reviewed:!!row.reviewed});
     });
     next.summary.exceptionRows=next.exceptions.length;next.summary.ready=next.exceptions.length===0;return next;
@@ -284,6 +301,7 @@
   function copyStyle(target,source){target.style=clone(source.style||{});if(source.numFmt)target.numFmt=source.numFmt;target.alignment=clone(source.alignment||{});}
   async function exportWorkbook(templateBytes,result,options={}){
     if(!result || !result.summary?.ready || result.exceptions?.length)throw Error('仍有未解决异常，禁止导出');
+    if(!applyReviews(result).summary.ready)throw Error('仍有未解决异常，禁止导出');
     const template=await readWorkbook(templateBytes), sheet=template.worksheets[0];
     const total=result.rows.length+1, originalRows=Math.max(1,sheet.rowCount-1);
     if(sheet.rowCount>total)sheet.spliceRows(total+1,sheet.rowCount-total);
@@ -306,6 +324,6 @@
     if(!storage || !name)throw Error('规则方案名称不能为空');const all=JSON.parse(storage.getItem('mat-product-rule-schemes')||'{}');all[name]={name,updatedAt:new Date().toISOString(),rules:normalizeRules(rules)};storage.setItem('mat-product-rule-schemes',JSON.stringify(all));return all[name];
   }
   function loadSchemes(storage){return storage?JSON.parse(storage.getItem('mat-product-rule-schemes')||'{}'):{};}
-  const api={HEADERS,FIELD_ALIASES,WEIGHT_RULES:clone(WEIGHT_RULES),defaultRules:defaultRules,normalizeRules,detectHeaderRow,mapFields,parseDimensions,identifyMaterial,resolveWeightRule,transformRows,applyReviews,applyBatchReviews,exceptionGroups,applyProductReview,readWorkbookRows,analyze,exportWorkbook,exportProductWorkbook:exportWorkbook,convert:analyze,saveScheme,loadSchemes};
+  const api={MAX_VALUE,MAX_FILE_BYTES,MAX_ROWS,MAX_COLUMNS,checkFileSize,HEADERS,FIELD_ALIASES,WEIGHT_RULES:clone(WEIGHT_RULES),defaultRules:defaultRules,normalizeRules,detectHeaderRow,mapFields,parseDimensions,identifyMaterial,resolveWeightRule,transformRows,applyReviews,applyBatchReviews,exceptionGroups,applyProductReview,readWorkbookRows,analyze,exportWorkbook,exportProductWorkbook:exportWorkbook,convert:analyze,saveScheme,loadSchemes};
   if(typeof module==='object')module.exports=api;else root.MatProductTransfer=api;
 })(typeof window==='object'?window:{ });

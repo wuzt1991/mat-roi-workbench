@@ -30,7 +30,7 @@ test('更新事件标准化为 checking、available、uptodate、downloading、d
   updater.emit('download-progress',{percent:42.6});assert.deepEqual(statuses.at(-1),{state:'downloading',version:'1.1.2',percent:42.6,message:'正在后台下载 42.6%'});
   updater.emit('update-downloaded',{version:'1.1.2'});assert.deepEqual(statuses.at(-1),{state:'downloaded',version:'1.1.2',percent:100,message:'已下载，重启安装'});
   updater.emit('update-not-available',{version:'1.1.1'});assert.deepEqual(statuses.at(-1),{state:'uptodate',version:'1.1.1',percent:null,message:'当前已是最新版'});
-  updater.emit('error',new Error('GitHub 不可用'));assert.deepEqual(statuses.at(-1),{state:'error',version:null,percent:null,message:'GitHub 不可用'});
+  updater.emit('error',new Error('GitHub 不可用'));assert.deepEqual(statuses.at(-1),{state:'error',version:null,percent:null,message:'更新失败，请检查网络后重试；可继续使用当前版本。'});
   service.dispose();
 });
 

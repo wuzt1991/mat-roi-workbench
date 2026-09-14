@@ -11,7 +11,7 @@ const UPDATE_STATES = Object.freeze([
 ]);
 
 function errorMessage(error) {
-  return error?.message ? String(error.message) : String(error || '更新服务暂时不可用');
+  return '更新失败，请检查网络后重试；可继续使用当前版本。';
 }
 
 function percentValue(value) {
@@ -54,7 +54,7 @@ class UpdateService {
       'update-not-available': info => this.emit('uptodate', { version: info?.version, message: '当前已是最新版' }),
       'download-progress': progress => this.emit('downloading', { version: this.status.version, percent: progress?.percent, message: `正在后台下载 ${percentValue(progress?.percent) ?? 0}%` }),
       'update-downloaded': info => this.emit('downloaded', { version: info?.version || this.status.version, percent: 100, message: '已下载，重启安装' }),
-      error: error => this.emit('error', { message: errorMessage(error) })
+      error: error => { this.logger.warn?.('updater error', error); return this.emit('error', { message: errorMessage(error) }); }
     };
   }
 
@@ -95,6 +95,7 @@ class UpdateService {
     try {
       await this.updater.checkForUpdates();
     } catch (error) {
+      this.logger.warn?.('update request failed', error);
       this.emit('error', { message: errorMessage(error) });
     }
     return this.status;
@@ -108,6 +109,7 @@ class UpdateService {
     try {
       await this.updater.downloadUpdate();
     } catch (error) {
+      this.logger.warn?.('update request failed', error);
       this.emit('error', { version: this.status.version, message: errorMessage(error) });
     }
     return this.status;

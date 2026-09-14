@@ -38,6 +38,10 @@ function createServer({ dataDir = defaultDirectory(), port = 4173 } = {}) {
       if (request.headers.origin && request.headers.origin !== origin) throw new StoreError(403, '请求来源无效。');
       if (request.headers['sec-fetch-site'] === 'cross-site') throw new StoreError(403, '不允许跨站访问。');
       const url = new URL(request.url, origin);
+      if (url.pathname === '/app-config.js' && ['GET','HEAD'].includes(request.method)) {
+        response.writeHead(200, {'Content-Type':TYPES['.js']});
+        return response.end(request.method==='HEAD'?undefined:'window.WorkbenchConfig=Object.freeze('+JSON.stringify({version,platform:process.platform,updatesSupported:process.platform==='win32'&&process.arch==='x64'})+');');
+      }
       if (url.pathname === '/api/health') return json(response, 200, { app: 'mat-roi-workbench', version, dataDir:path.resolve(dataDir) });
       if (url.pathname === '/api/state' && request.method === 'GET') return json(response, 200, store.read());
       if (url.pathname === '/api/state' && request.method === 'PUT') {

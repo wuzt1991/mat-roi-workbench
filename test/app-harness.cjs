@@ -1,0 +1,21 @@
+const fs=require('node:fs');
+const path=require('node:path');
+const vm=require('node:vm');
+const M=require('../public/domain.js');
+
+// Run the real UI handlers against an isolated in-memory workspace, without booting persistence.
+function appHarness(initial=M.initialState(),options={}){
+  const listeners={},elements=new Map();
+  const element=()=>({innerHTML:'',textContent:'',value:'',dataset:{},isConnected:true,
+    classList:{add(){},remove(){}},addEventListener(){},querySelector(){return null;},querySelectorAll(){return [];},
+    focus(){document.activeElement=this;},setAttribute(){},removeAttribute(){},
+    showModal(){this.open=true;},close(){this.open=false;}});
+  const document={activeElement:null,querySelector(selector){if(!elements.has(selector))elements.set(selector,element());return elements.get(selector);},
+    querySelectorAll(){return [];},addEventListener(type,callback){(listeners[type]??=[]).push(callback);}};
+  const window={MatModel:M,MatWorkbook:require('../public/workbook.js'),MatTransfer:require('../public/transfer.js'),MatTrends:require('../public/trends.js'),MatProductTransfer:require('../public/product-transfer.js'),addEventListener(){},confirm:()=>false,...options};
+  const source=fs.readFileSync(path.join(__dirname,'../public/app.js'),'utf8').replace('  initialize();\n})();',`  window.testApp={get state(){return state;},set state(v){state=v;},get modal(){return modal;},set modal(v){modal=v;},set queue(v){queue=v;},transferRules,startEntry,saveModal,open,close,render,paintModal,skuTable,skuDisplayForm,productTransferPage,updateAction,updateStatusText,handleUpdateStatus};\n})();`);
+  const context=vm.createContext({window,document,console,structuredClone,crypto:require('node:crypto').webcrypto,sessionStorage:{getItem(){return 'test';},setItem(){}},setTimeout(){return 1;},clearTimeout(){},fetch(){throw Error('Tests must not contact the database');}});
+  vm.runInContext(source,context);window.testApp.state=initial;
+  return {ui:window.testApp,document,elements,window,async dispatch(type,target){for(const callback of listeners[type]||[])await callback({target,preventDefault(){}});}};
+}
+module.exports={appHarness};

@@ -31,12 +31,14 @@
     const refs={};
     for(const key of ['materials','sizes','shippingTemplates']){
       refs[key]=new Map();for(const source of incoming[key]){
-        const withoutId=x=>{const v=M.clone(x);delete v.id;return v;};
+        const withoutId=x=>{const v=M.clone(x);delete v.id;if(key==='materials'&&v.importedName){v.name=v.importedName;delete v.importedName;}return v;};
         const existing=result[key].find(x=>x.id===source.id);
         if(existing&&same(existing,source)){refs[key].set(source.id,existing.id);continue;}
         const equivalent=result[key].find(x=>same(withoutId(x),withoutId(source)));
         if(equivalent){refs[key].set(source.id,equivalent.id);continue;}
-        const copy=M.clone(source);if(existing)copy.id=M.uid(key);result[key].push(copy);refs[key].set(source.id,copy.id);report.resources++;
+        const copy=M.clone(source);if(existing)copy.id=M.uid(key);
+        if(key==='materials'&&result.materials.some(x=>M.materialNameKey(x.name)===M.materialNameKey(copy.name))){copy.importedName=source.name;let suffix=2;while(result.materials.some(x=>M.materialNameKey(x.name)===M.materialNameKey(copy.name)))copy.name=`${source.name}（导入 ${suffix++}）`;}
+        result[key].push(copy);refs[key].set(source.id,copy.id);report.resources++;
       }
     }
     const immutable=h=>{const copy=M.clone(h);delete copy.status;delete copy.replacedBy;delete copy.voidedAt;return copy;};
