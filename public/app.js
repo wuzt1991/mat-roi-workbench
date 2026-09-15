@@ -67,8 +67,9 @@
   async function quitAndInstall(){if(updateInstallBlocked())return toast('请先完成保存后再重启安装');if(!updates?.quitAndInstall)return toast('自动更新仅桌面版可用');try{await updates.quitAndInstall();}catch(error){toast(safeError(error,'重启安装失败，请先保存并重新下载更新后重试。'));}}
   function paintSaveStatus(){const el=document.querySelector('#save-status');if(el){el.textContent=saveStatusText();el.dataset.status=saveStatus;}const banner=document.querySelector('#save-banner');if(banner)banner.innerHTML=saveError?`<div class="message-error" role="alert">${e(saveError)}${queue?.cacheFailed?' 草稿缓存空间不足，请保持窗口打开并导出 Excel。':' 尚未写入数据库的修改会保留为草稿。'}${btn('export','导出 Excel')}${queue?.blocked?'':btn('retry-save','重试保存')}${btn('reload','重新载入')}</div>`:'';paintUpdateStatus();}
   function commit(next=state,reason='save'){state=next;normalize();save(reason);render();}
+  function requestSignal(){try{return typeof AbortSignal==='function'&&typeof AbortSignal.timeout==='function'?AbortSignal.timeout(15000):undefined;}catch(error){return undefined;}}
   async function request(path,options={}){
-    const response=await fetch(path,{...options,signal:AbortSignal.timeout(15000),headers:{'Content-Type':'application/json','X-Workbench':'1',...options.headers}});
+    const response=await fetch(path,{...options,signal:requestSignal(),headers:{'Content-Type':'application/json','X-Workbench':'1',...options.headers}});
     const data=await response.json();if(!response.ok){const error=Error(data.error||'保存服务暂时不可用');error.status=response.status;throw error;}return data;
   }
   async function initialize(){

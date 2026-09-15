@@ -9,6 +9,7 @@ const P=require('../public/product-transfer.js');
 const W=require('../public/workbook.js');
 const Excel=require('../public/assets/exceljs.min.js');
 const {createServer}=require('../server/index.cjs');
+const {appHarness}=require('./app-harness.cjs');
 
 test('P2 ERP 字节和行数上限在解析/转换前拒绝，边界允许',async()=>{
   assert.doesNotThrow(()=>P.checkFileSize({byteLength:P.MAX_FILE_BYTES}));
@@ -30,6 +31,10 @@ test('P1 版本配置脚本与 package.json 同源，包含实际平台限制',a
   t.after(async()=>{await new Promise(resolve=>{running.server.close(resolve);running.server.closeAllConnections();});fs.rmSync(dir,{recursive:true,force:true});});
   const url=await running.listen(),response=await fetch(url+'/app-config.js');assert.equal(response.status,200);
   const context={window:{}};vm.runInNewContext(await response.text(),context);assert.equal(context.window.WorkbenchConfig.version,require('../package.json').version);assert.equal(context.window.WorkbenchConfig.updatesSupported,process.platform==='win32'&&process.arch==='x64');
+});
+test('P0 严格的 vm 环境缺少 AbortSignal 时 App 仍能初始化，不依赖主机全局对象',()=>{
+  const context={};assert.equal(vm.runInNewContext('typeof AbortSignal',context),'undefined');
+  const {ui}=appHarness();assert.ok(ui);assert.ok(ui.state);
 });
 test('P0 选择历史报价、免费成本和非法价格的行为一致',()=>{
   const s=M.initialState(),p=s.plans[0];p.materialId=s.materials.find(m=>m.name==='硅藻泥').id;p.items=[{sizeId:s.sizes[1].id,price:20,share:100,weight:''}];
