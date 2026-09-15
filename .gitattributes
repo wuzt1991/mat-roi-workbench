@@ -1,0 +1,20 @@
+# Normalize all text files to LF in the repository, regardless of the
+# platform git checks out on. Windows runners default to core.autocrlf=true,
+# which rewrites LF to CRLF on checkout and silently breaks tests that match
+# source text by exact substring (e.g. test/app-harness.cjs injecting hooks
+# into public/app.js).
+* text=auto eol=lf
+
+# Keep binary assets untouched.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.icns binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.xlsx binary
+*.exe binary
+*.zip binary
