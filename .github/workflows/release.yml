@@ -1,94 +1,62 @@
-name: Windows release candidate
-
+name: Promote verified Windows release
 on:
   push:
-    tags:
-      - 'v*'
-  workflow_dispatch:
-
+    tags: ['v*']
 permissions:
-  contents: read
-
+  actions: read
+  contents: write
 jobs:
-  build-and-audit:
-    runs-on: windows-latest
-    timeout-minutes: 60
+  promote:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - name: Check out source
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - name: Find a successful candidate for exactly this source
+        id: candidate
+        uses: actions/github-script@v7
         with:
-          node-version: 24
-          cache: npm
-
-      - name: Verify release tag and package version
-        if: github.event_name == 'push'
-        shell: pwsh
-        run: |
-          $packageVersion = node -p "require('./package.json').version"
-          if ("v$packageVersion" -ne "${{ github.ref_name }}") {
-            throw "Tag ${{ github.ref_name }} does not match package version $packageVersion"
-          }
-
-      - name: Identify manual Windows candidate validation
-        if: github.event_name == 'workflow_dispatch'
-        shell: pwsh
-        run: |
-          $packageVersion = node -p "require('./package.json').version"
-          Write-Host "Manual Windows candidate validation for v$packageVersion on ref $env:GITHUB_REF_NAME"
-
-      - name: Install locked dependencies
-        run: npm ci
-
-      - name: Run tests and source checks
-        run: |
-          npm test
-          npm run check
-
-      - name: Build Windows package without publishing
-        run: npm run package:win
+          script: |
+            const fs = require('fs');
+            const version = JSON.parse(fs.readFileSync('package.json', 'utf8')).version;
+            if (context.ref !== 'refs/tags/v' + version) throw new Error('Tag and package version differ');
+            const {data: commit} = await github.rest.repos.getCommit({...context.repo, ref: context.ref});
+            const {data} = await github.rest.actions.listWorkflowRuns({...context.repo, workflow_id: 'windows-candidate.yml', head_sha: commit.sha, status: 'success', per_page: 20});
+            const run = data.workflow_runs.find(r => r.head_sha === commit.sha && r.conclusion === 'success');
+            if (!run) throw new Error('No fully validated Windows candidate exists for this exact commit');
+            const {data: artifacts} = await github.rest.actions.listWorkflowRunArtifacts({...context.repo, run_id: run.id});
+            if (!artifacts.artifacts.some(a => a.name === 'windows-candidate-' + run.id && !a.expired)) throw new Error('Validated installer artifact missing');
+            core.setOutput('run', String(run.id));
+            core.setOutput('version', version);
+            core.setOutput('sha', commit.sha);
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-candidate-${{ steps.candidate.outputs.run }}
+          run-id: ${{ steps.candidate.outputs.run }}
+          github-token: ${{ github.token }}
+          path: candidate
+      - name: Verify metadata and publish the same bytes
+        uses: actions/github-script@v7
         env:
-          MAT_UPDATE_OWNER: ${{ github.repository_owner }}
-          MAT_UPDATE_REPO: ${{ github.event.repository.name }}
-
-      - name: Audit the exact packaged payload
-        run: npm run audit:package -- --artifact dist-builder/win-unpacked
-
-      - name: Probe packaged file-job child process
-        run: npm run audit:package-child -- --artifact dist-builder/win-unpacked
-
-      - name: Smoke test packaged Windows runtime
-        shell: pwsh
-        run: |
-          $env:MAT_DATA_DIR = Join-Path $env:RUNNER_TEMP 'mat-workbench-release-data'
-          $env:MAT_PORT = '4188'
-          $executable = Join-Path $PWD 'dist-builder/win-unpacked/地垫工作台.exe'
-          $process = Start-Process -FilePath $executable -PassThru
-          try {
-            $ready = $false
-            for ($attempt = 0; $attempt -lt 30; $attempt++) {
-              Start-Sleep -Seconds 1
-              try {
-                $health = Invoke-RestMethod 'http://127.0.0.1:4188/api/health' -TimeoutSec 2
-                if ($health.version -eq (node -p "require('./package.json').version")) {
-                  $ready = $true
-                  break
-                }
-              } catch {}
-            }
-            if (-not $ready) { throw 'Packaged application health check did not become ready' }
-          } finally {
-            Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
-          }
-
-      - name: Keep audited files as draft workflow artifacts
-        uses: actions/upload-artifact@v4
+          RELEASE_VERSION: ${{ steps.candidate.outputs.version }}
+          SOURCE_SHA: ${{ steps.candidate.outputs.sha }}
+          CANDIDATE_RUN: ${{ steps.candidate.outputs.run }}
         with:
-          name: windows-release-candidate-${{ github.run_id }}
-          path: |
-            dist-builder/*.exe
-            dist-builder/*.blockmap
-            dist-builder/latest.yml
-          if-no-files-found: error
+          script: |
+            const fs = require('fs'), crypto = require('crypto');
+            const version = process.env.RELEASE_VERSION, tag = 'v' + version;
+            const name = 'mat-roi-workbench-setup-' + version + '.exe';
+            const metadata = fs.readFileSync('candidate/latest.yml', 'utf8'), bytes = fs.readFileSync('candidate/' + name);
+            if (!metadata.includes('version: ' + version + '\n') || !metadata.includes('path: ' + name + '\n') || !metadata.includes('url: ' + name + '\n')) throw new Error('Metadata filename/version mismatch');
+            if (crypto.createHash('sha512').update(bytes).digest('base64') !== /^sha512:\s*(.+)$/m.exec(metadata)?.[1]?.trim()) throw new Error('Installer SHA-512 mismatch');
+            if (Number(/^\s+size:\s*(\d+)$/m.exec(metadata)?.[1]) !== bytes.length) throw new Error('Installer size mismatch');
+            const names = ['latest.yml', name, name + '.blockmap'];
+            for (const file of names) if (!fs.statSync('candidate/' + file).isFile()) throw new Error('Missing asset');
+            const prior = await github.rest.repos.getReleaseByTag({...context.repo, tag}).catch(e => {if (e.status === 404) return null; throw e;});
+            if (prior) throw new Error('Release already exists; inspect before retrying');
+            const body = fs.readFileSync('docs/release-1.2.md', 'utf8') + '\n\nWindows candidate run ' + process.env.CANDIDATE_RUN + '；源码 ' + process.env.SOURCE_SHA + '。\n安装包 SHA-256：`' + crypto.createHash('sha256').update(bytes).digest('hex') + '`。';
+            const {data: release} = await github.rest.repos.createRelease({...context.repo, tag_name: tag, target_commitish: process.env.SOURCE_SHA, name: '地垫工作台 ' + tag, body, draft: true, prerelease: false});
+            for (const file of names) await github.rest.repos.uploadReleaseAsset({...context.repo, release_id: release.id, name: file, data: fs.readFileSync('candidate/' + file)});
+            const {data: assets} = await github.rest.repos.listReleaseAssets({...context.repo, release_id: release.id});
+            if (assets.length !== 3 || names.some(f => !assets.some(a => a.name === f && a.size === fs.statSync('candidate/' + f).size))) throw new Error('Uploads incomplete; draft preserved');
+            await github.rest.repos.updateRelease({...context.repo, release_id: release.id, draft: false, prerelease: false, make_latest: 'true'});
+            core.notice('Published verified bytes: ' + release.html_url);
