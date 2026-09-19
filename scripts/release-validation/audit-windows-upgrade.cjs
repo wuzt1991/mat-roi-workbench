@@ -106,4 +106,4 @@ async function main() {
   fs.writeFileSync(path.join(root, 'installed-path.txt'), installDir);
   fs.writeFileSync(path.join(root, 'report.json'), JSON.stringify(report, null, 2));
 }
-main().catch(error => { report.error = error.stack; fs.mkdirSync(root, { recursive: true }); fs.writeFileSync(path.join(root, 'report.json'), JSON.stringify(report, null, 2)); console.error(error); process.exitCode = 1; }).finally(() => { socket?.close(); feed?.close(); wizard?.kill(); stopApp(); });
+main().catch(error => { report.error = error.stack; fs.mkdirSync(root, { recursive: true }); fs.writeFileSync(path.join(root, 'report.json'), JSON.stringify(report, null, 2)); console.error(error); console.log('::error::' + JSON.stringify({ steps: report.steps, error: error.stack }).replaceAll('%','%25').replaceAll('\r','%0D').replaceAll('\n','%0A')); process.exitCode = 1; }).finally(() => { socket?.close(); feed?.close(); wizard?.kill(); stopApp(); });
