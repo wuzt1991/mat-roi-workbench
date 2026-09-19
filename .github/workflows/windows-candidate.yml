@@ -70,6 +70,65 @@ jobs:
             Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
           }
 
+      - name: Match release filenames and retrieve previous installer
+        shell: pwsh
+        run: |
+          $version = node -p "require('./package.json').version"
+          $exe = @(Get-ChildItem dist-builder -Filter *.exe)
+          $map = @(Get-ChildItem dist-builder -Filter *.blockmap)
+          if ($exe.Count -ne 1 -or $map.Count -ne 1) { throw 'Unexpected candidate files' }
+          Rename-Item $exe[0].FullName "mat-roi-workbench-setup-$version.exe"
+          Rename-Item $map[0].FullName "mat-roi-workbench-setup-$version.exe.blockmap"
+          Invoke-WebRequest 'https://github.com/wuzt1991/mat-roi-workbench/releases/download/v1.1.10/mat-roi-workbench-setup-1.1.10.exe' -OutFile (Join-Path $env:RUNNER_TEMP 'old-installer.exe')
+
+      - name: Exercise old client download, restart installation and data migration
+        env:
+          CANDIDATE_RUN: ${{ github.run_id }}
+          CANDIDATE_SHA: ${{ github.sha }}
+        shell: pwsh
+        run: |
+          node scripts/release-validation/audit-windows-upgrade.cjs dist-builder (Join-Path $env:RUNNER_TEMP 'old-installer.exe')
+          if ($LASTEXITCODE -ne 0) { throw 'Windows upgrade validation failed' }
+
+      - name: Audit installed payload and packaged G62 regression
+        shell: pwsh
+        run: |
+          $installed = Get-Content (Join-Path $env:RUNNER_TEMP 'mat-upgrade-validation/installed-path.txt')
+          node scripts/audit-release-package.cjs --artifact $installed
+          if ($LASTEXITCODE -ne 0) { throw 'Installed payload audit failed' }
+          node scripts/audit-packaged-child.cjs --artifact $installed
+          if ($LASTEXITCODE -ne 0) { throw 'Installed child-process audit failed' }
+          $env:MAT_VERIFY_ROOT = Join-Path $installed 'resources/app.asar'
+          $env:MAT_VERIFY_OUTPUT = Join-Path $env:RUNNER_TEMP 'mat-upgrade-validation/fixtures'
+          $env:ELECTRON_RUN_AS_NODE = '1'
+          & (Join-Path $installed '地垫工作台.exe') (Join-Path $PWD 'scripts/release-validation/verify-fixtures.cjs')
+          if ($LASTEXITCODE -ne 0) { throw 'Installed G62 validation failed' }
+
+      - name: Validate 500000 row boundary using installed runtime
+        shell: pwsh
+        run: |
+          $installed = Get-Content (Join-Path $env:RUNNER_TEMP 'mat-upgrade-validation/installed-path.txt')
+          $env:MAT_VERIFY_ROOT = Join-Path $installed 'resources/app.asar'
+          $env:MAT_VERIFY_OUTPUT = Join-Path $env:RUNNER_TEMP 'mat-upgrade-validation/large'
+          $env:ELECTRON_RUN_AS_NODE = '1'
+          foreach ($rows in @(500000, 500001)) {
+            & (Join-Path $installed '地垫工作台.exe') (Join-Path $PWD 'scripts/release-validation/verify-large.cjs') build $rows
+            if ($LASTEXITCODE -ne 0) { throw 'Large fixture generation failed' }
+            & (Join-Path $installed '地垫工作台.exe') (Join-Path $PWD 'scripts/release-validation/verify-large.cjs') verify $rows
+            if ($LASTEXITCODE -ne 0) { throw 'Large boundary verification failed' }
+          }
+
+      - name: Retain validation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-upgrade-evidence-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/mat-upgrade-validation/report.json
+            ${{ runner.temp }}/mat-upgrade-validation/fixtures/fixture-report.json
+            ${{ runner.temp }}/mat-upgrade-validation/large/report-*.json
+          if-no-files-found: warn
+
       - name: Keep audited files as workflow artifacts
         uses: actions/upload-artifact@v4
         with:

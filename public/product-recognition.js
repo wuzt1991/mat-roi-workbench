@@ -7,9 +7,9 @@
 
   const OUTPUT_HEADERS=['序号','平台','店铺','平台商品名称','平台规格名称','材质','材质名称','尺寸','面积','宽','长','重量','成本','广告费','成交金额','商品编码','商家编码','平台商品ID','平台规格ID','平台售价','售卖状态','平台库存','规格类型','规格名称','货品编码','货品简称','商品规格','规格ID','规格简称'];
   const FIELD_ALIASES={
-    seq:['序号'],platform:['平台','来源平台'],shop:['店铺','店铺名称'],productName:['平台商品名称','商品名称','商品标题','货品名称'],specName:['平台规格名称','SKU名称','规格名称','商品规格','货品名称'],
-    productId:['平台商品ID','商品ID','商品id'],specId:['平台规格ID','SKU ID','SKUID','规格ID','主条码','货品编码'],price:['平台售价','售价'],status:['售卖状态','状态'],inventory:['平台库存','库存'],
-    productCode:['商品编码'],merchantCode:['商家编码'],specType:['规格类型'],goodsCode:['货品编码'],goodsShort:['货品简称'],specShort:['规格简称'],sales:['销量','支付件数','成交件数','销售数量','货品数量','修改数量'],date:['日期','支付日期','下单日期']
+    seq:['序号','编号','行号'],platform:['平台','来源平台'],shop:['店铺','店铺名称'],productName:['平台商品名称','商品名称','商品标题','货品名称'],specName:['平台规格名称','SKU名称','规格名称','商品规格','商品规格名称','货品名称'],
+    productId:['平台商品ID','商品ID','商品id'],specId:['平台规格ID','SKU ID','SKUID','规格ID','主条码','货品编码'],price:['平台售价','售价','价格'],status:['售卖状态','状态','销售状态'],inventory:['平台库存','库存'],
+    productCode:['平台商品编码','商品编码'],merchantCode:['平台商家编码','商家编码'],specType:['规格类型'],goodsCode:['货品编码'],goodsShort:['货品简称'],specShort:['规格简称'],sales:['销量','支付件数','成交件数','销售数量','货品数量','修改数量'],date:['日期','支付日期','下单日期']
   };
   const REQUIRED_PRODUCT_FIELDS={platform:'平台',shop:'店铺',productName:'商品名称',specName:'规格名称',productId:'商品 ID',specId:'SKU ID',price:'售价',status:'售卖状态',inventory:'库存'};
   const text=v=>v==null?'':String(v).trim();

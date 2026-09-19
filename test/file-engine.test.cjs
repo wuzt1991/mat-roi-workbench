@@ -44,6 +44,34 @@ test('完整 ERP 表优先平台字段，真正同名重复仍要求确认',()=>
   assert.deepEqual(Recognition.mapFields(['商品名称','商品名称']).productName,{ambiguous:[0,1]});
 });
 
+test('转表保留旧版字段别名，并优先平台编码而不是空白内部编码',()=>{
+  const headers=['编号','平台','店铺','商品名称','商品规格名称','商品ID','规格ID','价格','销售状态','库存','平台商品编码','商品编码','平台商家编码','商家编码'];
+  const mapping=Recognition.mapFields(headers);
+  const values=[7,'抖音','测试店','硅藻泥地垫','40*60cm 3mm','001','002',20,'在售',10,'0000123','','0000456',''];
+  const result=Recognition.deriveTransferRow({rowId:1,values,mapping},{},{rules:rules()});
+  assert.equal(result.status,'confirmed');
+  assert.equal(result.values[0],7);
+  assert.equal(result.values[15],'0000123');
+  assert.equal(result.values[16],'0000456');
+  assert.deepEqual(Recognition.mapFields(['平台商家编码','平台商家编码','商家编码']).merchantCode,{ambiguous:[0,1]});
+  assert.equal(Recognition.mapFields(['商品编码','商家编码']).merchantCode,1);
+});
+
+test('平台商家编码经过 XLSX 导入和流式导出保持文本与前导零',async(t)=>{
+  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'mat-platform-codes-'));t.after(()=>fs.rmSync(directory,{recursive:true,force:true}));
+  const filename=path.join(directory,'source.xlsx'),session=path.join(directory,'session'),output=path.join(directory,'out.xlsx');fs.mkdirSync(session);
+  const source=new Excel.Workbook(),sheet=source.addWorksheet('商品');
+  sheet.addRow(['平台','店铺','平台商品名称','平台规格名称','平台商品ID','平台规格ID','平台售价','售卖状态','平台库存','平台商品编码','商品编码','平台商家编码','商家编码']);
+  sheet.addRow(['抖音','测试店','硅藻泥地垫','40*60cm 3mm','001','002',20,'在售',10,'0000123','','0000456','']);
+  fs.writeFileSync(filename,Buffer.from(await source.xlsx.writeBuffer()));
+  new ImportSessionStore(session,{create:true,meta:{sessionId:'codes',ownerToken:'test',rules:rules()}}).close();
+  const inspection=await Reader.inspectWorkbook(filename,session);
+  const imported=await Reader.importSheet(filename,session,{sheetId:inspection.sheets[0].sheetId,rules:rules()});assert.equal(imported.ready,true);
+  await exportProduct({sessionDirectory:session,templatePath:path.join(__dirname,'../public/assets/product-template.xlsx'),outputPath:output});
+  const exported=new Excel.Workbook();await exported.xlsx.load(fs.readFileSync(output));
+  assert.equal(exported.worksheets[0].getCell('P2').value,'0000123');assert.equal(exported.worksheets[0].getCell('Q2').value,'0000456');
+});
+
 test('多表不同列序独立映射、统一行号，重开复核与导出不串列、不丢重复行',async(t)=>{
   const directory=fs.mkdtempSync(path.join(os.tmpdir(),'mat-multi-sheet-'));t.after(()=>fs.rmSync(directory,{recursive:true,force:true}));
   const filename=path.join(directory,'source.xlsx'),session=path.join(directory,'session'),output=path.join(directory,'out.xlsx');
