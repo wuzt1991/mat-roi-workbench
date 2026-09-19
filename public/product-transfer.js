@@ -2,6 +2,7 @@
   'use strict';
 
   const Excel = typeof module === 'object' ? require('./assets/exceljs.min.js') : root.ExcelJS;
+  const Recognition = typeof module === 'object' ? require('./product-recognition.js') : root.ProductRecognition;
 
   const HEADERS = ['序号','平台','店铺','平台商品名称','平台规格名称','品牌','商品标签','尺寸','平米数','宽','长','重量','成本价','商家编码旧','主条码','平台商品编码','平台商家编码','平台商品ID','平台规格ID','平台售价','售卖状态','平台库存','规格类型','货品名称','货品编码','货品简称','规格名称','商家编码（新）','规格简称'];
   const FIELD_ALIASES = {
@@ -304,7 +305,9 @@
     if(!applyReviews(result).summary.ready)throw Error('仍有未解决异常，禁止导出');
     const template=await readWorkbook(templateBytes), sheet=template.worksheets[0];
     const total=result.rows.length+1, originalRows=Math.max(1,sheet.rowCount-1);
-    if(sheet.rowCount>total)sheet.spliceRows(total+1,sheet.rowCount-total);
+    // The bundled ExcelJS leaves a multi-row deletion at EOF untouched.
+    // Remove each final row so no shared-formula children survive the export.
+    for(let r=sheet.rowCount;r>total;r--)sheet.spliceRows(r,1);
     for(let r=2;r<=total;r++){
       const source=sheet.getRow(2+((r-2)%originalRows)), target=sheet.getRow(r);target.height=source.height;
       for(let c=1;c<=HEADERS.length;c++)copyStyle(target.getCell(c),source.getCell(c));
@@ -324,6 +327,6 @@
     if(!storage || !name)throw Error('规则方案名称不能为空');const all=JSON.parse(storage.getItem('mat-product-rule-schemes')||'{}');all[name]={name,updatedAt:new Date().toISOString(),rules:normalizeRules(rules)};storage.setItem('mat-product-rule-schemes',JSON.stringify(all));return all[name];
   }
   function loadSchemes(storage){return storage?JSON.parse(storage.getItem('mat-product-rule-schemes')||'{}'):{};}
-  const api={MAX_VALUE,MAX_FILE_BYTES,MAX_ROWS,MAX_COLUMNS,checkFileSize,HEADERS,FIELD_ALIASES,WEIGHT_RULES:clone(WEIGHT_RULES),defaultRules:defaultRules,normalizeRules,detectHeaderRow,mapFields,parseDimensions,identifyMaterial,resolveWeightRule,transformRows,applyReviews,applyBatchReviews,exceptionGroups,applyProductReview,readWorkbookRows,analyze,exportWorkbook,exportProductWorkbook:exportWorkbook,convert:analyze,saveScheme,loadSchemes};
+  const api={MAX_VALUE,MAX_FILE_BYTES,MAX_ROWS,MAX_COLUMNS,checkFileSize,HEADERS,FIELD_ALIASES,WEIGHT_RULES:clone(WEIGHT_RULES),defaultRules:defaultRules,normalizeRules,detectHeaderRow,mapFields,parseDimensions,identifyMaterial,resolveWeightRule,transformRows,applyReviews,applyBatchReviews,exceptionGroups,applyProductReview,readWorkbookRows,analyze,exportWorkbook,exportProductWorkbook:exportWorkbook,convert:analyze,saveScheme,loadSchemes,deriveTransferRow:Recognition?.deriveTransferRow,previewTransferRowPatch:Recognition?.previewTransferRowPatch,recognition:Recognition};
   if(typeof module==='object')module.exports=api;else root.MatProductTransfer=api;
 })(typeof window==='object'?window:{ });

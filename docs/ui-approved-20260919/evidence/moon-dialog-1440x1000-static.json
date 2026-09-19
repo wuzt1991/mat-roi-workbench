@@ -1,0 +1,4245 @@
+{
+  "geometry": [
+    {
+      "className": "app-shell",
+      "height": 1603.671875,
+      "id": "",
+      "index": 0,
+      "tag": "DIV",
+      "width": 1440,
+      "x": 0,
+      "y": 0
+    },
+    {
+      "className": "sidebar ",
+      "height": 1000,
+      "id": "",
+      "index": 1,
+      "tag": "ASIDE",
+      "width": 220,
+      "x": 0,
+      "y": 0
+    },
+    {
+      "className": "brand",
+      "height": 64,
+      "id": "",
+      "index": 2,
+      "tag": "A",
+      "width": 219,
+      "x": 0,
+      "y": 0
+    },
+    {
+      "className": "brand-mark",
+      "height": 34,
+      "id": "",
+      "index": 3,
+      "tag": "SPAN",
+      "width": 34,
+      "x": 23,
+      "y": 14.5
+    },
+    {
+      "className": null,
+      "height": 34,
+      "id": "",
+      "index": 4,
+      "tag": "IMG",
+      "width": 34,
+      "x": 23,
+      "y": 14.5
+    },
+    {
+      "className": null,
+      "height": 46.5,
+      "id": "",
+      "index": 5,
+      "tag": "DIV",
+      "width": 106.2109375,
+      "x": 68,
+      "y": 8.25
+    },
+    {
+      "className": "brand-title",
+      "height": 25.5,
+      "id": "",
+      "index": 6,
+      "tag": "DIV",
+      "width": 106.2109375,
+      "x": 68,
+      "y": 8.25
+    },
+    {
+      "className": "brand-sub",
+      "height": 18,
+      "id": "",
+      "index": 7,
+      "tag": "DIV",
+      "width": 106.2109375,
+      "x": 68,
+      "y": 36.75
+    },
+    {
+      "className": "shop-picker",
+      "height": 62.5,
+      "id": "",
+      "index": 13,
+      "tag": "DIV",
+      "width": 191,
+      "x": 14,
+      "y": 88
+    },
+    {
+      "className": null,
+      "height": 16.5,
+      "id": "",
+      "index": 14,
+      "tag": "LABEL",
+      "width": 175,
+      "x": 22,
+      "y": 88
+    },
+    {
+      "className": "row",
+      "height": 38,
+      "id": "",
+      "index": 15,
+      "tag": "DIV",
+      "width": 175,
+      "x": 22,
+      "y": 112.5
+    },
+    {
+      "className": "sidebar-picker-trigger",
+      "height": 38,
+      "id": "active-shop-trigger",
+      "index": 19,
+      "tag": "BUTTON",
+      "width": 138,
+      "x": 22,
+      "y": 112.5
+    },
+    {
+      "className": null,
+      "height": 18,
+      "id": "",
+      "index": 20,
+      "tag": "SPAN",
+      "width": 60,
+      "x": 33,
+      "y": 122.5
+    },
+    {
+      "className": "lucide lucide-chevron-down icon",
+      "height": 14,
+      "id": "",
+      "index": 21,
+      "tag": "svg",
+      "width": 14,
+      "x": 135,
+      "y": 124.5
+    },
+    {
+      "className": null,
+      "height": 3.5,
+      "id": "",
+      "index": 22,
+      "tag": "path",
+      "width": 7,
+      "x": 138.5,
+      "y": 129.75
+    },
+    {
+      "className": "icon-btn",
+      "height": 32,
+      "id": "",
+      "index": 23,
+      "tag": "BUTTON",
+      "width": 32,
+      "x": 165,
+      "y": 115.5
+    },
+    {
+      "className": "lucide lucide-plus icon",
+      "height": 16,
+      "id": "",
+      "index": 24,
+      "tag": "svg",
+      "width": 16,
+      "x": 173,
+      "y": 123.5
+    },
+    {
+      "className": "shop-picker plan-picker",
+      "height": 62.5,
+      "id": "",
+      "index": 27,
+      "tag": "DIV",
+      "width": 191,
+      "x": 14,
+      "y": 174.5
+    },
+    {
+      "className": null,
+      "height": 16.5,
+      "id": "",
+      "index": 28,
+      "tag": "LABEL",
+      "width": 175,
+      "x": 22,
+      "y": 174.5
+    },
+    {
+      "className": "row",
+      "height": 38,
+      "id": "",
+      "index": 29,
+      "tag": "DIV",
+      "width": 175,
+      "x": 22,
+      "y": 199
+    },
+    {
+      "className": "sidebar-picker-trigger",
+      "height": 38,
+      "id": "active-plan-trigger",
+      "index": 32,
+      "tag": "BUTTON",
+      "width": 138,
+      "x": 22,
+      "y": 199
+    },
+    {
+      "className": null,
+      "height": 18,
+      "id": "",
+      "index": 33,
+      "tag": "SPAN",
+      "width": 48,
+      "x": 33,
+      "y": 209
+    },
+    {
+      "className": "lucide lucide-chevron-down icon",
+      "height": 14,
+      "id": "",
+      "index": 34,
+      "tag": "svg",
+      "width": 14,
+      "x": 135,
+      "y": 211
+    },
+    {
+      "className": null,
+      "height": 3.5,
+      "id": "",
+      "index": 35,
+      "tag": "path",
+      "width": 7,
+      "x": 138.5,
+      "y": 216.25
+    },
+    {
+      "className": "icon-btn",
+      "height": 32,
+      "id": "",
+      "index": 36,
+      "tag": "BUTTON",
+      "width": 32,
+      "x": 165,
+      "y": 202
+    },
+    {
+      "className": "lucide lucide-ellipsis icon",
+      "height": 16,
+      "id": "",
+      "index": 37,
+      "tag": "svg",
+      "width": 16,
+      "x": 173,
+      "y": 210
+    },
+    {
+      "className": null,
+      "height": 1.333343505859375,
+      "id": "",
+      "index": 38,
+      "tag": "circle",
+      "width": 1.333343505859375,
+      "x": 180.3333282470703,
+      "y": 217.3333282470703
+    },
+    {
+      "className": null,
+      "height": 1.333343505859375,
+      "id": "",
+      "index": 39,
+      "tag": "circle",
+      "width": 1.3333282470703125,
+      "x": 185,
+      "y": 217.3333282470703
+    },
+    {
+      "className": null,
+      "height": 1.333343505859375,
+      "id": "",
+      "index": 40,
+      "tag": "circle",
+      "width": 1.3333282470703125,
+      "x": 175.6666717529297,
+      "y": 217.3333282470703
+    },
+    {
+      "className": "nav-group",
+      "height": 189,
+      "id": "",
+      "index": 41,
+      "tag": "NAV",
+      "width": 191,
+      "x": 14,
+      "y": 261
+    },
+    {
+      "className": "btn nav-item active",
+      "height": 42,
+      "id": "",
+      "index": 42,
+      "tag": "BUTTON",
+      "width": 191,
+      "x": 14,
+      "y": 261
+    },
+    {
+      "className": "lucide lucide-layout-dashboard icon",
+      "height": 18,
+      "id": "",
+      "index": 43,
+      "tag": "svg",
+      "width": 18,
+      "x": 25,
+      "y": 273
+    },
+    {
+      "className": null,
+      "height": 6.75,
+      "id": "",
+      "index": 44,
+      "tag": "rect",
+      "width": 5.25,
+      "x": 27.25,
+      "y": 275.25
+    },
+    {
+      "className": null,
+      "height": 3.75,
+      "id": "",
+      "index": 45,
+      "tag": "rect",
+      "width": 5.25,
+      "x": 35.5,
+      "y": 275.25
+    },
+    {
+      "className": null,
+      "height": 6.75,
+      "id": "",
+      "index": 46,
+      "tag": "rect",
+      "width": 5.25,
+      "x": 35.5,
+      "y": 282
+    },
+    {
+      "className": null,
+      "height": 3.75,
+      "id": "",
+      "index": 47,
+      "tag": "rect",
+      "width": 5.25,
+      "x": 27.25,
+      "y": 285
+    },
+    {
+      "className": "btn nav-item ",
+      "height": 42,
+      "id": "",
+      "index": 48,
+      "tag": "BUTTON",
+      "width": 191,
+      "x": 14,
+      "y": 310
+    },
+    {
+      "className": "lucide lucide-chart-no-axes-combined icon",
+      "height": 18,
+      "id": "",
+      "index": 49,
+      "tag": "svg",
+      "width": 18,
+      "x": 25,
+      "y": 322
+    },
+    {
+      "className": null,
+      "height": 9,
+      "id": "",
+      "index": 53,
+      "tag": "path",
+      "width": 15,
+      "x": 26.5,
+      "y": 324.25
+    },
+    {
+      "className": "btn nav-item ",
+      "height": 42,
+      "id": "",
+      "index": 56,
+      "tag": "BUTTON",
+      "width": 191,
+      "x": 14,
+      "y": 359
+    },
+    {
+      "className": "lucide lucide-library icon",
+      "height": 18,
+      "id": "",
+      "index": 57,
+      "tag": "svg",
+      "width": 18,
+      "x": 25,
+      "y": 371
+    },
+    {
+      "className": null,
+      "height": 10.5,
+      "id": "",
+      "index": 58,
+      "tag": "path",
+      "width": 3,
+      "x": 37,
+      "y": 375.5
+    },
+    {
+      "className": "btn nav-item ",
+      "height": 42,
+      "id": "",
+      "index": 62,
+      "tag": "BUTTON",
+      "width": 191,
+      "x": 14,
+      "y": 408
+    },
+    {
+      "className": "lucide lucide-table-2 icon",
+      "height": 18,
+      "id": "",
+      "index": 63,
+      "tag": "svg",
+      "width": 18,
+      "x": 25,
+      "y": 420
+    },
+    {
+      "className": null,
+      "height": 13.5,
+      "id": "",
+      "index": 64,
+      "tag": "path",
+      "width": 13.5,
+      "x": 27.25,
+      "y": 422.25
+    },
+    {
+      "className": "sidebar-bottom",
+      "height": 100,
+      "id": "",
+      "index": 65,
+      "tag": "DIV",
+      "width": 191,
+      "x": 14,
+      "y": 884
+    },
+    {
+      "className": "btn nav-item ",
+      "height": 42,
+      "id": "",
+      "index": 66,
+      "tag": "BUTTON",
+      "width": 191,
+      "x": 14,
+      "y": 884
+    },
+    {
+      "className": "lucide lucide-file-spreadsheet icon",
+      "height": 18,
+      "id": "",
+      "index": 67,
+      "tag": "svg",
+      "width": 18,
+      "x": 25,
+      "y": 896
+    },
+    {
+      "className": null,
+      "height": 15,
+      "id": "",
+      "index": 68,
+      "tag": "path",
+      "width": 12,
+      "x": 28,
+      "y": 897.5
+    },
+    {
+      "className": null,
+      "height": 4.5,
+      "id": "",
+      "index": 69,
+      "tag": "path",
+      "width": 4.5,
+      "x": 35.5,
+      "y": 897.5
+    },
+    {
+      "className": "local-status",
+      "height": 30,
+      "id": "",
+      "index": 74,
+      "tag": "DIV",
+      "width": 191,
+      "x": 14,
+      "y": 931
+    },
+    {
+      "className": "status-dot",
+      "height": 6,
+      "id": "",
+      "index": 75,
+      "tag": "SPAN",
+      "width": 6,
+      "x": 24,
+      "y": 949
+    },
+    {
+      "className": "view-label",
+      "height": 18,
+      "id": "",
+      "index": 76,
+      "tag": "DIV",
+      "width": 191,
+      "x": 14,
+      "y": 966
+    },
+    {
+      "className": "workspace",
+      "height": 1603.671875,
+      "id": "",
+      "index": 77,
+      "tag": "DIV",
+      "width": 1220,
+      "x": 220,
+      "y": 0
+    },
+    {
+      "className": "topbar",
+      "height": 64,
+      "id": "",
+      "index": 78,
+      "tag": "HEADER",
+      "width": 1220,
+      "x": 220,
+      "y": 0
+    },
+    {
+      "className": "crumbs",
+      "height": 18,
+      "id": "",
+      "index": 79,
+      "tag": "DIV",
+      "width": 143,
+      "x": 248,
+      "y": 22.5
+    },
+    {
+      "className": null,
+      "height": 18,
+      "id": "",
+      "index": 80,
+      "tag": "SPAN",
+      "width": 60,
+      "x": 248,
+      "y": 22.5
+    },
+    {
+      "className": "lucide lucide-chevron-right icon",
+      "height": 13,
+      "id": "",
+      "index": 81,
+      "tag": "svg",
+      "width": 13,
+      "x": 319,
+      "y": 25
+    },
+    {
+      "className": null,
+      "height": 6.5,
+      "id": "",
+      "index": 82,
+      "tag": "path",
+      "width": 3.25,
+      "x": 323.875,
+      "y": 28.25
+    },
+    {
+      "className": null,
+      "height": 18,
+      "id": "",
+      "index": 83,
+      "tag": "STRONG",
+      "width": 48,
+      "x": 343,
+      "y": 22.5
+    },
+    {
+      "className": "topbar-right",
+      "height": 32,
+      "id": "",
+      "index": 84,
+      "tag": "DIV",
+      "width": 330,
+      "x": 1082,
+      "y": 15.5
+    },
+    {
+      "className": "tag",
+      "height": 24.5,
+      "id": "",
+      "index": 85,
+      "tag": "SPAN",
+      "width": 84,
+      "x": 1082,
+      "y": 19.25
+    },
+    {
+      "className": null,
+      "height": 16.5,
+      "id": "",
+      "index": 86,
+      "tag": "SPAN",
+      "width": 66,
+      "x": 1182,
+      "y": 23.25
+    },
+    {
+      "className": "icon-btn",
+      "height": 32,
+      "id": "",
+      "index": 87,
+      "tag": "BUTTON",
+      "width": 32,
+      "x": 1264,
+      "y": 15.5
+    },
+    {
+      "className": "lucide lucide-download icon",
+      "height": 16,
+      "id": "",
+      "index": 88,
+      "tag": "svg",
+      "width": 16,
+      "x": 1272,
+      "y": 23.5
+    },
+    {
+      "className": null,
+      "height": 4,
+      "id": "",
+      "index": 89,
+      "tag": "path",
+      "width": 12,
+      "x": 1274,
+      "y": 33.5
+    },
+    {
+      "className": null,
+      "height": 3.333333969116211,
+      "id": "",
+      "index": 90,
+      "tag": "polyline",
+      "width": 6.666748046875,
+      "x": 1276.6666259765625,
+      "y": 30.16666603088379
+    },
+    {
+      "className": "ui-mode-toggle",
+      "height": 32,
+      "id": "ui-mode-toggle",
+      "index": 92,
+      "tag": "BUTTON",
+      "width": 100,
+      "x": 1312,
+      "y": 15.5
+    },
+    {
+      "className": null,
+      "height": 16,
+      "id": "",
+      "index": 93,
+      "tag": "svg",
+      "width": 16,
+      "x": 1326.5,
+      "y": 23.5
+    },
+    {
+      "className": null,
+      "height": 11.97385597229004,
+      "id": "",
+      "index": 94,
+      "tag": "path",
+      "width": 11.973876953125,
+      "x": 1328.392822265625,
+      "y": 25.63333320617676
+    },
+    {
+      "className": null,
+      "height": 12,
+      "id": "",
+      "index": 95,
+      "tag": "SPAN",
+      "width": 48,
+      "x": 1349.5,
+      "y": 25.5
+    },
+    {
+      "className": null,
+      "height": 1539.671875,
+      "id": "main-content",
+      "index": 96,
+      "tag": "MAIN",
+      "width": 1220,
+      "x": 220,
+      "y": 64
+    },
+    {
+      "className": "page-header",
+      "height": 113,
+      "id": "",
+      "index": 97,
+      "tag": "DIV",
+      "width": 1220,
+      "x": 220,
+      "y": 64
+    },
+    {
+      "className": "page-heading",
+      "height": 63,
+      "id": "",
+      "index": 98,
+      "tag": "DIV",
+      "width": 276,
+      "x": 248,
+      "y": 90
+    },
+    {
+      "className": null,
+      "height": 36,
+      "id": "",
+      "index": 99,
+      "tag": "H1",
+      "width": 276,
+      "x": 248,
+      "y": 90
+    },
+    {
+      "className": "page-sub",
+      "height": 21,
+      "id": "",
+      "index": 100,
+      "tag": "P",
+      "width": 276,
+      "x": 248,
+      "y": 132
+    },
+    {
+      "className": "row",
+      "height": 46,
+      "id": "",
+      "index": 101,
+      "tag": "DIV",
+      "width": 144,
+      "x": 1268,
+      "y": 98.5
+    },
+    {
+      "className": "btn confirm-entry",
+      "height": 46,
+      "id": "",
+      "index": 102,
+      "tag": "BUTTON",
+      "width": 144,
+      "x": 1268,
+      "y": 98.5
+    },
+    {
+      "className": "lucide lucide-book-check icon",
+      "height": 19,
+      "id": "",
+      "index": 103,
+      "tag": "svg",
+      "width": 19,
+      "x": 1292.5,
+      "y": 112
+    },
+    {
+      "className": null,
+      "height": 15.833335876464844,
+      "id": "",
+      "index": 104,
+      "tag": "path",
+      "width": 12.666748046875,
+      "x": 1295.6666259765625,
+      "y": 113.58333587646484
+    },
+    {
+      "className": null,
+      "height": 3.166664123535156,
+      "id": "",
+      "index": 105,
+      "tag": "path",
+      "width": 4.75,
+      "x": 1299.625,
+      "y": 117.9375
+    },
+    {
+      "className": "content-grid plan-overview",
+      "height": 464,
+      "id": "",
+      "index": 106,
+      "tag": "DIV",
+      "width": 1164,
+      "x": 248,
+      "y": 177
+    },
+    {
+      "className": "main-column",
+      "height": 464,
+      "id": "",
+      "index": 107,
+      "tag": "SECTION",
+      "width": 572,
+      "x": 248,
+      "y": 177
+    },
+    {
+      "className": null,
+      "height": 426,
+      "id": "metrics",
+      "index": 108,
+      "tag": "DIV",
+      "width": 530,
+      "x": 269,
+      "y": 196
+    },
+    {
+      "className": "metric-toolbar",
+      "height": 28,
+      "id": "",
+      "index": 109,
+      "tag": "DIV",
+      "width": 530,
+      "x": 269,
+      "y": 196
+    },
+    {
+      "className": null,
+      "height": 22.5,
+      "id": "",
+      "index": 110,
+      "tag": "H2",
+      "width": 60,
+      "x": 269,
+      "y": 198.75
+    },
+    {
+      "className": "btn ghost",
+      "height": 28,
+      "id": "",
+      "index": 111,
+      "tag": "BUTTON",
+      "width": 93,
+      "x": 706,
+      "y": 196
+    },
+    {
+      "className": "lucide lucide-sliders-horizontal icon",
+      "height": 16,
+      "id": "",
+      "index": 112,
+      "tag": "svg",
+      "width": 16,
+      "x": 718,
+      "y": 202
+    },
+    {
+      "className": "metric-grid",
+      "height": 382,
+      "id": "",
+      "index": 122,
+      "tag": "DIV",
+      "width": 530,
+      "x": 269,
+      "y": 240
+    },
+    {
+      "className": "metric",
+      "height": 185,
+      "id": "",
+      "index": 123,
+      "tag": "SECTION",
+      "width": 259,
+      "x": 269,
+      "y": 240
+    },
+    {
+      "className": "metric-label",
+      "height": 18,
+      "id": "",
+      "index": 124,
+      "tag": "DIV",
+      "width": 221,
+      "x": 288,
+      "y": 289.25
+    },
+    {
+      "className": "metric-value ",
+      "height": 32.5,
+      "id": "",
+      "index": 125,
+      "tag": "DIV",
+      "width": 221,
+      "x": 288,
+      "y": 317.25
+    },
+    {
+      "className": "metric-desc",
+      "height": 19,
+      "id": "",
+      "index": 126,
+      "tag": "DIV",
+      "width": 221,
+      "x": 288,
+      "y": 356.75
+    },
+    {
+      "className": "metric",
+      "height": 185,
+      "id": "",
+      "index": 127,
+      "tag": "SECTION",
+      "width": 259,
+      "x": 540,
+      "y": 240
+    },
+    {
+      "className": "metric-label",
+      "height": 18,
+      "id": "",
+      "index": 128,
+      "tag": "DIV",
+      "width": 221,
+      "x": 559,
+      "y": 289.25
+    },
+    {
+      "className": "metric-value negative",
+      "height": 32.5,
+      "id": "",
+      "index": 129,
+      "tag": "DIV",
+      "width": 221,
+      "x": 559,
+      "y": 317.25
+    },
+    {
+      "className": "metric-desc",
+      "height": 19,
+      "id": "",
+      "index": 130,
+      "tag": "DIV",
+      "width": 221,
+      "x": 559,
+      "y": 356.75
+    },
+    {
+      "className": "metric",
+      "height": 185,
+      "id": "",
+      "index": 131,
+      "tag": "SECTION",
+      "width": 259,
+      "x": 269,
+      "y": 437
+    },
+    {
+      "className": "metric-label",
+      "height": 18,
+      "id": "",
+      "index": 132,
+      "tag": "DIV",
+      "width": 221,
+      "x": 288,
+      "y": 486.25
+    },
+    {
+      "className": "metric-value ",
+      "height": 32.5,
+      "id": "",
+      "index": 133,
+      "tag": "DIV",
+      "width": 221,
+      "x": 288,
+      "y": 514.25
+    },
+    {
+      "className": "metric-desc",
+      "height": 19,
+      "id": "",
+      "index": 134,
+      "tag": "DIV",
+      "width": 221,
+      "x": 288,
+      "y": 553.75
+    },
+    {
+      "className": "metric",
+      "height": 185,
+      "id": "",
+      "index": 135,
+      "tag": "SECTION",
+      "width": 259,
+      "x": 540,
+      "y": 437
+    },
+    {
+      "className": "metric-label",
+      "height": 18,
+      "id": "",
+      "index": 136,
+      "tag": "DIV",
+      "width": 221,
+      "x": 559,
+      "y": 486.25
+    },
+    {
+      "className": "metric-value ",
+      "height": 32.5,
+      "id": "",
+      "index": 137,
+      "tag": "DIV",
+      "width": 221,
+      "x": 559,
+      "y": 514.25
+    },
+    {
+      "className": "metric-desc",
+      "height": 19,
+      "id": "",
+      "index": 138,
+      "tag": "DIV",
+      "width": 221,
+      "x": 559,
+      "y": 553.75
+    },
+    {
+      "className": "parameter-rail",
+      "height": 464,
+      "id": "",
+      "index": 139,
+      "tag": "ASIDE",
+      "width": 572,
+      "x": 840,
+      "y": 177
+    },
+    {
+      "className": "rail-section",
+      "height": 116.5,
+      "id": "",
+      "index": 140,
+      "tag": "SECTION",
+      "width": 530,
+      "x": 861,
+      "y": 196
+    },
+    {
+      "className": "section-head",
+      "height": 28,
+      "id": "",
+      "index": 141,
+      "tag": "DIV",
+      "width": 530,
+      "x": 861,
+      "y": 196
+    },
+    {
+      "className": null,
+      "height": 22.5,
+      "id": "",
+      "index": 142,
+      "tag": "H2",
+      "width": 75,
+      "x": 861,
+      "y": 198.75
+    },
+    {
+      "className": "tag",
+      "height": 22.5,
+      "id": "",
+      "index": 143,
+      "tag": "SPAN",
+      "width": 71,
+      "x": 1320,
+      "y": 198.75
+    },
+    {
+      "className": "fields",
+      "height": 59.5,
+      "id": "",
+      "index": 144,
+      "tag": "DIV",
+      "width": 530,
+      "x": 861,
+      "y": 240
+    },
+    {
+      "className": "field",
+      "height": 59.5,
+      "id": "",
+      "index": 145,
+      "tag": "LABEL",
+      "width": 258,
+      "x": 861,
+      "y": 240
+    },
+    {
+      "className": "field-label",
+      "height": 16.5,
+      "id": "",
+      "index": 146,
+      "tag": "SPAN",
+      "width": 258,
+      "x": 861,
+      "y": 240
+    },
+    {
+      "className": null,
+      "height": 36,
+      "id": "",
+      "index": 147,
+      "tag": "INPUT",
+      "width": 258,
+      "x": 861,
+      "y": 263.5
+    },
+    {
+      "className": "field",
+      "height": 59.5,
+      "id": "",
+      "index": 148,
+      "tag": "LABEL",
+      "width": 258,
+      "x": 1133,
+      "y": 240
+    },
+    {
+      "className": "field-label",
+      "height": 16.5,
+      "id": "",
+      "index": 149,
+      "tag": "SPAN",
+      "width": 258,
+      "x": 1133,
+      "y": 240
+    },
+    {
+      "className": null,
+      "height": 36,
+      "id": "",
+      "index": 150,
+      "tag": "INPUT",
+      "width": 258,
+      "x": 1133,
+      "y": 263.5
+    },
+    {
+      "className": "rail-section fee-section",
+      "height": 72.5,
+      "id": "",
+      "index": 151,
+      "tag": "SECTION",
+      "width": 530,
+      "x": 861,
+      "y": 324.5
+    },
+    {
+      "className": "fields",
+      "height": 59.5,
+      "id": "",
+      "index": 152,
+      "tag": "DIV",
+      "width": 530,
+      "x": 861,
+      "y": 324.5
+    },
+    {
+      "className": "field",
+      "height": 59.5,
+      "id": "",
+      "index": 153,
+      "tag": "LABEL",
+      "width": 170,
+      "x": 861,
+      "y": 324.5
+    },
+    {
+      "className": "field-label",
+      "height": 16.5,
+      "id": "",
+      "index": 154,
+      "tag": "SPAN",
+      "width": 170,
+      "x": 861,
+      "y": 324.5
+    },
+    {
+      "className": null,
+      "height": 36,
+      "id": "",
+      "index": 155,
+      "tag": "INPUT",
+      "width": 170,
+      "x": 861,
+      "y": 348
+    },
+    {
+      "className": "field",
+      "height": 59.5,
+      "id": "",
+      "index": 156,
+      "tag": "LABEL",
+      "width": 170,
+      "x": 1041,
+      "y": 324.5
+    },
+    {
+      "className": "field-label",
+      "height": 16.5,
+      "id": "",
+      "index": 157,
+      "tag": "SPAN",
+      "width": 170,
+      "x": 1041,
+      "y": 324.5
+    },
+    {
+      "className": null,
+      "height": 36,
+      "id": "",
+      "index": 158,
+      "tag": "INPUT",
+      "width": 170,
+      "x": 1041,
+      "y": 348
+    },
+    {
+      "className": "field",
+      "height": 59.5,
+      "id": "",
+      "index": 159,
+      "tag": "LABEL",
+      "width": 170,
+      "x": 1221,
+      "y": 324.5
+    },
+    {
+      "className": "field-label",
+      "height": 16.5,
+      "id": "",
+      "index": 160,
+      "tag": "SPAN",
+      "width": 170,
+      "x": 1221,
+      "y": 324.5
+    },
+    {
+      "className": null,
+      "height": 36,
+      "id": "",
+      "index": 161,
+      "tag": "INPUT",
+      "width": 170,
+      "x": 1221,
+      "y": 348
+    },
+    {
+      "className": "rail-section",
+      "height": 187,
+      "id": "",
+      "index": 162,
+      "tag": "SECTION",
+      "width": 530,
+      "x": 861,
+      "y": 405
+    },
+    {
+      "className": null,
+      "height": 21,
+      "id": "",
+      "index": 163,
+      "tag": "H3",
+      "width": 530,
+      "x": 861,
+      "y": 405
+    },
+    {
+      "className": "fields stack-gap",
+      "height": 133,
+      "id": "",
+      "index": 164,
+      "tag": "DIV",
+      "width": 530,
+      "x": 861,
+      "y": 446
+    },
+    {
+      "className": "field",
+      "height": 59.5,
+      "id": "",
+      "index": 165,
+      "tag": "LABEL",
+      "width": 258,
+      "x": 861,
+      "y": 446
+    },
+    {
+      "className": "field-label",
+      "height": 16.5,
+      "id": "",
+      "index": 166,
+      "tag": "SPAN",
+      "width": 258,
+      "x": 861,
+      "y": 446
+    },
+    {
+      "className": null,
+      "height": 36,
+      "id": "",
+      "index": 167,
+      "tag": "INPUT",
+      "width": 258,
+      "x": 861,
+      "y": 469.5
+    },
+    {
+      "className": "field",
+      "height": 59.5,
+      "id": "",
+      "index": 168,
+      "tag": "LABEL",
+      "width": 258,
+      "x": 1133,
+      "y": 446
+    },
+    {
+      "className": "field-label",
+      "height": 16.5,
+      "id": "",
+      "index": 169,
+      "tag": "SPAN",
+      "width": 258,
+      "x": 1133,
+      "y": 446
+    },
+    {
+      "className": null,
+      "height": 36,
+      "id": "",
+      "index": 170,
+      "tag": "INPUT",
+      "width": 258,
+      "x": 1133,
+      "y": 469.5
+    },
+    {
+      "className": "field",
+      "height": 59.5,
+      "id": "",
+      "index": 171,
+      "tag": "LABEL",
+      "width": 258,
+      "x": 861,
+      "y": 519.5
+    },
+    {
+      "className": "field-label",
+      "height": 16.5,
+      "id": "",
+      "index": 172,
+      "tag": "SPAN",
+      "width": 258,
+      "x": 861,
+      "y": 519.5
+    },
+    {
+      "className": null,
+      "height": 36,
+      "id": "",
+      "index": 173,
+      "tag": "INPUT",
+      "width": 258,
+      "x": 861,
+      "y": 543
+    },
+    {
+      "className": "field",
+      "height": 59.5,
+      "id": "",
+      "index": 174,
+      "tag": "LABEL",
+      "width": 258,
+      "x": 1133,
+      "y": 519.5
+    },
+    {
+      "className": "field-label",
+      "height": 16.5,
+      "id": "",
+      "index": 175,
+      "tag": "SPAN",
+      "width": 258,
+      "x": 1133,
+      "y": 519.5
+    },
+    {
+      "className": null,
+      "height": 36,
+      "id": "",
+      "index": 176,
+      "tag": "INPUT",
+      "width": 258,
+      "x": 1133,
+      "y": 543
+    },
+    {
+      "className": "advanced",
+      "height": 18,
+      "id": "",
+      "index": 177,
+      "tag": "DETAILS",
+      "width": 257,
+      "x": 861,
+      "y": 604
+    },
+    {
+      "className": null,
+      "height": 18,
+      "id": "",
+      "index": 178,
+      "tag": "SUMMARY",
+      "width": 257,
+      "x": 861,
+      "y": 604
+    },
+    {
+      "className": "fields stack-gap",
+      "height": 59.5,
+      "id": "",
+      "index": 179,
+      "tag": "DIV",
+      "width": 257,
+      "x": 861,
+      "y": 642
+    },
+    {
+      "className": "field",
+      "height": 59.5,
+      "id": "",
+      "index": 180,
+      "tag": "LABEL",
+      "width": 121.5,
+      "x": 861,
+      "y": 642
+    },
+    {
+      "className": "field-label",
+      "height": 16.5,
+      "id": "",
+      "index": 181,
+      "tag": "SPAN",
+      "width": 121.5,
+      "x": 861,
+      "y": 642
+    },
+    {
+      "className": null,
+      "height": 36,
+      "id": "",
+      "index": 182,
+      "tag": "INPUT",
+      "width": 121.5,
+      "x": 861,
+      "y": 665.5
+    },
+    {
+      "className": "field",
+      "height": 59.5,
+      "id": "",
+      "index": 183,
+      "tag": "LABEL",
+      "width": 121.5,
+      "x": 996.5,
+      "y": 642
+    },
+    {
+      "className": "field-label",
+      "height": 16.5,
+      "id": "",
+      "index": 184,
+      "tag": "SPAN",
+      "width": 121.5,
+      "x": 996.5,
+      "y": 642
+    },
+    {
+      "className": null,
+      "height": 36,
+      "id": "",
+      "index": 185,
+      "tag": "INPUT",
+      "width": 121.5,
+      "x": 996.5,
+      "y": 665.5
+    },
+    {
+      "className": "plan-detail-card",
+      "height": 884.171875,
+      "id": "",
+      "index": 186,
+      "tag": "SECTION",
+      "width": 1164,
+      "x": 248,
+      "y": 663
+    },
+    {
+      "className": "tabs",
+      "height": 48,
+      "id": "",
+      "index": 187,
+      "tag": "NAV",
+      "width": 1162,
+      "x": 249,
+      "y": 664
+    },
+    {
+      "className": "tab active",
+      "height": 48,
+      "id": "",
+      "index": 188,
+      "tag": "BUTTON",
+      "width": 65,
+      "x": 273,
+      "y": 664
+    },
+    {
+      "className": "tab ",
+      "height": 48,
+      "id": "",
+      "index": 189,
+      "tag": "BUTTON",
+      "width": 65,
+      "x": 366,
+      "y": 664
+    },
+    {
+      "className": "tab ",
+      "height": 48,
+      "id": "",
+      "index": 190,
+      "tag": "BUTTON",
+      "width": 52,
+      "x": 459,
+      "y": 664
+    },
+    {
+      "className": "section-head review-toolbar",
+      "height": 36,
+      "id": "",
+      "index": 191,
+      "tag": "DIV",
+      "width": 1114,
+      "x": 273,
+      "y": 732
+    },
+    {
+      "className": "row",
+      "height": 26,
+      "id": "",
+      "index": 192,
+      "tag": "DIV",
+      "width": 182.3203125,
+      "x": 273,
+      "y": 737
+    },
+    {
+      "className": null,
+      "height": 22.5,
+      "id": "",
+      "index": 193,
+      "tag": "H2",
+      "width": 60,
+      "x": 273,
+      "y": 738.75
+    },
+    {
+      "className": "tag",
+      "height": 22.5,
+      "id": "",
+      "index": 194,
+      "tag": "SPAN",
+      "width": 36.3203125,
+      "x": 343,
+      "y": 738.75
+    },
+    {
+      "className": "sku-options-toggle",
+      "height": 26,
+      "id": "",
+      "index": 195,
+      "tag": "BUTTON",
+      "width": 66,
+      "x": 389.3203125,
+      "y": 737
+    },
+    {
+      "className": "lucide lucide-chevron-down icon",
+      "height": 14,
+      "id": "",
+      "index": 196,
+      "tag": "svg",
+      "width": 14,
+      "x": 441.3203125,
+      "y": 743
+    },
+    {
+      "className": null,
+      "height": 3.5,
+      "id": "",
+      "index": 197,
+      "tag": "path",
+      "width": 7,
+      "x": 444.8203125,
+      "y": 748.25
+    },
+    {
+      "className": "row",
+      "height": 36,
+      "id": "",
+      "index": 198,
+      "tag": "DIV",
+      "width": 204,
+      "x": 1183,
+      "y": 732
+    },
+    {
+      "className": "btn ghost",
+      "height": 36,
+      "id": "",
+      "index": 199,
+      "tag": "BUTTON",
+      "width": 97,
+      "x": 1183,
+      "y": 732
+    },
+    {
+      "className": "lucide lucide-sliders-horizontal icon",
+      "height": 16,
+      "id": "",
+      "index": 200,
+      "tag": "svg",
+      "width": 16,
+      "x": 1195,
+      "y": 742
+    },
+    {
+      "className": "btn ",
+      "height": 36,
+      "id": "",
+      "index": 210,
+      "tag": "BUTTON",
+      "width": 97,
+      "x": 1290,
+      "y": 732
+    },
+    {
+      "className": "lucide lucide-plus icon",
+      "height": 16,
+      "id": "",
+      "index": 211,
+      "tag": "svg",
+      "width": 16,
+      "x": 1302,
+      "y": 742
+    },
+    {
+      "className": "table-scroll",
+      "height": 676.578125,
+      "id": "",
+      "index": 270,
+      "tag": "DIV",
+      "width": 1114,
+      "x": 273,
+      "y": 784
+    },
+    {
+      "className": "sku-table review-table",
+      "height": 674.578125,
+      "id": "",
+      "index": 271,
+      "tag": "TABLE",
+      "width": 1112,
+      "x": 274,
+      "y": 785
+    },
+    {
+      "className": "sr-only",
+      "height": 1,
+      "id": "",
+      "index": 272,
+      "tag": "CAPTION",
+      "width": 1,
+      "x": 273,
+      "y": 831
+    },
+    {
+      "className": null,
+      "height": 47,
+      "id": "",
+      "index": 273,
+      "tag": "THEAD",
+      "width": 1112,
+      "x": 274,
+      "y": 785
+    },
+    {
+      "className": null,
+      "height": 47,
+      "id": "",
+      "index": 274,
+      "tag": "TR",
+      "width": 1112,
+      "x": 274,
+      "y": 785
+    },
+    {
+      "className": null,
+      "height": 47,
+      "id": "",
+      "index": 275,
+      "tag": "TH",
+      "width": 249.71875,
+      "x": 274,
+      "y": 785
+    },
+    {
+      "className": "num",
+      "height": 47,
+      "id": "",
+      "index": 276,
+      "tag": "TH",
+      "width": 159.8203125,
+      "x": 523.71875,
+      "y": 785
+    },
+    {
+      "className": "num",
+      "height": 47,
+      "id": "",
+      "index": 277,
+      "tag": "TH",
+      "width": 118.15625,
+      "x": 683.5390625,
+      "y": 785
+    },
+    {
+      "className": "num",
+      "height": 47,
+      "id": "",
+      "index": 278,
+      "tag": "TH",
+      "width": 159.8203125,
+      "x": 801.6953125,
+      "y": 785
+    },
+    {
+      "className": "num",
+      "height": 47,
+      "id": "",
+      "index": 279,
+      "tag": "TH",
+      "width": 102.734375,
+      "x": 961.515625,
+      "y": 785
+    },
+    {
+      "className": "num",
+      "height": 47,
+      "id": "",
+      "index": 280,
+      "tag": "TH",
+      "width": 102.734375,
+      "x": 1064.25,
+      "y": 785
+    },
+    {
+      "className": "num",
+      "height": 47,
+      "id": "",
+      "index": 281,
+      "tag": "TH",
+      "width": 101.9765625,
+      "x": 1166.984375,
+      "y": 785
+    },
+    {
+      "className": null,
+      "height": 47,
+      "id": "",
+      "index": 282,
+      "tag": "TH",
+      "width": 117.0390625,
+      "x": 1268.9609375,
+      "y": 785
+    },
+    {
+      "className": null,
+      "height": 627.578125,
+      "id": "",
+      "index": 283,
+      "tag": "TBODY",
+      "width": 1112,
+      "x": 274,
+      "y": 832
+    },
+    {
+      "className": null,
+      "height": 89.796875,
+      "id": "",
+      "index": 284,
+      "tag": "TR",
+      "width": 1112,
+      "x": 274,
+      "y": 832
+    },
+    {
+      "className": null,
+      "height": 89.796875,
+      "id": "",
+      "index": 285,
+      "tag": "TD",
+      "width": 249.71875,
+      "x": 274,
+      "y": 832
+    },
+    {
+      "className": "sku-title",
+      "height": 19.5,
+      "id": "",
+      "index": 286,
+      "tag": "DIV",
+      "width": 225.71875,
+      "x": 286,
+      "y": 846
+    },
+    {
+      "className": null,
+      "height": 19.5,
+      "id": "",
+      "index": 287,
+      "tag": "BUTTON",
+      "width": 71.8125,
+      "x": 286,
+      "y": 846
+    },
+    {
+      "className": "sku-sub",
+      "height": 36.296875,
+      "id": "",
+      "index": 288,
+      "tag": "DIV",
+      "width": 225.71875,
+      "x": 286,
+      "y": 870.5
+    },
+    {
+      "className": "num",
+      "height": 89.796875,
+      "id": "",
+      "index": 290,
+      "tag": "TD",
+      "width": 159.8203125,
+      "x": 523.71875,
+      "y": 832
+    },
+    {
+      "className": null,
+      "height": 34,
+      "id": "",
+      "index": 291,
+      "tag": "INPUT",
+      "width": 88,
+      "x": 583.5390625,
+      "y": 848.6484375
+    },
+    {
+      "className": "cell-meta price-mode",
+      "height": 16.5,
+      "id": "",
+      "index": 292,
+      "tag": "DIV",
+      "width": 135.8203125,
+      "x": 535.71875,
+      "y": 887.6484375
+    },
+    {
+      "className": "",
+      "height": 16.5,
+      "id": "",
+      "index": 293,
+      "tag": "SPAN",
+      "width": 33,
+      "x": 638.5390625,
+      "y": 887.6484375
+    },
+    {
+      "className": "num ",
+      "height": 89.796875,
+      "id": "",
+      "index": 294,
+      "tag": "TD",
+      "width": 118.15625,
+      "x": 683.5390625,
+      "y": 832
+    },
+    {
+      "className": "margin-target",
+      "height": 16.5,
+      "id": "",
+      "index": 295,
+      "tag": "DIV",
+      "width": 94.15625,
+      "x": 695.5390625,
+      "y": 877.8984375
+    },
+    {
+      "className": "num",
+      "height": 89.796875,
+      "id": "",
+      "index": 296,
+      "tag": "TD",
+      "width": 159.8203125,
+      "x": 801.6953125,
+      "y": 832
+    },
+    {
+      "className": null,
+      "height": 34,
+      "id": "",
+      "index": 297,
+      "tag": "INPUT",
+      "width": 88,
+      "x": 861.515625,
+      "y": 859.3984375
+    },
+    {
+      "className": "num",
+      "height": 89.796875,
+      "id": "",
+      "index": 298,
+      "tag": "TD",
+      "width": 102.734375,
+      "x": 961.515625,
+      "y": 832
+    },
+    {
+      "className": "num",
+      "height": 89.796875,
+      "id": "",
+      "index": 299,
+      "tag": "TD",
+      "width": 102.734375,
+      "x": 1064.25,
+      "y": 832
+    },
+    {
+      "className": "num",
+      "height": 89.796875,
+      "id": "",
+      "index": 300,
+      "tag": "TD",
+      "width": 101.9765625,
+      "x": 1166.984375,
+      "y": 832
+    },
+    {
+      "className": "actions-cell",
+      "height": 89.796875,
+      "id": "",
+      "index": 301,
+      "tag": "TD",
+      "width": 117.0390625,
+      "x": 1268.9609375,
+      "y": 832
+    },
+    {
+      "className": "icon-btn",
+      "height": 32,
+      "id": "",
+      "index": 302,
+      "tag": "BUTTON",
+      "width": 32,
+      "x": 1280.9609375,
+      "y": 860.3984375
+    },
+    {
+      "className": "lucide lucide-x icon",
+      "height": 16,
+      "id": "",
+      "index": 303,
+      "tag": "svg",
+      "width": 16,
+      "x": 1288.9609375,
+      "y": 868.3984375
+    },
+    {
+      "className": null,
+      "height": 8,
+      "id": "",
+      "index": 304,
+      "tag": "path",
+      "width": 8,
+      "x": 1292.9609375,
+      "y": 872.3984375
+    },
+    {
+      "className": null,
+      "height": 8,
+      "id": "",
+      "index": 305,
+      "tag": "path",
+      "width": 8,
+      "x": 1292.9609375,
+      "y": 872.3984375
+    },
+    {
+      "className": null,
+      "height": 89.796875,
+      "id": "",
+      "index": 306,
+      "tag": "TR",
+      "width": 1112,
+      "x": 274,
+      "y": 921.796875
+    },
+    {
+      "className": null,
+      "height": 89.796875,
+      "id": "",
+      "index": 307,
+      "tag": "TD",
+      "width": 249.71875,
+      "x": 274,
+      "y": 921.796875
+    },
+    {
+      "className": "sku-title",
+      "height": 19.5,
+      "id": "",
+      "index": 308,
+      "tag": "DIV",
+      "width": 225.71875,
+      "x": 286,
+      "y": 935.796875
+    },
+    {
+      "className": null,
+      "height": 19.5,
+      "id": "",
+      "index": 309,
+      "tag": "BUTTON",
+      "width": 71.8125,
+      "x": 286,
+      "y": 935.796875
+    },
+    {
+      "className": "sku-sub",
+      "height": 36.296875,
+      "id": "",
+      "index": 310,
+      "tag": "DIV",
+      "width": 225.71875,
+      "x": 286,
+      "y": 960.296875
+    },
+    {
+      "className": "num",
+      "height": 89.796875,
+      "id": "",
+      "index": 312,
+      "tag": "TD",
+      "width": 159.8203125,
+      "x": 523.71875,
+      "y": 921.796875
+    },
+    {
+      "className": null,
+      "height": 34,
+      "id": "",
+      "index": 313,
+      "tag": "INPUT",
+      "width": 88,
+      "x": 583.5390625,
+      "y": 938.4453125
+    },
+    {
+      "className": "cell-meta price-mode",
+      "height": 16.5,
+      "id": "",
+      "index": 314,
+      "tag": "DIV",
+      "width": 135.8203125,
+      "x": 535.71875,
+      "y": 977.4453125
+    },
+    {
+      "className": "",
+      "height": 16.5,
+      "id": "",
+      "index": 315,
+      "tag": "SPAN",
+      "width": 33,
+      "x": 638.5390625,
+      "y": 977.4453125
+    },
+    {
+      "className": "num ",
+      "height": 89.796875,
+      "id": "",
+      "index": 316,
+      "tag": "TD",
+      "width": 118.15625,
+      "x": 683.5390625,
+      "y": 921.796875
+    },
+    {
+      "className": "margin-target",
+      "height": 16.5,
+      "id": "",
+      "index": 317,
+      "tag": "DIV",
+      "width": 94.15625,
+      "x": 695.5390625,
+      "y": 967.6953125
+    },
+    {
+      "className": "num",
+      "height": 89.796875,
+      "id": "",
+      "index": 318,
+      "tag": "TD",
+      "width": 159.8203125,
+      "x": 801.6953125,
+      "y": 921.796875
+    },
+    {
+      "className": null,
+      "height": 34,
+      "id": "",
+      "index": 319,
+      "tag": "INPUT",
+      "width": 88,
+      "x": 861.515625,
+      "y": 949.1953125
+    },
+    {
+      "className": "num",
+      "height": 89.796875,
+      "id": "",
+      "index": 320,
+      "tag": "TD",
+      "width": 102.734375,
+      "x": 961.515625,
+      "y": 921.796875
+    },
+    {
+      "className": "num",
+      "height": 89.796875,
+      "id": "",
+      "index": 321,
+      "tag": "TD",
+      "width": 102.734375,
+      "x": 1064.25,
+      "y": 921.796875
+    },
+    {
+      "className": "num",
+      "height": 89.796875,
+      "id": "",
+      "index": 322,
+      "tag": "TD",
+      "width": 101.9765625,
+      "x": 1166.984375,
+      "y": 921.796875
+    },
+    {
+      "className": "actions-cell",
+      "height": 89.796875,
+      "id": "",
+      "index": 323,
+      "tag": "TD",
+      "width": 117.0390625,
+      "x": 1268.9609375,
+      "y": 921.796875
+    },
+    {
+      "className": "icon-btn",
+      "height": 32,
+      "id": "",
+      "index": 324,
+      "tag": "BUTTON",
+      "width": 32,
+      "x": 1280.9609375,
+      "y": 950.1953125
+    },
+    {
+      "className": "lucide lucide-x icon",
+      "height": 16,
+      "id": "",
+      "index": 325,
+      "tag": "svg",
+      "width": 16,
+      "x": 1288.9609375,
+      "y": 958.1953125
+    },
+    {
+      "className": null,
+      "height": 8,
+      "id": "",
+      "index": 326,
+      "tag": "path",
+      "width": 8,
+      "x": 1292.9609375,
+      "y": 962.1953125
+    },
+    {
+      "className": null,
+      "height": 8,
+      "id": "",
+      "index": 327,
+      "tag": "path",
+      "width": 8,
+      "x": 1292.9609375,
+      "y": 962.1953125
+    },
+    {
+      "className": null,
+      "height": 89.796875,
+      "id": "",
+      "index": 328,
+      "tag": "TR",
+      "width": 1112,
+      "x": 274,
+      "y": 1011.59375
+    },
+    {
+      "className": null,
+      "height": 89.796875,
+      "id": "",
+      "index": 329,
+      "tag": "TD",
+      "width": 249.71875,
+      "x": 274,
+      "y": 1011.59375
+    },
+    {
+      "className": "sku-title",
+      "height": 19.5,
+      "id": "",
+      "index": 330,
+      "tag": "DIV",
+      "width": 225.71875,
+      "x": 286,
+      "y": 1025.59375
+    },
+    {
+      "className": null,
+      "height": 19.5,
+      "id": "",
+      "index": 331,
+      "tag": "BUTTON",
+      "width": 80.2265625,
+      "x": 286,
+      "y": 1025.59375
+    },
+    {
+      "className": "sku-sub",
+      "height": 36.296875,
+      "id": "",
+      "index": 332,
+      "tag": "DIV",
+      "width": 225.71875,
+      "x": 286,
+      "y": 1050.09375
+    },
+    {
+      "className": "num",
+      "height": 89.796875,
+      "id": "",
+      "index": 334,
+      "tag": "TD",
+      "width": 159.8203125,
+      "x": 523.71875,
+      "y": 1011.59375
+    },
+    {
+      "className": null,
+      "height": 34,
+      "id": "",
+      "index": 335,
+      "tag": "INPUT",
+      "width": 88,
+      "x": 583.5390625,
+      "y": 1028.2421875
+    },
+    {
+      "className": "cell-meta price-mode",
+      "height": 16.5,
+      "id": "",
+      "index": 336,
+      "tag": "DIV",
+      "width": 135.8203125,
+      "x": 535.71875,
+      "y": 1067.2421875
+    },
+    {
+      "className": "",
+      "height": 16.5,
+      "id": "",
+      "index": 337,
+      "tag": "SPAN",
+      "width": 33,
+      "x": 638.5390625,
+      "y": 1067.2421875
+    },
+    {
+      "className": "num ",
+      "height": 89.796875,
+      "id": "",
+      "index": 338,
+      "tag": "TD",
+      "width": 118.15625,
+      "x": 683.5390625,
+      "y": 1011.59375
+    },
+    {
+      "className": "margin-target",
+      "height": 16.5,
+      "id": "",
+      "index": 339,
+      "tag": "DIV",
+      "width": 94.15625,
+      "x": 695.5390625,
+      "y": 1057.4921875
+    },
+    {
+      "className": "num",
+      "height": 89.796875,
+      "id": "",
+      "index": 340,
+      "tag": "TD",
+      "width": 159.8203125,
+      "x": 801.6953125,
+      "y": 1011.59375
+    },
+    {
+      "className": null,
+      "height": 34,
+      "id": "",
+      "index": 341,
+      "tag": "INPUT",
+      "width": 88,
+      "x": 861.515625,
+      "y": 1038.9921875
+    },
+    {
+      "className": "num",
+      "height": 89.796875,
+      "id": "",
+      "index": 342,
+      "tag": "TD",
+      "width": 102.734375,
+      "x": 961.515625,
+      "y": 1011.59375
+    },
+    {
+      "className": "num",
+      "height": 89.796875,
+      "id": "",
+      "index": 343,
+      "tag": "TD",
+      "width": 102.734375,
+      "x": 1064.25,
+      "y": 1011.59375
+    },
+    {
+      "className": "num",
+      "height": 89.796875,
+      "id": "",
+      "index": 344,
+      "tag": "TD",
+      "width": 101.9765625,
+      "x": 1166.984375,
+      "y": 1011.59375
+    },
+    {
+      "className": "actions-cell",
+      "height": 89.796875,
+      "id": "",
+      "index": 345,
+      "tag": "TD",
+      "width": 117.0390625,
+      "x": 1268.9609375,
+      "y": 1011.59375
+    },
+    {
+      "className": "icon-btn",
+      "height": 32,
+      "id": "",
+      "index": 346,
+      "tag": "BUTTON",
+      "width": 32,
+      "x": 1280.9609375,
+      "y": 1039.9921875
+    },
+    {
+      "className": "lucide lucide-x icon",
+      "height": 16,
+      "id": "",
+      "index": 347,
+      "tag": "svg",
+      "width": 16,
+      "x": 1288.9609375,
+      "y": 1047.9921875
+    },
+    {
+      "className": null,
+      "height": 8,
+      "id": "",
+      "index": 348,
+      "tag": "path",
+      "width": 8,
+      "x": 1292.9609375,
+      "y": 1051.9921875
+    },
+    {
+      "className": null,
+      "height": 8,
+      "id": "",
+      "index": 349,
+      "tag": "path",
+      "width": 8,
+      "x": 1292.9609375,
+      "y": 1051.9921875
+    },
+    {
+      "className": null,
+      "height": 89.796875,
+      "id": "",
+      "index": 350,
+      "tag": "TR",
+      "width": 1112,
+      "x": 274,
+      "y": 1101.390625
+    },
+    {
+      "className": null,
+      "height": 89.796875,
+      "id": "",
+      "index": 351,
+      "tag": "TD",
+      "width": 249.71875,
+      "x": 274,
+      "y": 1101.390625
+    },
+    {
+      "className": "sku-title",
+      "height": 19.5,
+      "id": "",
+      "index": 352,
+      "tag": "DIV",
+      "width": 225.71875,
+      "x": 286,
+      "y": 1115.390625
+    },
+    {
+      "className": null,
+      "height": 19.5,
+      "id": "",
+      "index": 353,
+      "tag": "BUTTON",
+      "width": 80.2265625,
+      "x": 286,
+      "y": 1115.390625
+    },
+    {
+      "className": "sku-sub",
+      "height": 36.296875,
+      "id": "",
+      "index": 354,
+      "tag": "DIV",
+      "width": 225.71875,
+      "x": 286,
+      "y": 1139.890625
+    },
+    {
+      "className": "num",
+      "height": 89.796875,
+      "id": "",
+      "index": 356,
+      "tag": "TD",
+      "width": 159.8203125,
+      "x": 523.71875,
+      "y": 1101.390625
+    },
+    {
+      "className": null,
+      "height": 34,
+      "id": "",
+      "index": 357,
+      "tag": "INPUT",
+      "width": 88,
+      "x": 583.5390625,
+      "y": 1118.0390625
+    },
+    {
+      "className": "cell-meta price-mode",
+      "height": 16.5,
+      "id": "",
+      "index": 358,
+      "tag": "DIV",
+      "width": 135.8203125,
+      "x": 535.71875,
+      "y": 1157.0390625
+    },
+    {
+      "className": "",
+      "height": 16.5,
+      "id": "",
+      "index": 359,
+      "tag": "SPAN",
+      "width": 33,
+      "x": 638.5390625,
+      "y": 1157.0390625
+    },
+    {
+      "className": "num ",
+      "height": 89.796875,
+      "id": "",
+      "index": 360,
+      "tag": "TD",
+      "width": 118.15625,
+      "x": 683.5390625,
+      "y": 1101.390625
+    },
+    {
+      "className": "margin-target",
+      "height": 16.5,
+      "id": "",
+      "index": 361,
+      "tag": "DIV",
+      "width": 94.15625,
+      "x": 695.5390625,
+      "y": 1147.2890625
+    },
+    {
+      "className": "num",
+      "height": 89.796875,
+      "id": "",
+      "index": 362,
+      "tag": "TD",
+      "width": 159.8203125,
+      "x": 801.6953125,
+      "y": 1101.390625
+    },
+    {
+      "className": null,
+      "height": 34,
+      "id": "",
+      "index": 363,
+      "tag": "INPUT",
+      "width": 88,
+      "x": 861.515625,
+      "y": 1128.7890625
+    },
+    {
+      "className": "num",
+      "height": 89.796875,
+      "id": "",
+      "index": 364,
+      "tag": "TD",
+      "width": 102.734375,
+      "x": 961.515625,
+      "y": 1101.390625
+    },
+    {
+      "className": "num",
+      "height": 89.796875,
+      "id": "",
+      "index": 365,
+      "tag": "TD",
+      "width": 102.734375,
+      "x": 1064.25,
+      "y": 1101.390625
+    },
+    {
+      "className": "num",
+      "height": 89.796875,
+      "id": "",
+      "index": 366,
+      "tag": "TD",
+      "width": 101.9765625,
+      "x": 1166.984375,
+      "y": 1101.390625
+    },
+    {
+      "className": "actions-cell",
+      "height": 89.796875,
+      "id": "",
+      "index": 367,
+      "tag": "TD",
+      "width": 117.0390625,
+      "x": 1268.9609375,
+      "y": 1101.390625
+    },
+    {
+      "className": "icon-btn",
+      "height": 32,
+      "id": "",
+      "index": 368,
+      "tag": "BUTTON",
+      "width": 32,
+      "x": 1280.9609375,
+      "y": 1129.7890625
+    },
+    {
+      "className": "lucide lucide-x icon",
+      "height": 16,
+      "id": "",
+      "index": 369,
+      "tag": "svg",
+      "width": 16,
+      "x": 1288.9609375,
+      "y": 1137.7890625
+    },
+    {
+      "className": null,
+      "height": 8,
+      "id": "",
+      "index": 370,
+      "tag": "path",
+      "width": 8,
+      "x": 1292.9609375,
+      "y": 1141.7890625
+    },
+    {
+      "className": null,
+      "height": 8,
+      "id": "",
+      "index": 371,
+      "tag": "path",
+      "width": 8,
+      "x": 1292.9609375,
+      "y": 1141.7890625
+    },
+    {
+      "className": null,
+      "height": 89.796875,
+      "id": "",
+      "index": 372,
+      "tag": "TR",
+      "width": 1112,
+      "x": 274,
+      "y": 1191.1875
+    },
+    {
+      "className": null,
+      "height": 89.796875,
+      "id": "",
+      "index": 373,
+      "tag": "TD",
+      "width": 249.71875,
+      "x": 274,
+      "y": 1191.1875
+    },
+    {
+      "className": "sku-title",
+      "height": 19.5,
+      "id": "",
+      "index": 374,
+      "tag": "DIV",
+      "width": 225.71875,
+      "x": 286,
+      "y": 1205.1875
+    },
+    {
+      "className": null,
+      "height": 19.5,
+      "id": "",
+      "index": 375,
+      "tag": "BUTTON",
+      "width": 80.2265625,
+      "x": 286,
+      "y": 1205.1875
+    },
+    {
+      "className": "sku-sub",
+      "height": 36.296875,
+      "id": "",
+      "index": 376,
+      "tag": "DIV",
+      "width": 225.71875,
+      "x": 286,
+      "y": 1229.6875
+    },
+    {
+      "className": "num",
+      "height": 89.796875,
+      "id": "",
+      "index": 378,
+      "tag": "TD",
+      "width": 159.8203125,
+      "x": 523.71875,
+      "y": 1191.1875
+    },
+    {
+      "className": null,
+      "height": 34,
+      "id": "",
+      "index": 379,
+      "tag": "INPUT",
+      "width": 88,
+      "x": 583.5390625,
+      "y": 1207.8359375
+    },
+    {
+      "className": "cell-meta price-mode",
+      "height": 16.5,
+      "id": "",
+      "index": 380,
+      "tag": "DIV",
+      "width": 135.8203125,
+      "x": 535.71875,
+      "y": 1246.8359375
+    },
+    {
+      "className": "",
+      "height": 16.5,
+      "id": "",
+      "index": 381,
+      "tag": "SPAN",
+      "width": 33,
+      "x": 638.5390625,
+      "y": 1246.8359375
+    },
+    {
+      "className": "num ",
+      "height": 89.796875,
+      "id": "",
+      "index": 382,
+      "tag": "TD",
+      "width": 118.15625,
+      "x": 683.5390625,
+      "y": 1191.1875
+    },
+    {
+      "className": "margin-target",
+      "height": 16.5,
+      "id": "",
+      "index": 383,
+      "tag": "DIV",
+      "width": 94.15625,
+      "x": 695.5390625,
+      "y": 1237.0859375
+    },
+    {
+      "className": "num",
+      "height": 89.796875,
+      "id": "",
+      "index": 384,
+      "tag": "TD",
+      "width": 159.8203125,
+      "x": 801.6953125,
+      "y": 1191.1875
+    },
+    {
+      "className": null,
+      "height": 34,
+      "id": "",
+      "index": 385,
+      "tag": "INPUT",
+      "width": 88,
+      "x": 861.515625,
+      "y": 1218.5859375
+    },
+    {
+      "className": "num",
+      "height": 89.796875,
+      "id": "",
+      "index": 386,
+      "tag": "TD",
+      "width": 102.734375,
+      "x": 961.515625,
+      "y": 1191.1875
+    },
+    {
+      "className": "num",
+      "height": 89.796875,
+      "id": "",
+      "index": 387,
+      "tag": "TD",
+      "width": 102.734375,
+      "x": 1064.25,
+      "y": 1191.1875
+    },
+    {
+      "className": "num",
+      "height": 89.796875,
+      "id": "",
+      "index": 388,
+      "tag": "TD",
+      "width": 101.9765625,
+      "x": 1166.984375,
+      "y": 1191.1875
+    },
+    {
+      "className": "actions-cell",
+      "height": 89.796875,
+      "id": "",
+      "index": 389,
+      "tag": "TD",
+      "width": 117.0390625,
+      "x": 1268.9609375,
+      "y": 1191.1875
+    },
+    {
+      "className": "icon-btn",
+      "height": 32,
+      "id": "",
+      "index": 390,
+      "tag": "BUTTON",
+      "width": 32,
+      "x": 1280.9609375,
+      "y": 1219.5859375
+    },
+    {
+      "className": "lucide lucide-x icon",
+      "height": 16,
+      "id": "",
+      "index": 391,
+      "tag": "svg",
+      "width": 16,
+      "x": 1288.9609375,
+      "y": 1227.5859375
+    },
+    {
+      "className": null,
+      "height": 8,
+      "id": "",
+      "index": 392,
+      "tag": "path",
+      "width": 8,
+      "x": 1292.9609375,
+      "y": 1231.5859375
+    },
+    {
+      "className": null,
+      "height": 8,
+      "id": "",
+      "index": 393,
+      "tag": "path",
+      "width": 8,
+      "x": 1292.9609375,
+      "y": 1231.5859375
+    },
+    {
+      "className": null,
+      "height": 89.796875,
+      "id": "",
+      "index": 394,
+      "tag": "TR",
+      "width": 1112,
+      "x": 274,
+      "y": 1280.984375
+    },
+    {
+      "className": null,
+      "height": 89.796875,
+      "id": "",
+      "index": 395,
+      "tag": "TD",
+      "width": 249.71875,
+      "x": 274,
+      "y": 1280.984375
+    },
+    {
+      "className": "sku-title",
+      "height": 19.5,
+      "id": "",
+      "index": 396,
+      "tag": "DIV",
+      "width": 225.71875,
+      "x": 286,
+      "y": 1294.984375
+    },
+    {
+      "className": null,
+      "height": 19.5,
+      "id": "",
+      "index": 397,
+      "tag": "BUTTON",
+      "width": 80.2265625,
+      "x": 286,
+      "y": 1294.984375
+    },
+    {
+      "className": "sku-sub",
+      "height": 36.296875,
+      "id": "",
+      "index": 398,
+      "tag": "DIV",
+      "width": 225.71875,
+      "x": 286,
+      "y": 1319.484375
+    },
+    {
+      "className": "num",
+      "height": 89.796875,
+      "id": "",
+      "index": 400,
+      "tag": "TD",
+      "width": 159.8203125,
+      "x": 523.71875,
+      "y": 1280.984375
+    },
+    {
+      "className": null,
+      "height": 34,
+      "id": "",
+      "index": 401,
+      "tag": "INPUT",
+      "width": 88,
+      "x": 583.5390625,
+      "y": 1297.6328125
+    },
+    {
+      "className": "cell-meta price-mode",
+      "height": 16.5,
+      "id": "",
+      "index": 402,
+      "tag": "DIV",
+      "width": 135.8203125,
+      "x": 535.71875,
+      "y": 1336.6328125
+    },
+    {
+      "className": "",
+      "height": 16.5,
+      "id": "",
+      "index": 403,
+      "tag": "SPAN",
+      "width": 33,
+      "x": 638.5390625,
+      "y": 1336.6328125
+    },
+    {
+      "className": "num ",
+      "height": 89.796875,
+      "id": "",
+      "index": 404,
+      "tag": "TD",
+      "width": 118.15625,
+      "x": 683.5390625,
+      "y": 1280.984375
+    },
+    {
+      "className": "margin-target",
+      "height": 16.5,
+      "id": "",
+      "index": 405,
+      "tag": "DIV",
+      "width": 94.15625,
+      "x": 695.5390625,
+      "y": 1326.8828125
+    },
+    {
+      "className": "num",
+      "height": 89.796875,
+      "id": "",
+      "index": 406,
+      "tag": "TD",
+      "width": 159.8203125,
+      "x": 801.6953125,
+      "y": 1280.984375
+    },
+    {
+      "className": null,
+      "height": 34,
+      "id": "",
+      "index": 407,
+      "tag": "INPUT",
+      "width": 88,
+      "x": 861.515625,
+      "y": 1308.3828125
+    },
+    {
+      "className": "num",
+      "height": 89.796875,
+      "id": "",
+      "index": 408,
+      "tag": "TD",
+      "width": 102.734375,
+      "x": 961.515625,
+      "y": 1280.984375
+    },
+    {
+      "className": "num",
+      "height": 89.796875,
+      "id": "",
+      "index": 409,
+      "tag": "TD",
+      "width": 102.734375,
+      "x": 1064.25,
+      "y": 1280.984375
+    },
+    {
+      "className": "num",
+      "height": 89.796875,
+      "id": "",
+      "index": 410,
+      "tag": "TD",
+      "width": 101.9765625,
+      "x": 1166.984375,
+      "y": 1280.984375
+    },
+    {
+      "className": "actions-cell",
+      "height": 89.796875,
+      "id": "",
+      "index": 411,
+      "tag": "TD",
+      "width": 117.0390625,
+      "x": 1268.9609375,
+      "y": 1280.984375
+    },
+    {
+      "className": "icon-btn",
+      "height": 32,
+      "id": "",
+      "index": 412,
+      "tag": "BUTTON",
+      "width": 32,
+      "x": 1280.9609375,
+      "y": 1309.3828125
+    },
+    {
+      "className": "lucide lucide-x icon",
+      "height": 16,
+      "id": "",
+      "index": 413,
+      "tag": "svg",
+      "width": 16,
+      "x": 1288.9609375,
+      "y": 1317.3828125
+    },
+    {
+      "className": null,
+      "height": 8,
+      "id": "",
+      "index": 414,
+      "tag": "path",
+      "width": 8,
+      "x": 1292.9609375,
+      "y": 1321.3828125
+    },
+    {
+      "className": null,
+      "height": 8,
+      "id": "",
+      "index": 415,
+      "tag": "path",
+      "width": 8,
+      "x": 1292.9609375,
+      "y": 1321.3828125
+    },
+    {
+      "className": null,
+      "height": 88.796875,
+      "id": "",
+      "index": 416,
+      "tag": "TR",
+      "width": 1112,
+      "x": 274,
+      "y": 1370.78125
+    },
+    {
+      "className": null,
+      "height": 88.796875,
+      "id": "",
+      "index": 417,
+      "tag": "TD",
+      "width": 249.71875,
+      "x": 274,
+      "y": 1370.78125
+    },
+    {
+      "className": "sku-title",
+      "height": 19.5,
+      "id": "",
+      "index": 418,
+      "tag": "DIV",
+      "width": 225.71875,
+      "x": 286,
+      "y": 1384.78125
+    },
+    {
+      "className": null,
+      "height": 19.5,
+      "id": "",
+      "index": 419,
+      "tag": "BUTTON",
+      "width": 88.6328125,
+      "x": 286,
+      "y": 1384.78125
+    },
+    {
+      "className": "sku-sub",
+      "height": 36.296875,
+      "id": "",
+      "index": 420,
+      "tag": "DIV",
+      "width": 225.71875,
+      "x": 286,
+      "y": 1409.28125
+    },
+    {
+      "className": "num",
+      "height": 88.796875,
+      "id": "",
+      "index": 422,
+      "tag": "TD",
+      "width": 159.8203125,
+      "x": 523.71875,
+      "y": 1370.78125
+    },
+    {
+      "className": null,
+      "height": 34,
+      "id": "",
+      "index": 423,
+      "tag": "INPUT",
+      "width": 88,
+      "x": 583.5390625,
+      "y": 1387.4296875
+    },
+    {
+      "className": "cell-meta price-mode",
+      "height": 16.5,
+      "id": "",
+      "index": 424,
+      "tag": "DIV",
+      "width": 135.8203125,
+      "x": 535.71875,
+      "y": 1426.4296875
+    },
+    {
+      "className": "",
+      "height": 16.5,
+      "id": "",
+      "index": 425,
+      "tag": "SPAN",
+      "width": 33,
+      "x": 638.5390625,
+      "y": 1426.4296875
+    },
+    {
+      "className": "num ",
+      "height": 88.796875,
+      "id": "",
+      "index": 426,
+      "tag": "TD",
+      "width": 118.15625,
+      "x": 683.5390625,
+      "y": 1370.78125
+    },
+    {
+      "className": "margin-target",
+      "height": 16.5,
+      "id": "",
+      "index": 427,
+      "tag": "DIV",
+      "width": 94.15625,
+      "x": 695.5390625,
+      "y": 1416.6796875
+    },
+    {
+      "className": "num",
+      "height": 88.796875,
+      "id": "",
+      "index": 428,
+      "tag": "TD",
+      "width": 159.8203125,
+      "x": 801.6953125,
+      "y": 1370.78125
+    },
+    {
+      "className": null,
+      "height": 34,
+      "id": "",
+      "index": 429,
+      "tag": "INPUT",
+      "width": 88,
+      "x": 861.515625,
+      "y": 1398.1796875
+    },
+    {
+      "className": "num",
+      "height": 88.796875,
+      "id": "",
+      "index": 430,
+      "tag": "TD",
+      "width": 102.734375,
+      "x": 961.515625,
+      "y": 1370.78125
+    },
+    {
+      "className": "num",
+      "height": 88.796875,
+      "id": "",
+      "index": 431,
+      "tag": "TD",
+      "width": 102.734375,
+      "x": 1064.25,
+      "y": 1370.78125
+    },
+    {
+      "className": "num",
+      "height": 88.796875,
+      "id": "",
+      "index": 432,
+      "tag": "TD",
+      "width": 101.9765625,
+      "x": 1166.984375,
+      "y": 1370.78125
+    },
+    {
+      "className": "actions-cell",
+      "height": 88.796875,
+      "id": "",
+      "index": 433,
+      "tag": "TD",
+      "width": 117.0390625,
+      "x": 1268.9609375,
+      "y": 1370.78125
+    },
+    {
+      "className": "icon-btn",
+      "height": 32,
+      "id": "",
+      "index": 434,
+      "tag": "BUTTON",
+      "width": 32,
+      "x": 1280.9609375,
+      "y": 1399.1796875
+    },
+    {
+      "className": "lucide lucide-x icon",
+      "height": 16,
+      "id": "",
+      "index": 435,
+      "tag": "svg",
+      "width": 16,
+      "x": 1288.9609375,
+      "y": 1407.1796875
+    },
+    {
+      "className": null,
+      "height": 8,
+      "id": "",
+      "index": 436,
+      "tag": "path",
+      "width": 8,
+      "x": 1292.9609375,
+      "y": 1411.1796875
+    },
+    {
+      "className": null,
+      "height": 8,
+      "id": "",
+      "index": 437,
+      "tag": "path",
+      "width": 8,
+      "x": 1292.9609375,
+      "y": 1411.1796875
+    },
+    {
+      "className": "total-row",
+      "height": 32,
+      "id": "",
+      "index": 438,
+      "tag": "DIV",
+      "width": 1114,
+      "x": 273,
+      "y": 1472.578125
+    },
+    {
+      "className": null,
+      "height": 18.6953125,
+      "id": "",
+      "index": 439,
+      "tag": "SPAN",
+      "width": 220,
+      "x": 273,
+      "y": 1472.578125
+    },
+    {
+      "className": "row",
+      "height": 32,
+      "id": "",
+      "index": 440,
+      "tag": "DIV",
+      "width": 156.7421875,
+      "x": 1230.2578125,
+      "y": 1472.578125
+    },
+    {
+      "className": "",
+      "height": 16.5,
+      "id": "",
+      "index": 441,
+      "tag": "SPAN",
+      "width": 114.7421875,
+      "x": 1230.2578125,
+      "y": 1480.328125
+    },
+    {
+      "className": "icon-btn",
+      "height": 32,
+      "id": "",
+      "index": 442,
+      "tag": "BUTTON",
+      "width": 32,
+      "x": 1355,
+      "y": 1472.578125
+    },
+    {
+      "className": "lucide lucide-equal icon",
+      "height": 16,
+      "id": "",
+      "index": 443,
+      "tag": "svg",
+      "width": 16,
+      "x": 1363,
+      "y": 1480.578125
+    },
+    {
+      "className": "inline-info",
+      "height": 21.59375,
+      "id": "",
+      "index": 446,
+      "tag": "DETAILS",
+      "width": 1114,
+      "x": 273,
+      "y": 1504.578125
+    },
+    {
+      "className": null,
+      "height": 21.59375,
+      "id": "",
+      "index": 447,
+      "tag": "SUMMARY",
+      "width": 1114,
+      "x": 273,
+      "y": 1504.578125
+    },
+    {
+      "className": null,
+      "height": 43.1875,
+      "id": "",
+      "index": 448,
+      "tag": "P",
+      "width": 1114,
+      "x": 273,
+      "y": 1526.171875
+    },
+    {
+      "className": "page-footer",
+      "height": 56.5,
+      "id": "",
+      "index": 449,
+      "tag": "FOOTER",
+      "width": 1220,
+      "x": 220,
+      "y": 1547.171875
+    },
+    {
+      "className": null,
+      "height": 16.5,
+      "id": "",
+      "index": 450,
+      "tag": "SPAN",
+      "width": 108.359375,
+      "x": 248,
+      "y": 1567.171875
+    },
+    {
+      "className": null,
+      "height": 16.5,
+      "id": "",
+      "index": 451,
+      "tag": "SPAN",
+      "width": 220,
+      "x": 1192,
+      "y": 1567.171875
+    }
+  ],
+  "mode": "pearl",
+  "motion": "false",
+  "styles": [
+    {
+      "rect": {
+        "height": 1603.671875,
+        "width": 1440,
+        "x": 0,
+        "y": 0
+      },
+      "selector": "body",
+      "style": {
+        "backdropFilter": "none",
+        "backgroundColor": "rgb(238, 240, 243)",
+        "backgroundImage": "none",
+        "borderColor": "rgb(37, 48, 68)",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "boxShadow": "none",
+        "color": "rgb(37, 48, 68)",
+        "fontFamily": "InterVariable, \"PingFang SC\", \"Microsoft YaHei\", sans-serif",
+        "fontSize": "14px",
+        "fontWeight": "400",
+        "gap": "normal",
+        "gridTemplateColumns": "none",
+        "lineHeight": "21px",
+        "margin": "0px",
+        "padding": "0px",
+        "position": "static",
+        "zIndex": "auto"
+      }
+    },
+    {
+      "rect": {
+        "height": 1603.671875,
+        "width": 1440,
+        "x": 0,
+        "y": 0
+      },
+      "selector": ".app-shell",
+      "style": {
+        "backdropFilter": "none",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "backgroundImage": "none",
+        "borderColor": "rgb(37, 48, 68)",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "boxShadow": "none",
+        "color": "rgb(37, 48, 68)",
+        "fontFamily": "InterVariable, \"PingFang SC\", \"Microsoft YaHei\", sans-serif",
+        "fontSize": "14px",
+        "fontWeight": "400",
+        "gap": "0px",
+        "gridTemplateColumns": "220px 1220px",
+        "lineHeight": "21px",
+        "margin": "0px",
+        "padding": "0px",
+        "position": "static",
+        "zIndex": "auto"
+      }
+    },
+    {
+      "rect": {
+        "height": 1000,
+        "width": 220,
+        "x": 0,
+        "y": 0
+      },
+      "selector": ".sidebar",
+      "style": {
+        "backdropFilter": "none",
+        "backgroundColor": "rgb(250, 251, 252)",
+        "backgroundImage": "none",
+        "borderColor": "rgb(255, 255, 255)",
+        "borderRadius": "0px",
+        "borderWidth": "0px 1px 0px 0px",
+        "boxShadow": "rgba(58, 80, 113, 0.035) 1px 0px 0px 0px",
+        "color": "rgb(37, 48, 68)",
+        "fontFamily": "InterVariable, \"PingFang SC\", \"Microsoft YaHei\", sans-serif",
+        "fontSize": "14px",
+        "fontWeight": "400",
+        "gap": "24px",
+        "gridTemplateColumns": "none",
+        "lineHeight": "21px",
+        "margin": "0px",
+        "padding": "0px 14px 16px",
+        "position": "sticky",
+        "zIndex": "auto"
+      }
+    },
+    {
+      "rect": {
+        "height": 64,
+        "width": 219,
+        "x": 0,
+        "y": 0
+      },
+      "selector": ".brand",
+      "style": {
+        "backdropFilter": "none",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "backgroundImage": "none",
+        "borderColor": "rgba(72, 90, 116, 0.1)",
+        "borderRadius": "0px",
+        "borderWidth": "0px 0px 1px",
+        "boxShadow": "none",
+        "color": "rgb(37, 48, 68)",
+        "fontFamily": "InterVariable, \"PingFang SC\", \"Microsoft YaHei\", sans-serif",
+        "fontSize": "14px",
+        "fontWeight": "400",
+        "gap": "11px",
+        "gridTemplateColumns": "none",
+        "lineHeight": "21px",
+        "margin": "0px -14px",
+        "padding": "0px 23px",
+        "position": "static",
+        "zIndex": "auto"
+      }
+    },
+    {
+      "rect": {
+        "height": 64,
+        "width": 1220,
+        "x": 220,
+        "y": 0
+      },
+      "selector": ".topbar",
+      "style": {
+        "backdropFilter": "none",
+        "backgroundColor": "rgb(250, 251, 252)",
+        "backgroundImage": "none",
+        "borderColor": "rgb(255, 255, 255)",
+        "borderRadius": "0px",
+        "borderWidth": "0px 0px 1px",
+        "boxShadow": "rgba(50, 71, 102, 0.024) 0px 1px 6px 0px",
+        "color": "rgb(37, 48, 68)",
+        "fontFamily": "InterVariable, \"PingFang SC\", \"Microsoft YaHei\", sans-serif",
+        "fontSize": "14px",
+        "fontWeight": "400",
+        "gap": "16px",
+        "gridTemplateColumns": "none",
+        "lineHeight": "21px",
+        "margin": "0px",
+        "padding": "0px 28px",
+        "position": "sticky",
+        "zIndex": "5"
+      }
+    },
+    {
+      "rect": {
+        "height": 113,
+        "width": 1220,
+        "x": 220,
+        "y": 64
+      },
+      "selector": ".page-header",
+      "style": {
+        "backdropFilter": "none",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "backgroundImage": "none",
+        "borderColor": "rgb(37, 48, 68)",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "boxShadow": "none",
+        "color": "rgb(37, 48, 68)",
+        "fontFamily": "InterVariable, \"PingFang SC\", \"Microsoft YaHei\", sans-serif",
+        "fontSize": "14px",
+        "fontWeight": "400",
+        "gap": "22px",
+        "gridTemplateColumns": "none",
+        "lineHeight": "21px",
+        "margin": "0px",
+        "padding": "26px 28px 24px",
+        "position": "static",
+        "zIndex": "auto"
+      }
+    },
+    {
+      "rect": {
+        "height": 464,
+        "width": 1164,
+        "x": 248,
+        "y": 177
+      },
+      "selector": ".content-grid.plan-overview",
+      "style": {
+        "backdropFilter": "none",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "backgroundImage": "none",
+        "borderColor": "rgb(37, 48, 68)",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "boxShadow": "none",
+        "color": "rgb(37, 48, 68)",
+        "fontFamily": "InterVariable, \"PingFang SC\", \"Microsoft YaHei\", sans-serif",
+        "fontSize": "14px",
+        "fontWeight": "400",
+        "gap": "20px",
+        "gridTemplateColumns": "572px 572px",
+        "lineHeight": "21px",
+        "margin": "0px 28px 22px",
+        "padding": "0px",
+        "position": "static",
+        "zIndex": "auto"
+      }
+    },
+    {
+      "rect": {
+        "height": 464,
+        "width": 572,
+        "x": 248,
+        "y": 177
+      },
+      "selector": ".plan-overview .main-column",
+      "style": {
+        "backdropFilter": "none",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "backgroundImage": "radial-gradient(at 18% 0%, rgb(255, 255, 255), rgba(0, 0, 0, 0) 68%), linear-gradient(125deg, rgb(250, 252, 252) 12%, rgb(229, 233, 240) 62%, rgb(242, 240, 235))",
+        "borderColor": "rgba(255, 255, 255, 0.93)",
+        "borderRadius": "18px",
+        "borderWidth": "1px",
+        "boxShadow": "rgb(255, 255, 255) 1px 1px 1px 0px inset, rgba(255, 255, 255, 0.44) -1px -1px 1px 0px inset, rgba(111, 130, 157, 0.27) 0px 10px 24px -14px",
+        "color": "rgb(37, 48, 68)",
+        "fontFamily": "InterVariable, \"PingFang SC\", \"Microsoft YaHei\", sans-serif",
+        "fontSize": "14px",
+        "fontWeight": "400",
+        "gap": "normal",
+        "gridTemplateColumns": "none",
+        "lineHeight": "21px",
+        "margin": "0px",
+        "padding": "18px 20px",
+        "position": "relative",
+        "zIndex": "auto"
+      }
+    },
+    {
+      "rect": {
+        "height": 464,
+        "width": 572,
+        "x": 840,
+        "y": 177
+      },
+      "selector": ".parameter-rail",
+      "style": {
+        "backdropFilter": "none",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "backgroundImage": "radial-gradient(at 18% 0%, rgb(255, 255, 255), rgba(0, 0, 0, 0) 68%), linear-gradient(125deg, rgb(250, 252, 252) 12%, rgb(229, 233, 240) 62%, rgb(242, 240, 235))",
+        "borderColor": "rgba(255, 255, 255, 0.93)",
+        "borderRadius": "18px",
+        "borderWidth": "1px",
+        "boxShadow": "rgb(255, 255, 255) 1px 1px 1px 0px inset, rgba(255, 255, 255, 0.44) -1px -1px 1px 0px inset, rgba(111, 130, 157, 0.27) 0px 10px 24px -14px",
+        "color": "rgb(37, 48, 68)",
+        "fontFamily": "InterVariable, \"PingFang SC\", \"Microsoft YaHei\", sans-serif",
+        "fontSize": "14px",
+        "fontWeight": "400",
+        "gap": "normal 16px",
+        "gridTemplateColumns": "257px 257px",
+        "lineHeight": "21px",
+        "margin": "0px",
+        "padding": "18px 20px",
+        "position": "relative",
+        "zIndex": "auto"
+      }
+    },
+    {
+      "rect": {
+        "height": 382,
+        "width": 530,
+        "x": 269,
+        "y": 240
+      },
+      "selector": ".metric-grid",
+      "style": {
+        "backdropFilter": "none",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "backgroundImage": "none",
+        "borderColor": "rgb(37, 48, 68)",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "boxShadow": "none",
+        "color": "rgb(37, 48, 68)",
+        "fontFamily": "InterVariable, \"PingFang SC\", \"Microsoft YaHei\", sans-serif",
+        "fontSize": "14px",
+        "fontWeight": "400",
+        "gap": "12px",
+        "gridTemplateColumns": "259px 259px",
+        "lineHeight": "21px",
+        "margin": "0px",
+        "padding": "0px",
+        "position": "static",
+        "zIndex": "auto"
+      }
+    },
+    {
+      "rect": {
+        "height": 185,
+        "width": 259,
+        "x": 269,
+        "y": 240
+      },
+      "selector": ".metric",
+      "style": {
+        "backdropFilter": "none",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "backgroundImage": "linear-gradient(150deg, rgba(255, 255, 255, 0.93), rgba(255, 255, 255, 0.44))",
+        "borderColor": "rgb(255, 255, 255)",
+        "borderRadius": "14px",
+        "borderWidth": "1px",
+        "boxShadow": "rgb(255, 255, 255) 0px 1px 1px 0px inset, rgba(111, 130, 157, 0.07) 0px -1px 0px 0px inset, rgba(111, 130, 157, 0.035) 0px 4px 12px 0px",
+        "color": "rgb(37, 48, 68)",
+        "fontFamily": "InterVariable, \"PingFang SC\", \"Microsoft YaHei\", sans-serif",
+        "fontSize": "14px",
+        "fontWeight": "400",
+        "gap": "normal",
+        "gridTemplateColumns": "none",
+        "lineHeight": "21px",
+        "margin": "0px",
+        "padding": "18px",
+        "position": "static",
+        "zIndex": "auto"
+      }
+    },
+    {
+      "rect": {
+        "height": 32.5,
+        "width": 221,
+        "x": 288,
+        "y": 317.25
+      },
+      "selector": ".metric-value",
+      "style": {
+        "backdropFilter": "none",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "backgroundImage": "none",
+        "borderColor": "rgb(37, 48, 68)",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "boxShadow": "none",
+        "color": "rgb(37, 48, 68)",
+        "fontFamily": "InterVariable, \"PingFang SC\", \"Microsoft YaHei\", sans-serif",
+        "fontSize": "26px",
+        "fontWeight": "600",
+        "gap": "normal",
+        "gridTemplateColumns": "none",
+        "lineHeight": "32.5px",
+        "margin": "10px 0px 7px",
+        "padding": "0px",
+        "position": "static",
+        "zIndex": "auto"
+      }
+    },
+    {
+      "rect": {
+        "height": 18,
+        "width": 221,
+        "x": 288,
+        "y": 289.25
+      },
+      "selector": ".metric-label",
+      "style": {
+        "backdropFilter": "none",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "backgroundImage": "none",
+        "borderColor": "rgb(82, 96, 117)",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "boxShadow": "none",
+        "color": "rgb(82, 96, 117)",
+        "fontFamily": "InterVariable, \"PingFang SC\", \"Microsoft YaHei\", sans-serif",
+        "fontSize": "12px",
+        "fontWeight": "400",
+        "gap": "normal",
+        "gridTemplateColumns": "none",
+        "lineHeight": "18px",
+        "margin": "0px",
+        "padding": "0px",
+        "position": "static",
+        "zIndex": "auto"
+      }
+    },
+    {
+      "rect": {
+        "height": 19,
+        "width": 221,
+        "x": 288,
+        "y": 356.75
+      },
+      "selector": ".metric-desc",
+      "style": {
+        "backdropFilter": "none",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "backgroundImage": "none",
+        "borderColor": "rgb(96, 109, 128)",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "boxShadow": "none",
+        "color": "rgb(96, 109, 128)",
+        "fontFamily": "InterVariable, \"PingFang SC\", \"Microsoft YaHei\", sans-serif",
+        "fontSize": "11px",
+        "fontWeight": "400",
+        "gap": "normal",
+        "gridTemplateColumns": "none",
+        "lineHeight": "18.15px",
+        "margin": "0px",
+        "padding": "0px",
+        "position": "static",
+        "zIndex": "auto"
+      }
+    },
+    {
+      "rect": {
+        "height": 884.171875,
+        "width": 1164,
+        "x": 248,
+        "y": 663
+      },
+      "selector": ".plan-detail-card",
+      "style": {
+        "backdropFilter": "none",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "backgroundImage": "radial-gradient(at 18% 0%, rgb(255, 255, 255), rgba(0, 0, 0, 0) 68%), linear-gradient(125deg, rgb(250, 252, 252) 12%, rgb(229, 233, 240) 62%, rgb(242, 240, 235))",
+        "borderColor": "rgba(255, 255, 255, 0.93)",
+        "borderRadius": "18px",
+        "borderWidth": "1px",
+        "boxShadow": "rgb(255, 255, 255) 1px 1px 1px 0px inset, rgba(255, 255, 255, 0.44) -1px -1px 1px 0px inset, rgba(111, 130, 157, 0.27) 0px 10px 24px -14px",
+        "color": "rgb(37, 48, 68)",
+        "fontFamily": "InterVariable, \"PingFang SC\", \"Microsoft YaHei\", sans-serif",
+        "fontSize": "14px",
+        "fontWeight": "400",
+        "gap": "normal",
+        "gridTemplateColumns": "none",
+        "lineHeight": "21px",
+        "margin": "0px 28px",
+        "padding": "0px 24px 20px",
+        "position": "relative",
+        "zIndex": "auto"
+      }
+    },
+    {
+      "rect": {
+        "height": 48,
+        "width": 1162,
+        "x": 249,
+        "y": 664
+      },
+      "selector": ".tabs",
+      "style": {
+        "backdropFilter": "none",
+        "backgroundColor": "rgba(255, 255, 255, 0.19)",
+        "backgroundImage": "none",
+        "borderColor": "rgb(37, 48, 68) rgb(37, 48, 68) rgba(61, 79, 107, 0.13)",
+        "borderRadius": "17px 17px 0px 0px",
+        "borderWidth": "0px 0px 1px",
+        "boxShadow": "none",
+        "color": "rgb(37, 48, 68)",
+        "fontFamily": "InterVariable, \"PingFang SC\", \"Microsoft YaHei\", sans-serif",
+        "fontSize": "14px",
+        "fontWeight": "400",
+        "gap": "28px",
+        "gridTemplateColumns": "none",
+        "lineHeight": "21px",
+        "margin": "0px -24px 20px",
+        "padding": "0px 24px",
+        "position": "static",
+        "zIndex": "auto"
+      }
+    },
+    {
+      "rect": {
+        "height": 48,
+        "width": 65,
+        "x": 273,
+        "y": 664
+      },
+      "selector": ".tab.active",
+      "style": {
+        "backdropFilter": "none",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "backgroundImage": "none",
+        "borderColor": "rgb(88, 102, 123)",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "boxShadow": "none",
+        "color": "rgb(88, 102, 123)",
+        "fontFamily": "InterVariable, \"PingFang SC\", \"Microsoft YaHei\", sans-serif",
+        "fontSize": "13px",
+        "fontWeight": "600",
+        "gap": "normal",
+        "gridTemplateColumns": "none",
+        "lineHeight": "19.5px",
+        "margin": "0px",
+        "padding": "0px",
+        "position": "relative",
+        "zIndex": "auto"
+      }
+    },
+    {
+      "rect": {
+        "height": 676.578125,
+        "width": 1114,
+        "x": 273,
+        "y": 784
+      },
+      "selector": ".table-scroll",
+      "style": {
+        "backdropFilter": "none",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "backgroundImage": "none",
+        "borderColor": "rgba(70, 92, 124, 0.13)",
+        "borderRadius": "10px",
+        "borderWidth": "1px",
+        "boxShadow": "none",
+        "color": "rgb(37, 48, 68)",
+        "fontFamily": "InterVariable, \"PingFang SC\", \"Microsoft YaHei\", sans-serif",
+        "fontSize": "14px",
+        "fontWeight": "400",
+        "gap": "normal",
+        "gridTemplateColumns": "none",
+        "lineHeight": "21px",
+        "margin": "0px",
+        "padding": "0px",
+        "position": "relative",
+        "zIndex": "auto"
+      }
+    },
+    {
+      "rect": {
+        "height": 47,
+        "width": 249.71875,
+        "x": 274,
+        "y": 785
+      },
+      "selector": "table th",
+      "style": {
+        "backdropFilter": "none",
+        "backgroundColor": "rgb(247, 250, 255)",
+        "backgroundImage": "none",
+        "borderColor": "rgb(85, 100, 122) rgb(85, 100, 122) rgba(61, 79, 107, 0.13)",
+        "borderRadius": "0px",
+        "borderWidth": "0px 0px 1px",
+        "boxShadow": "none",
+        "color": "rgb(85, 100, 122)",
+        "fontFamily": "InterVariable, \"PingFang SC\", \"Microsoft YaHei\", sans-serif",
+        "fontSize": "12px",
+        "fontWeight": "500",
+        "gap": "normal",
+        "gridTemplateColumns": "none",
+        "lineHeight": "18px",
+        "margin": "0px",
+        "padding": "14px 12px",
+        "position": "sticky",
+        "zIndex": "2"
+      }
+    },
+    {
+      "rect": {
+        "height": 89.796875,
+        "width": 249.71875,
+        "x": 274,
+        "y": 832
+      },
+      "selector": "table td",
+      "style": {
+        "backdropFilter": "none",
+        "backgroundColor": "rgb(247, 250, 255)",
+        "backgroundImage": "none",
+        "borderColor": "rgb(53, 65, 85) rgb(53, 65, 85) rgba(61, 79, 107, 0.13)",
+        "borderRadius": "0px",
+        "borderWidth": "0px 0px 1px",
+        "boxShadow": "none",
+        "color": "rgb(53, 65, 85)",
+        "fontFamily": "InterVariable, \"PingFang SC\", \"Microsoft YaHei\", sans-serif",
+        "fontSize": "13px",
+        "fontWeight": "400",
+        "gap": "normal",
+        "gridTemplateColumns": "none",
+        "lineHeight": "19.5px",
+        "margin": "0px",
+        "padding": "14px 12px",
+        "position": "sticky",
+        "zIndex": "1"
+      }
+    },
+    {
+      "rect": {
+        "height": 42,
+        "width": 191,
+        "x": 14,
+        "y": 261
+      },
+      "selector": ".sidebar .nav-item.active",
+      "style": {
+        "backdropFilter": "none",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "backgroundImage": "linear-gradient(115deg, rgb(255, 255, 255), rgb(229, 233, 240))",
+        "borderColor": "rgb(88, 102, 123)",
+        "borderRadius": "10px",
+        "borderWidth": "0px",
+        "boxShadow": "rgb(255, 255, 255) 0px 0px 0px 1px inset, rgba(111, 130, 157, 0.1) 0px 4px 12px 0px",
+        "color": "rgb(88, 102, 123)",
+        "fontFamily": "InterVariable, \"PingFang SC\", \"Microsoft YaHei\", sans-serif",
+        "fontSize": "13px",
+        "fontWeight": "600",
+        "gap": "10px",
+        "gridTemplateColumns": "none",
+        "lineHeight": "19.5px",
+        "margin": "0px",
+        "padding": "0px 12px 0px 11px",
+        "position": "static",
+        "zIndex": "auto"
+      }
+    },
+    {
+      "rect": {
+        "height": 38,
+        "width": 138,
+        "x": 22,
+        "y": 112.5
+      },
+      "selector": ".sidebar-picker-trigger",
+      "style": {
+        "backdropFilter": "none",
+        "backgroundColor": "rgba(255, 255, 255, 0.85)",
+        "backgroundImage": "none",
+        "borderColor": "rgba(76, 103, 142, 0.18)",
+        "borderRadius": "9px",
+        "borderWidth": "1px",
+        "boxShadow": "rgba(255, 255, 255, 0.96) 0px 1px 0px 0px inset, rgba(46, 66, 96, 0.04) 0px 2px 5px 0px",
+        "color": "rgb(37, 48, 68)",
+        "fontFamily": "InterVariable, \"PingFang SC\", \"Microsoft YaHei\", sans-serif",
+        "fontSize": "12px",
+        "fontWeight": "400",
+        "gap": "8px",
+        "gridTemplateColumns": "none",
+        "lineHeight": "18px",
+        "margin": "0px",
+        "padding": "0px 10px",
+        "position": "static",
+        "zIndex": "auto"
+      }
+    },
+    {
+      "rect": {
+        "height": 46,
+        "width": 144,
+        "x": 1268,
+        "y": 98.5
+      },
+      "selector": ".confirm-entry",
+      "style": {
+        "backdropFilter": "none",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "backgroundImage": "linear-gradient(rgb(180, 90, 37), rgb(170, 80, 31))",
+        "borderColor": "rgb(184, 91, 40)",
+        "borderRadius": "6px",
+        "borderWidth": "1px",
+        "boxShadow": "rgba(255, 255, 255, 0.43) 0px 1px 0px 0px inset, rgba(146, 69, 28, 0.38) 0px 5px 10px -4px",
+        "color": "rgb(255, 255, 255)",
+        "fontFamily": "InterVariable, \"PingFang SC\", \"Microsoft YaHei\", sans-serif",
+        "fontSize": "14px",
+        "fontWeight": "600",
+        "gap": "9px",
+        "gridTemplateColumns": "none",
+        "lineHeight": "21px",
+        "margin": "0px",
+        "padding": "0px 22px 0px 11px",
+        "position": "static",
+        "zIndex": "auto"
+      }
+    },
+    {
+      "rect": {
+        "height": 36,
+        "width": 258,
+        "x": 861,
+        "y": 263.5
+      },
+      "selector": ".field input",
+      "style": {
+        "backdropFilter": "none",
+        "backgroundColor": "rgba(255, 255, 255, 0.85)",
+        "backgroundImage": "none",
+        "borderColor": "rgba(77, 99, 130, 0.2)",
+        "borderRadius": "8px",
+        "borderWidth": "1px",
+        "boxShadow": "rgba(65, 87, 119, 0.055) 0px 1px 3px 0px inset, rgba(255, 255, 255, 0.82) 0px 1px 0px 0px",
+        "color": "rgb(37, 48, 68)",
+        "fontFamily": "InterVariable, \"PingFang SC\", \"Microsoft YaHei\", sans-serif",
+        "fontSize": "13px",
+        "fontWeight": "400",
+        "gap": "normal",
+        "gridTemplateColumns": "none",
+        "lineHeight": "19.5px",
+        "margin": "0px",
+        "padding": "0px 10px",
+        "position": "static",
+        "zIndex": "auto"
+      }
+    },
+    {
+      "rect": {
+        "height": 32,
+        "width": 100,
+        "x": 1312,
+        "y": 15.5
+      },
+      "selector": "#ui-mode-toggle",
+      "style": {
+        "backdropFilter": "none",
+        "backgroundColor": "rgba(255, 255, 255, 0.6)",
+        "backgroundImage": "none",
+        "borderColor": "rgba(61, 79, 107, 0.13)",
+        "borderRadius": "8px",
+        "borderWidth": "1px",
+        "boxShadow": "none",
+        "color": "rgb(37, 48, 68)",
+        "fontFamily": "InterVariable, \"PingFang SC\", \"Microsoft YaHei\", sans-serif",
+        "fontSize": "12px",
+        "fontWeight": "400",
+        "gap": "7px",
+        "gridTemplateColumns": "none",
+        "lineHeight": "12px",
+        "margin": "0px",
+        "padding": "0px 10px",
+        "position": "static",
+        "zIndex": "auto"
+      }
+    },
+    {
+      "rect": {
+        "height": 0,
+        "width": 0,
+        "x": 0,
+        "y": 0
+      },
+      "selector": "#ui-rays-canvas",
+      "style": {
+        "backdropFilter": "none",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "backgroundImage": "none",
+        "borderColor": "rgb(37, 48, 68)",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "boxShadow": "none",
+        "color": "rgb(37, 48, 68)",
+        "fontFamily": "InterVariable, \"PingFang SC\", \"Microsoft YaHei\", sans-serif",
+        "fontSize": "14px",
+        "fontWeight": "400",
+        "gap": "normal",
+        "gridTemplateColumns": "none",
+        "lineHeight": "21px",
+        "margin": "0px",
+        "padding": "0px",
+        "position": "fixed",
+        "zIndex": "0"
+      }
+    },
+    {
+      "rect": {
+        "height": 1000,
+        "width": 1440,
+        "x": 0,
+        "y": 0
+      },
+      "selector": "#ui-cursor-trail-layer",
+      "style": {
+        "backdropFilter": "none",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "backgroundImage": "none",
+        "borderColor": "rgb(37, 48, 68)",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "boxShadow": "none",
+        "color": "rgb(37, 48, 68)",
+        "fontFamily": "InterVariable, \"PingFang SC\", \"Microsoft YaHei\", sans-serif",
+        "fontSize": "14px",
+        "fontWeight": "400",
+        "gap": "normal",
+        "gridTemplateColumns": "none",
+        "lineHeight": "21px",
+        "margin": "0px",
+        "padding": "0px",
+        "position": "fixed",
+        "zIndex": "8"
+      }
+    },
+    {
+      "rect": {
+        "height": 0,
+        "width": 0,
+        "x": 0,
+        "y": 0
+      },
+      "selector": "#ui-cursor-trail",
+      "style": {
+        "backdropFilter": "none",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "backgroundImage": "none",
+        "borderColor": "rgb(37, 48, 68)",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "boxShadow": "none",
+        "color": "rgb(37, 48, 68)",
+        "fontFamily": "InterVariable, \"PingFang SC\", \"Microsoft YaHei\", sans-serif",
+        "fontSize": "14px",
+        "fontWeight": "400",
+        "gap": "normal",
+        "gridTemplateColumns": "none",
+        "lineHeight": "21px",
+        "margin": "0px",
+        "padding": "0px",
+        "position": "absolute",
+        "zIndex": "auto"
+      }
+    }
+  ],
+  "trail": "spark",
+  "viewport": {
+    "height": 1000,
+    "width": 1440
+  }
+}

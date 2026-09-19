@@ -11,9 +11,12 @@ const dataDir=path.resolve(process.env.MAT_DATA_DIR||defaultDirectory());
 app.setPath('userData',process.env.MAT_DATA_DIR?path.join(dataDir,'desktop-profile'):path.join(app.getPath('appData'),'mat-roi-workbench'));
 app.setName(productName);
 if(process.platform==='win32')app.setAppUserModelId('local.mat.workbench');
-let running,win,appUrl='',updateService,quitting=false;
+let running,win,appUrl='',updateService,quitting=false,allowClose=false,checkingClose=false;
+const brokerCanQuit=async()=>{
+  try{if(running)return await running.canQuit();const status=await(await fetch(appUrl+'/api/file-jobs/status',{signal:AbortSignal.timeout(1500)})).json();return status.canQuit===true&&!status.busy&&!status.restoring;}catch{return false;}
+};
 const rendererCanQuitForUpdate=async()=>{
-  if(!win||win.isDestroyed())return false;
+  if(!win||win.isDestroyed()||!await brokerCanQuit())return false;
   try{return await win.webContents.executeJavaScript("typeof window.__matUpdateCanQuit==='function' && window.__matUpdateCanQuit()===true",true);}catch{return false;}
 };
 const isTrustedUpdateSender=event=>{
@@ -45,9 +48,23 @@ else{
     win.webContents.setWindowOpenHandler(({url:target})=>{if(target.startsWith('https://'))shell.openExternal(target);return{action:'deny'};});
     win.webContents.on('will-navigate',(event,target)=>{if(!target.startsWith(url+'/'))event.preventDefault();});
     win.webContents.on('did-finish-load',()=>{if(updateService&&!win.isDestroyed())win.webContents.send('updates:status',updateService.status);});
-    // Renderer keeps its per-window draft before a close; ask if the DB has not acknowledged it.
+    // Closing and updating read the same renderer and broker state. Unknown means unsafe.
+    win.on('close',event=>{
+      if(allowClose)return;
+      event.preventDefault();if(checkingClose)return;checkingClose=true;
+      (async()=>{
+        try{
+          await win.webContents.executeJavaScript("typeof window.__matPrepareClose==='function' ? window.__matPrepareClose() : undefined",true);
+          if(await rendererCanQuitForUpdate()){allowClose=true;win.close();return;}
+          const choice=await dialog.showMessageBox(win,{type:'warning',buttons:['继续处理','仍然关闭'],defaultId:0,cancelId:0,message:'还有未提交输入、未确认保存或正在进行的文件任务。',detail:'关闭会停止当前文件任务。仅已成功写入数据库或草稿存储的内容可以恢复；未保留的输入可能丢失。'});
+          if(choice.response===1){allowClose=true;await running?.fileService?.close?.();win.destroy();}
+        }catch(error){dialog.showErrorBox('暂时无法安全关闭','无法确认保存状态。请继续处理并导出未保存的输入后重试。');}
+        finally{checkingClose=false;}
+      })();
+    });
     win.webContents.on('will-prevent-unload',event=>{
-      const choice=dialog.showMessageBoxSync(win,{type:'warning',buttons:['继续编辑','保留草稿并关闭'],defaultId:0,cancelId:0,message:'还有修改尚未存入数据库。',detail:'建议先继续编辑并重试保存。关闭后可从草稿恢复。'});
+      if(allowClose){event.preventDefault();return;}
+      const choice=dialog.showMessageBoxSync(win,{type:'warning',buttons:['继续处理','仍然关闭'],defaultId:0,cancelId:0,message:'还有内容尚未确认保存。',detail:'仅已成功保留的内容可以恢复，未保存的输入可能丢失。'});
       if(choice===1)event.preventDefault();
     });
     win.webContents.session.on('will-download',(_event,item)=>{

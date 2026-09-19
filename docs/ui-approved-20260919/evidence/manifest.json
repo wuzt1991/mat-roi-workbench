@@ -1,0 +1,145 @@
+{
+  "reference_version": "ui-approved-20260919-v1",
+  "capture_date_local": "2026-09-19",
+  "timezone": "Asia/Shanghai",
+  "source": "../reference/public/ui-refinement-frame.html",
+  "origin": "http://127.0.0.1:4193",
+  "environment": "macOS, Codex in-app browser; exact browser build and GPU not recorded",
+  "viewports_css_px": [
+    {
+      "width": 1440,
+      "height": 1000
+    },
+    {
+      "width": 390,
+      "height": 844
+    }
+  ],
+  "data": "Built-in ReviewModel.seed(); no user localStorage exported",
+  "motion": "false; refreshed direct frame after disabling motion; Side Rays elapsed=0",
+  "scroll": "Top of page; not a full-page screenshot",
+  "states": [
+    "main",
+    "shop-menu",
+    "new-shop-dialog",
+    "narrow-main"
+  ],
+  "focus": "Menu/dialog retain interaction focus; mode button may retain hover/focus after switching",
+  "measurements": "Companion JSON records computed styles and nonzero-size rectangles inside #app; counts are not viewport-visible counts. Menus/dialogs outside #app are not covered by that geometry array.",
+  "limits": "Static screenshots do not capture cursor trails or prove motion smoothness. Use frozen source and live inspection for animation acceptance.",
+  "files": [
+    {
+      "path": "moon-1440x1000-static.jpg",
+      "bytes": 92101,
+      "sha256": "8959700785dfd282b032348bc52944cc43bb9f97efae19940bd9075ab41df8b3",
+      "pixel_size": [
+        1440,
+        1000
+      ]
+    },
+    {
+      "path": "moon-1440x1000-static.json",
+      "bytes": 87586,
+      "sha256": "5fda04a62773b08361bb3f4ce43ac491b22bef8a734f2e8518ecf74c2ae5648c"
+    },
+    {
+      "path": "moon-390x844-static.jpg",
+      "bytes": 33918,
+      "sha256": "d8dca7a2c0633885735810bf56e90a486396507add192c2757af57ec2f7da7ce",
+      "pixel_size": [
+        390,
+        844
+      ]
+    },
+    {
+      "path": "moon-390x844-static.json",
+      "bytes": 80271,
+      "sha256": "aee016f49825c52977bfe0bd95913b36cbf08b28e9a02a656610343c886cf308"
+    },
+    {
+      "path": "moon-dialog-1440x1000-static.jpg",
+      "bytes": 36430,
+      "sha256": "e62c6584fb7e6d24545ffdccea2bb2bc0b48567d2ec44aae4a70675e51539d5e",
+      "pixel_size": [
+        1440,
+        1000
+      ]
+    },
+    {
+      "path": "moon-dialog-1440x1000-static.json",
+      "bytes": 87592,
+      "sha256": "6b851ccad2ca86d91877423a3ba79450d9c988e2dffa22703b58b31d53be9416"
+    },
+    {
+      "path": "moon-menu-1440x1000-static.jpg",
+      "bytes": 92999,
+      "sha256": "9cdff0a7241e1b241988994b2c6a2ef1d21cfa01342d683ca46c2b0373f106bf",
+      "pixel_size": [
+        1440,
+        1000
+      ]
+    },
+    {
+      "path": "moon-menu-1440x1000-static.json",
+      "bytes": 87578,
+      "sha256": "64f347dbaa19738f96920da42afc476099ff134fb49140b608eb9488e8e6eac6"
+    },
+    {
+      "path": "rays-1440x1000-static.jpg",
+      "bytes": 98409,
+      "sha256": "43b7db8919b6ffac7db1ca762bb483c867a93c5034f2df748c7c01dea21effee",
+      "pixel_size": [
+        1440,
+        1000
+      ]
+    },
+    {
+      "path": "rays-1440x1000-static.json",
+      "bytes": 87367,
+      "sha256": "74b3ad9e89ea2785e20742b5f0c7be9133bfca59550adf89a1970225d74e07a3"
+    },
+    {
+      "path": "rays-390x844-static.jpg",
+      "bytes": 36616,
+      "sha256": "830a57a6af504c113d37816a82a77be2f4d9c3f820a0f7243407eb4fb670101f",
+      "pixel_size": [
+        390,
+        844
+      ]
+    },
+    {
+      "path": "rays-390x844-static.json",
+      "bytes": 80044,
+      "sha256": "9da20a279f9311dd2d16a21981c6dbba1766c57e3add7c46a4fb212dacc0f686"
+    },
+    {
+      "path": "rays-dialog-1440x1000-static.jpg",
+      "bytes": 31986,
+      "sha256": "f9ab796b002c566688705f8ad2a230bc765f37c21f8175d079fc4a1e6ec18b73",
+      "pixel_size": [
+        1440,
+        1000
+      ]
+    },
+    {
+      "path": "rays-dialog-1440x1000-static.json",
+      "bytes": 87367,
+      "sha256": "74b3ad9e89ea2785e20742b5f0c7be9133bfca59550adf89a1970225d74e07a3"
+    },
+    {
+      "path": "rays-menu-1440x1000-static.jpg",
+      "bytes": 99471,
+      "sha256": "2c28de68a49f7422001d63c71b6ad4e17ac7648b19911f1ffc3cdd6f09866559",
+      "pixel_size": [
+        1440,
+        1000
+      ]
+    },
+    {
+      "path": "rays-menu-1440x1000-static.json",
+      "bytes": 87359,
+      "sha256": "a98cf16072f5b5c5d59aa5aba1220fdfbb8f11bab91b58752d9789ff48210402"
+    }
+  ],
+  "image_format": "JPEG from browser screenshot API, preserved without re-encoding; visual reference, not a lossless zero-pixel-difference fixture"
+}

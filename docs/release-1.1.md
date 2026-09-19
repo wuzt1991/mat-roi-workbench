@@ -1,5 +1,7 @@
 # v1.1.0 release notes and verification
 
+后续版本的必带修复与发布检查见 [下次正式版待发布修复](next-release.md)。本页保留 v1.1.0 的历史交付记录。
+
 Windows 自动更新的仓库配置、发布和迁移步骤见 [Windows 自动更新](windows-auto-update.md)。
 
 Approved prototype v0.8 is promoted into the desktop application, including the alignment patch. The prototype itself remains unchanged during this release task.

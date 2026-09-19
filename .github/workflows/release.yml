@@ -1,4 +1,4 @@
-name: Windows release
+name: Windows release candidate
 
 on:
   push:
@@ -6,12 +6,12 @@ on:
       - 'v*'
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  build-windows:
+  build-and-audit:
     runs-on: windows-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - name: Check out source
         uses: actions/checkout@v4
@@ -22,19 +22,64 @@ jobs:
           node-version: 24
           cache: npm
 
-      - name: Install dependencies
+      - name: Verify tag and package version
+        shell: pwsh
+        run: |
+          $packageVersion = node -p "require('./package.json').version"
+          if ("v$packageVersion" -ne "${{ github.ref_name }}") {
+            throw "Tag ${{ github.ref_name }} does not match package version $packageVersion"
+          }
+
+      - name: Install locked dependencies
         run: npm ci
 
-      - name: Run tests
-        run: npm test
-        timeout-minutes: 10
+      - name: Run tests and source checks
+        run: |
+          npm test
+          npm run check
 
-      - name: Check JavaScript
-        run: npm run check
-
-      - name: Build and publish Windows NSIS release
-        run: npm run release
+      - name: Build Windows package without publishing
+        run: npm run package:win
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           MAT_UPDATE_OWNER: ${{ github.repository_owner }}
           MAT_UPDATE_REPO: ${{ github.event.repository.name }}
+
+      - name: Audit the exact packaged payload
+        run: npm run audit:package -- --artifact dist-builder/win-unpacked
+
+      - name: Probe packaged file-job child process
+        run: npm run audit:package-child -- --artifact dist-builder/win-unpacked
+
+      - name: Smoke test packaged Windows runtime
+        shell: pwsh
+        run: |
+          $env:MAT_DATA_DIR = Join-Path $env:RUNNER_TEMP 'mat-workbench-release-data'
+          $env:MAT_PORT = '4188'
+          $executable = Join-Path $PWD 'dist-builder/win-unpacked/地垫工作台.exe'
+          $process = Start-Process -FilePath $executable -PassThru
+          try {
+            $ready = $false
+            for ($attempt = 0; $attempt -lt 30; $attempt++) {
+              Start-Sleep -Seconds 1
+              try {
+                $health = Invoke-RestMethod 'http://127.0.0.1:4188/api/health' -TimeoutSec 2
+                if ($health.version -eq (node -p "require('./package.json').version")) {
+                  $ready = $true
+                  break
+                }
+              } catch {}
+            }
+            if (-not $ready) { throw 'Packaged application health check did not become ready' }
+          } finally {
+            Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+          }
+
+      - name: Keep audited files as draft workflow artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-release-candidate-${{ github.ref_name }}
+          path: |
+            dist-builder/*.exe
+            dist-builder/*.blockmap
+            dist-builder/latest.yml
+          if-no-files-found: error

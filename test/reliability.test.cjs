@@ -43,7 +43,7 @@ test('新工作区没有虚构销量、每日记录或预估利润',()=>{
 test('SQLite 重启仍保留数据；旧版本、改账和坏数据不能覆盖',t=>{
   const dir=temp();let store=new Store(dir);cleanup(t,dir,()=>store.close());
   const s=M.seed(),p=s.plans[0];M.confirmRecord(s,{frame:M.makeFrame(s,p),date:'2026-09-08'});
-  assert.equal(store.write(s,0).revision,1);store.close();store=new Store(dir);
+  assert.equal(store.restore(s,0,'test-initial').revision,1);store.close();store=new Store(dir);
   assert.deepEqual(store.read().state,s);
   const changed=structuredClone(s);changed.materials[0].price=20;
   assert.equal(store.write(changed,1).revision,2);
@@ -55,7 +55,7 @@ test('SQLite 重启仍保留数据；旧版本、改账和坏数据不能覆盖'
   assert.throws(()=>store.write(broken,2),e=>e.status===422);
   assert.equal(store.read().revision,2);
   const previous=store.backup(store.backups()[0].id);assert.deepEqual(previous,s);
-  assert.equal(store.write(previous,2,'restore').revision,3);
+  assert.equal(store.restore(previous,2,'restore-previous').revision,3);
   assert.deepEqual(store.read().state,s);
 });
 test('HTTP 保存、冲突、备份、来源限制与私有文件隔离',async t=>{
@@ -63,7 +63,7 @@ test('HTTP 保存、冲突、备份、来源限制与私有文件隔离',async t
   cleanup(t,directory,()=>closeServer(running.server));
   const headers={'Content-Type':'application/json','X-Workbench':'1'};
   assert.equal((await (await fetch(url+'/api/state')).json()).revision,0);
-  const state=M.seed();let response=await fetch(url+'/api/state',{method:'PUT',headers,body:JSON.stringify({state,revision:0})});assert.equal(response.status,200);
+  const state=running.store.read().state;let response=await fetch(url+'/api/state',{method:'PUT',headers,body:JSON.stringify({state,revision:0})});assert.equal(response.status,200);
   response=await fetch(url+'/api/state',{method:'PUT',headers,body:JSON.stringify({state,revision:0})});assert.equal(response.status,409);
   response=await fetch(url+'/api/state',{method:'PUT',headers:{...headers,Origin:'https://example.com'},body:JSON.stringify({state,revision:1})});assert.equal(response.status,403);
   const deniedHost=await new Promise((resolve,reject)=>require('node:http').get(url+'/api/state',{headers:{Host:'example.com'}},res=>{res.resume();resolve(res.statusCode);}).on('error',reject));assert.equal(deniedHost,403);

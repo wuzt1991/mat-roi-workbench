@@ -9,7 +9,7 @@ function editMaterial(s,name='水晶绒'){const h=appHarness(s),m=s.materials.fi
 test('P1 编辑材料保留隐藏变体，同价备注也成为报价记录',()=>{
   const s=M.initialState(),{ui,m}=editMaterial(s),variant=M.clone(m.weightRules.find(r=>r.variant)),count=m.history.length;
   ui.modal.draft.note='已确认含税运费';ui.saveModal();
-  assert.deepEqual(M.clone(m.weightRules.find(r=>r.variant)),variant);assert.equal(m.history.length,count+1);assert.equal(m.history.at(-1).note,'已确认含税运费');
+  const saved=ui.state.materials.find(x=>x.id===m.id);assert.deepEqual(M.clone(saved.weightRules.find(r=>r.variant)),variant);assert.equal(saved.history.length,count+1);assert.equal(saved.history.at(-1).note,'已确认含税运费');
 });
 test('P1 UI 和备份拒绝规范化同名材料，并保留编辑内容',()=>{
   const s=M.initialState(),{ui,m}=editMaterial(s);ui.modal.draft.name=' 硅 藻泥　';ui.saveModal();
@@ -27,8 +27,8 @@ test('P1 厚度非数字在保存前被拒绝且没有修改材料',()=>{
   assert.deepEqual(m,before);assert.equal(ui.modal.type,'material');
 });
 test('P1 重量入口始终可达，自动重量加包装，手动总重不重复加包装',()=>{
-  const s=M.initialState(),p=s.plans[0];p.materialId=s.materials.find(m=>m.name==='硅藻泥').id;p.items=[{sizeId:s.sizes[1].id,price:20,share:100,weight:''}];p.packagingWeight=.1;
-  const {ui}=appHarness(s);let r=M.calculate(s,p);assert.ok(Math.abs(r.rows[0].weight-.316)<1e-12);assert.match(ui.skuTable(r),/data-action="weight"/);
+  const s=M.initialState(),p=s.plans[0];p.materialId=s.materials.find(m=>m.name==='硅藻泥').id;p.items=[{id:'item-test',sizeId:s.sizes[1].id,price:20,share:100,weight:'',priceMode:'plan',sales:null,productId:'',skuId:''}];p.packagingWeight=.1;
+  const {ui}=appHarness(s);let r=M.calculate(s,p);assert.ok(Math.abs(r.rows[0].weight-.316)<1e-12);assert.match(ui.skuTable(r),/data-action="sku-settings"/);assert.doesNotMatch(ui.skuTable(r),/data-action="weight"/);
   p.items[0].weight=.5;r=M.calculate(s,p);assert.equal(r.rows[0].weight,.5);
   p.packagingWeight=-1;assert.equal(M.calculate(s,p).valid,false);assert.equal(M.validateBackup(s),false);
 });

@@ -1,7 +1,7 @@
 {
   "name": "mat-roi-workbench",
   "productName": "地垫工作台",
-  "version": "1.1.10",
+  "version": "1.2.0",
   "private": true,
   "description": "地垫投放测算与账本工作台",
   "main": "desktop.cjs",
@@ -11,16 +11,22 @@
     "node": ">=24"
   },
   "dependencies": {
-    "electron-updater": "6.6.2"
+    "electron-updater": "6.6.2",
+    "sax": "1.6.1",
+    "yauzl": "3.4.0",
+    "yazl": "3.3.1"
   },
   "scripts": {
     "start": "node server/index.cjs",
     "desktop": "electron .",
     "test": "node --test test/*.test.cjs test/*.test.js",
     "check": "node scripts/check.cjs",
+    "audit:package": "node scripts/audit-release-package.cjs",
+    "audit:package-child": "node scripts/audit-packaged-child.cjs",
     "package": "node scripts/package.cjs",
+    "package:win:dir": "electron-builder --config electron-builder.config.cjs --win dir --x64 --publish never",
     "package:win": "electron-builder --config electron-builder.config.cjs --win nsis --x64 --publish never",
-    "release": "electron-builder --config electron-builder.config.cjs --win nsis --x64 --publish always"
+    "release": "node scripts/release-disabled.cjs"
   },
   "devDependencies": {
     "@electron/packager": "20.3.0",

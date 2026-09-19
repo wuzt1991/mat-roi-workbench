@@ -6,7 +6,7 @@ const W=require('../public/workbook.js');
 const {appHarness}=require('./app-harness.cjs');
 const headers=['平台','店铺','平台商品名称','平台规格名称','平台商品ID','平台规格ID','平台售价','售卖状态','平台库存'];
 const source=(spec='40x60cm',price=20,inventory=5,name='硅藻泥')=>[headers,['淘宝','测试店',name,spec,'product','sku',price,'在售',inventory]];
-function costState(){const s=M.initialState(),p=s.plans[0];p.materialId=s.materials.find(m=>m.name==='硅藻泥').id;p.items=[{sizeId:s.sizes[1].id,price:30,share:100,weight:''}];p.params.spend=100;p.params.actualRoi=3;return s;}
+function costState(){const s=M.initialState(),p=s.plans[0];p.materialId=s.materials.find(m=>m.name==='硅藻泥').id;p.items=[{id:'item-test',sizeId:s.sizes[1].id,price:30,share:100,weight:'',priceMode:'plan',sales:null,productId:'',skuId:''}];p.params.spend=100;p.params.actualRoi=3;return s;}
 
 test('P0-1 入账实际报价经 UI 改价后决定冻结成本、利润及 Excel',async()=>{
   const s=costState(),{ui,dispatch}=appHarness(s);ui.startEntry();

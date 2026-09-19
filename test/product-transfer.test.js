@@ -6,9 +6,9 @@ const P=require('../public/product-transfer.js');
 const Excel=require('../public/assets/exceljs.min.js');
 
 const template=fs.readFileSync(path.join(__dirname,'../public/assets/product-template.xlsx'));
-async function sourceWorkbook(){
+async function sourceWorkbook(count=139){
   const book=new Excel.Workbook(),sheet=book.addWorksheet('商品');sheet.addRow(P.HEADERS);
-  for(let i=1;i<=139;i++){
+  for(let i=1;i<=count;i++){
     const row=Array(29).fill('');
     Object.assign(row,{0:i,1:'抖音',2:'测试店铺',3:'繁花仿亚麻硅藻泥脚垫',4:'碎花;40*60cm【升级吸水款】基础款',17:`product-${i}`,18:`sku-${i}`,19:19.98,20:'在售',21:9991});
     sheet.addRow(row);
@@ -42,6 +42,21 @@ test('商品转表导出复制模板样式并清除公式，输出 29 列和 139
   assert.equal(sheet.getCell('R2').formula,undefined);assert.equal(sheet.getCell('S2').formula,undefined);
   assert.equal(sheet.getCell('R2').type,Excel.ValueType.String);assert.equal(sheet.getCell('S2').type,Excel.ValueType.String);assert.equal(sheet.getCell('AC140').value,'');
   assert.equal(sheet.getCell('F2').value,'硅藻泥');assert.equal(sheet.getCell('L2').value,.216);
+});
+
+for(const count of [1,60,99,100])test(`商品转表导出 ${count} 条规格时删除模板尾行且无残留公式`,async()=>{
+  const result=await P.analyze(template,await sourceWorkbook(count));
+  const book=new Excel.Workbook();await book.xlsx.load(await P.exportWorkbook(template,result));
+  const original=new Excel.Workbook();await original.xlsx.load(template);
+  const sheet=book.worksheets[0],source=original.worksheets[0];
+  assert.equal(sheet.rowCount,count+1);
+  assert.equal(sheet.columnCount,29);
+  assert.equal(sheet.autoFilter,`A1:AC${count+1}`);
+  for(let r=2;r<=count+1;r++){
+    assert.deepEqual(sheet.getRow(r).values.slice(1),result.rows[r-2].values);
+    sheet.getRow(r).eachCell(cell=>assert.equal(cell.formula,undefined));
+    for(const c of [4,7,8,12,18,19,28])assert.deepEqual(sheet.getCell(r,c).style,source.getCell(r,c).style);
+  }
 });
 
 test('未解决异常禁止导出，复核后才解锁',async()=>{

@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>地垫工作台 · 单计划投流测算 v5</title>
+  <link rel="icon" href="assets/brand-mark.svg" type="image/svg+xml">
+  <link rel="preload" href="assets/InterVariable.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="pricing-prototype.css?v=5">
+  <script src="assets/lucide.min.js" defer></script>
+  <script src="assets/exceljs.min.js" defer></script>
+  <script src="legacy-domain.js" defer></script>
+  <script src="domain.js" defer></script>
+  <script src="product-transfer.js" defer></script>
+  <script src="workbook.js" defer></script>
+  <script src="pricing-prototype-model.js" defer></script>
+  <script src="pricing-plan-model.js" defer></script>
+  <script src="pricing-inline-model.js?v=5" defer></script>
+  <script src="pricing-prototype.js?v=5" defer></script>
+</head>
+<body>
+  <a class="skip" href="#content">跳到主内容</a>
+  <div id="prototype"></div>
+  <dialog id="editor" aria-labelledby="dialog-title"></dialog>
+  <div id="notice" role="status" aria-live="polite"></div>
+  <input type="file" id="backup-file" name="backup-file" accept=".json,.xlsx" aria-label="导入备份" hidden>
+  <input type="file" id="erp-file" name="erp-file" accept=".xlsx" aria-label="导入 ERP 商品规格" hidden>
+</body>
+</html>

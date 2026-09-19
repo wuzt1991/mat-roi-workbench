@@ -2,6 +2,8 @@
 
 这份说明面向维护公开 GitHub 仓库的发布者。当前版本只支持 Windows x64；macOS 不参与自动更新。
 
+每次正式发布前，先完成 [下次正式版待发布修复](next-release.md) 中的检查；本机热修复不会自动进入发布安装包。
+
 ## 更新行为
 
 工作台顶部的“检查更新”按钮连接固定的 GitHub Releases 源。应用不会在启动时自动检查，也不会自动下载或打断当前工作。
@@ -38,25 +40,25 @@ npm run package:win
 
 本地 `package:win` 永远使用 `--publish never`，产物写入 `dist-builder/`。配置了 owner 和 repo 后，electron-builder 会生成 NSIS 安装包、`latest.yml` 和 blockmap 元数据。未设置这两个变量时不会写入虚构仓库，构建仍可用于静态检查，但不能发布更新源。
 
-## 发布 v1.1.8
+## v1.2.0 候选产物
 
-在 Windows runner 上创建 tag 会运行测试、语法检查、NSIS 构建，并使用 GitHub Actions 内置 `GITHUB_TOKEN` 创建或更新 Release：
+在 Windows runner 上创建与 `package.json` 完全一致的 tag（如 `v1.2.0`）会运行锁定安装、测试、语法和资源清单检查、NSIS 构建、包内审计以及隔离数据目录的健康检查。工作流只保留候选产物，不创建 GitHub Release，也不发布更新：
 
 ```sh
-npm version 1.1.8 --no-git-tag-version
+npm version 1.2.0 --no-git-tag-version
 git add package.json package-lock.json
-git commit -m "release: v1.1.8"
-git tag v1.1.8
-git push origin main v1.1.8
+git commit -m "release candidate: v1.2.0"
+git tag v1.2.0
+git push origin main v1.2.0
 ```
 
-工作流从 `github.repository_owner` 和 `github.event.repository.name` 设置 `MAT_UPDATE_OWNER`、`MAT_UPDATE_REPO`，因此仓库名称不需要硬编码。Release 资产至少包含：
+工作流从 `github.repository_owner` 和 `github.event.repository.name` 设置 `MAT_UPDATE_OWNER`、`MAT_UPDATE_REPO`，因此仓库名称不需要硬编码。候选工作流产物至少包含：
 
-- `地垫工作台-1.1.8-windows-x64.exe`
+- `地垫工作台-1.2.0-windows-x64.exe`
 - `latest.yml`
 - 对应的 `.blockmap`
 
-发布前请在 Actions 日志确认 `npm test`、`npm run check` 和 `npm run release` 均返回退出码 0。Windows 安装包和真实升级流程需要 Windows 机器验证；本机 macOS 不能替代该验证。
+候选流程会执行 `npm test`、`npm run check`、`npm run package:win` 和成品审计。`npm run release` 已被禁用，避免在验收后又重新构建一份未测试的产物。Windows 安装升级、真实大表、G62、旧库迁移和视觉性能须对同一候选产物完成 S7 验收；在此之前不发布。macOS 本机不能替代 Windows 实机或 runner 验证。
 
 ## 旧 ZIP 版迁移
 

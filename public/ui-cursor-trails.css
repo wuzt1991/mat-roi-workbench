@@ -1,0 +1,5 @@
+/* A local transparent drawing surface; it never participates in layout or hit testing. */
+#ui-cursor-trail-layer { position:fixed; inset:0; overflow:hidden; pointer-events:none; z-index:8; contain:strict; }
+#ui-cursor-trail { position:absolute; left:0; top:0; width:272px; height:272px; pointer-events:none; contain:strict; }
+#ui-cursor-trail[hidden] { display:none; }
+@media (prefers-reduced-motion:reduce), (pointer:coarse) { #ui-cursor-trail { display:none; } }

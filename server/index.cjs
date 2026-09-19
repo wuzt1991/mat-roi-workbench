@@ -25,8 +25,14 @@ async function body(request) {
   try { return JSON.parse(Buffer.concat(chunks).toString('utf8')); }
   catch { throw new StoreError(400, '请求内容不是有效 JSON。'); }
 }
-function createServer({ dataDir = defaultDirectory(), port = 4173 } = {}) {
-  const store = new Store(dataDir);
+function createServer({ dataDir = defaultDirectory(), port = 4173, storeOptions, fileServiceFactory } = {}) {
+  const store = new Store(dataDir,storeOptions);
+  let factory=fileServiceFactory;
+  if(factory===undefined){try{factory=require('./file-service.cjs').createFileService;}catch(error){if(error.code!=='MODULE_NOT_FOUND'||!error.message.includes("'./file-service.cjs'"))throw error;}}
+  const fileService=factory?factory({store,dataDir}):null;
+  let restoring=false;
+  const attachment=(response,name,raw)=>{response.writeHead(200,{'Content-Type':'application/json; charset=utf-8','Content-Disposition':'attachment; filename="'+name+'"'});response.end(raw);};
+  const requireJSON=request=>{if(!request.headers['content-type']?.startsWith('application/json')||request.headers['x-workbench']!=='1')throw new StoreError(415,'请求格式不支持。','UNSUPPORTED_CONTENT_TYPE');};
   const server = http.createServer(async (request, response) => {
     response.setHeader('Cache-Control', 'no-store');
     response.setHeader('X-Content-Type-Options', 'nosniff');
@@ -43,15 +49,38 @@ function createServer({ dataDir = defaultDirectory(), port = 4173 } = {}) {
         return response.end(request.method==='HEAD'?undefined:'window.WorkbenchConfig=Object.freeze('+JSON.stringify({version,platform:process.platform,updatesSupported:process.platform==='win32'&&process.arch==='x64'})+');');
       }
       if (url.pathname === '/api/health') return json(response, 200, { app: 'mat-roi-workbench', version, dataDir:path.resolve(dataDir) });
+      if (url.pathname === '/api/recovery/status' && request.method === 'GET') return json(response,200,store.recoveryStatus());
+      if (url.pathname === '/api/recovery/current/raw' && request.method === 'GET') return attachment(response,'workspace-original.json',store.rawCurrent());
       if (url.pathname === '/api/state' && request.method === 'GET') return json(response, 200, store.read());
       if (url.pathname === '/api/state' && request.method === 'PUT') {
-        if (!request.headers['content-type']?.startsWith('application/json') || request.headers['x-workbench'] !== '1') throw new StoreError(415, '请求格式不支持。');
+        requireJSON(request);
+        if(restoring)throw new StoreError(409,'正在恢复工作区，请稍后重试。','RESTORE_IN_PROGRESS');
         const input = await body(request);
-        if (!['save', 'restore', 'migration'].includes(input.reason || 'save')) throw new StoreError(400, '保存操作无效。');
-        return json(response, 200, store.write(input.state, input.revision, input.reason));
+        if (input.reason!==undefined&&input.reason!=='save') throw new StoreError(400,'普通保存不允许迁移或整库恢复。','INVALID_SAVE_REASON');
+        const meta=store.metadata();
+        if((input.workspaceId!==undefined&&input.workspaceId!==meta.workspaceId)||(input.storageEpoch!==undefined&&input.storageEpoch!==meta.storageEpoch))throw new StoreError(409,'工作区已恢复，请刷新后重试。','WORKSPACE_CONTEXT_CHANGED');
+        const save=()=>{if(restoring)throw new StoreError(409,'正在恢复工作区，请稍后重试。','RESTORE_IN_PROGRESS');return store.write(input.state,input.revision);};
+        const result=fileService?.withWorkspaceWrite?await fileService.withWorkspaceWrite(save,input.state):save();
+        return json(response,200,result);
       }
+      if (url.pathname === '/api/restore' && request.method === 'POST') {
+        requireJSON(request);
+        const input=await body(request);
+        if(restoring)throw new StoreError(409,'已有恢复操作正在处理，请稍后核对结果。','RESTORE_IN_PROGRESS');
+        restoring=true;let result;
+        try {
+          await fileService?.beforeRestore?.();
+          result=store.restore(input.state,input.expectedRevision,input.operationId);
+          return json(response,200,result);
+        } finally {
+          try{await fileService?.afterRestore?.({committed:!!result,result});}finally{restoring=false;}
+        }
+      }
+      if (/^\/api\/backups\/\d+\/raw$/.test(url.pathname) && request.method === 'GET') {const id=Number(url.pathname.split('/')[3]);return attachment(response,'recovery-'+id+'-original.json',store.backupRaw(id));}
       if (url.pathname === '/api/backups' && request.method === 'GET') return json(response, 200, { items: store.backups(), dataDir });
       if (/^\/api\/backups\/\d+$/.test(url.pathname) && request.method === 'GET') return json(response, 200, store.backup(Number(url.pathname.split('/').at(-1))));
+      if(fileService&&await fileService.handle(request,response,url))return;
+      if(url.pathname==='/api/file-jobs/status'&&request.method==='GET')return json(response,200,{busy:false,canQuit:!restoring,restoring});
       if (url.pathname.startsWith('/api/')) throw new StoreError(404, '接口不存在。');
       if (!['GET', 'HEAD'].includes(request.method)) throw new StoreError(405, '操作不支持。');
       const relative = decodeURIComponent(url.pathname === '/' ? '/index.html' : url.pathname);
@@ -60,11 +89,11 @@ function createServer({ dataDir = defaultDirectory(), port = 4173 } = {}) {
       let bytes; try { bytes = fs.readFileSync(filename); } catch { throw new StoreError(404, '文件不存在。'); }
       response.writeHead(200, { 'Content-Type': TYPES[path.extname(filename)] });
       response.end(request.method === 'HEAD' ? undefined : bytes);
-    } catch (error) { json(response, error.status || 500, { error: error.status ? error.message : '保存服务发生错误，请重试。已有数据保留。' }); }
+    } catch (error) { if(!response.headersSent)json(response,error.status||500,{error:error.status?error.message:'保存服务发生错误，请重试。已有数据保留。',code:error.code||'INTERNAL_ERROR'});else response.destroy(); }
   });
   server.requestTimeout = 15000;
-  server.on('close', () => store.close());
-  return { server, store, listen: () => new Promise((resolve, reject) => {
+  server.on('close',()=>{Promise.resolve(fileService?.close?.()).catch(()=>{}).finally(()=>store.close());});
+  return { server,store,fileService,canQuit:()=>!restoring&&(fileService?.canQuit?.()??true), listen: () => new Promise((resolve, reject) => {
     server.once('error', reject);
     server.listen(port, '127.0.0.1', () => { server.removeListener('error', reject); resolve(`http://127.0.0.1:${server.address().port}`); });
   }) };

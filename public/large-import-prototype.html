@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>大表格导入原型 · 地垫工作台</title>
+  <link rel="stylesheet" href="large-import-prototype.css">
+  <script src="assets/lucide.min.js" defer></script>
+  <script src="large-import-prototype.js" defer></script>
+</head>
+<body class="proto-body">
+  <div class="proto-app" id="prototype-app">
+    <aside class="proto-sidebar" id="proto-sidebar">
+      <a class="proto-brand" href="#" aria-label="地垫工作台首页" data-action="reset">
+        <span class="proto-brand-mark"><span></span><span></span><span></span></span>
+        <span><strong>地垫工作台</strong><small>全域投放 · 盈亏测算</small></span>
+      </a>
+      <div class="proto-shop-label">当前店铺</div>
+      <button class="proto-shop-picker" type="button"><span>我的店铺</span><i data-lucide="chevrons-up-down" aria-hidden="true"></i></button>
+      <nav class="proto-nav" aria-label="主导航">
+        <a href="#" data-action="nav"><i data-lucide="layout-dashboard" aria-hidden="true"></i><span>投放测算</span></a>
+        <a href="#" data-action="nav"><i data-lucide="chart-no-axes-combined" aria-hidden="true"></i><span>总账</span></a>
+        <a href="#" data-action="nav"><i data-lucide="library" aria-hidden="true"></i><span>公共资料</span></a>
+        <a href="#" class="active" aria-current="page"><i data-lucide="table-2" aria-hidden="true"></i><span>商品转表</span></a>
+      </nav>
+      <div class="proto-plan-title"><span>我的计划</span><button type="button" aria-label="新建计划"><i data-lucide="plus" aria-hidden="true"></i></button></div>
+      <div class="proto-plans">
+        <div class="proto-plan"><span>1</span><div><strong>A · 日常投放</strong><small>保本 ROI 2.79</small></div></div>
+        <div class="proto-plan"><span>2</span><div><strong>B · 大尺寸测试</strong><small>保本 ROI 待完善</small></div></div>
+        <div class="proto-plan"><span>3</span><div><strong>全域-喜庆红色</strong><small>保本 ROI 无法保本</small></div></div>
+      </div>
+      <div class="proto-sidebar-bottom">
+        <a href="#" data-action="nav"><i data-lucide="file-spreadsheet" aria-hidden="true"></i><span>备份与迁移</span></a>
+        <small class="proto-local-status"><span></span>本机保存 · 手动录入</small>
+        <small>正式版 v1.1.1 · PC</small>
+      </div>
+    </aside>
+
+    <main class="proto-workspace">
+      <header class="proto-topbar">
+        <div class="proto-crumbs"><span>工作台</span><i data-lucide="chevron-right" aria-hidden="true"></i><strong>商品转表</strong></div>
+        <div class="proto-topbar-actions">
+          <span class="proto-version">导入性能预览</span>
+          <span class="proto-saved"><span></span>已保存到电脑</span>
+          <button type="button" class="proto-icon-button" aria-label="打开菜单" title="打开菜单" data-action="mobile-menu"><i data-lucide="menu" aria-hidden="true"></i></button>
+        </div>
+      </header>
+
+      <div class="proto-page-header">
+        <div>
+          <p class="proto-eyebrow">商品资料 · 批量处理</p>
+          <h1>商品转表</h1>
+          <p>把 ERP 商品规格拆成可控批次，复核后合并导出固定模板。</p>
+        </div>
+        <div class="proto-page-actions">
+          <button type="button" class="proto-button proto-button-secondary" data-action="reset"><i data-lucide="rotate-ccw" aria-hidden="true"></i>重新开始</button>
+          <button type="button" class="proto-button proto-button-primary" id="export-button" data-action="export" disabled><i data-lucide="download" aria-hidden="true"></i>导出商品表</button>
+        </div>
+      </div>
+
+      <nav class="proto-steps" aria-label="导入流程">
+        <div class="proto-step active" data-step="ready"><span>01</span><div><strong>预检</strong><small>读取文件范围</small></div></div>
+        <div class="proto-step" data-step="processing"><span>02</span><div><strong>分批解析</strong><small>后台处理行数据</small></div></div>
+        <div class="proto-step" data-step="review"><span>03</span><div><strong>异常复核</strong><small>按商品 ID 聚合</small></div></div>
+        <div class="proto-step" data-step="complete"><span>04</span><div><strong>合并导出</strong><small>生成固定模板</small></div></div>
+      </nav>
+
+      <section class="proto-content" id="proto-content" aria-live="polite"></section>
+    </main>
+  </div>
+  <div class="proto-toast" id="proto-toast" role="status" aria-live="polite"></div>
+</body>
+</html>
