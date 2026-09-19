@@ -1,0 +1,81 @@
+name: Windows candidate validation
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-audit:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - name: Check out selected validation ref
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Identify candidate
+        shell: pwsh
+        run: |
+          $packageVersion = node -p "require('./package.json').version"
+          Write-Host "Windows candidate validation for v$packageVersion on ref $env:GITHUB_REF_NAME"
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Run tests and source checks
+        run: |
+          npm test
+          npm run check
+
+      - name: Build Windows package without publishing
+        run: npm run package:win
+        env:
+          MAT_UPDATE_OWNER: ${{ github.repository_owner }}
+          MAT_UPDATE_REPO: ${{ github.event.repository.name }}
+
+      - name: Audit the exact packaged payload
+        run: npm run audit:package -- --artifact dist-builder/win-unpacked
+
+      - name: Probe packaged file-job child process
+        run: npm run audit:package-child -- --artifact dist-builder/win-unpacked
+
+      - name: Smoke test packaged Windows runtime
+        shell: pwsh
+        run: |
+          $env:MAT_DATA_DIR = Join-Path $env:RUNNER_TEMP 'mat-workbench-candidate-data'
+          $env:MAT_PORT = '4188'
+          $executable = Join-Path $PWD 'dist-builder/win-unpacked/地垫工作台.exe'
+          $process = Start-Process -FilePath $executable -PassThru
+          try {
+            $ready = $false
+            for ($attempt = 0; $attempt -lt 30; $attempt++) {
+              Start-Sleep -Seconds 1
+              try {
+                $health = Invoke-RestMethod 'http://127.0.0.1:4188/api/health' -TimeoutSec 2
+                if ($health.version -eq (node -p "require('./package.json').version")) {
+                  $ready = $true
+                  break
+                }
+              } catch {}
+            }
+            if (-not $ready) { throw 'Packaged application health check did not become ready' }
+          } finally {
+            Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+          }
+
+      - name: Keep audited files as workflow artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-candidate-${{ github.run_id }}
+          path: |
+            dist-builder/*.exe
+            dist-builder/*.blockmap
+            dist-builder/latest.yml
+          if-no-files-found: error
