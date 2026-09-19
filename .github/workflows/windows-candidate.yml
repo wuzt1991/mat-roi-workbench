@@ -35,7 +35,16 @@ jobs:
         run: npm ci
 
       - name: Run tests
-        run: npm test
+        shell: pwsh
+        run: |
+          $output = npm test 2>&1
+          $testExit = $LASTEXITCODE
+          $output | Write-Output
+          if ($testExit -ne 0) {
+            $details = ($output | Select-Object -Last 130) -join "`n"
+            Write-Host ('::error::' + $details.Replace('%','%25').Replace("`r",'%0D').Replace("`n",'%0A'))
+            exit $testExit
+          }
 
       - name: Check source
         run: npm run check
