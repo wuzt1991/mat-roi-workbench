@@ -29,11 +29,12 @@ function record(name, details = {}) { report.steps.push({ name, ...details }); c
 function annotation(level, details) { console.log(`::${level}::` + JSON.stringify(details).replaceAll('%', '%25').replaceAll('\r', '%0D').replaceAll('\n', '%0A')); }
 function samePath(left, right) { return typeof left === 'string' && path.resolve(left).toLowerCase() === path.resolve(right).toLowerCase(); }
 function powershell(command) {
-  return spawnSync('powershell.exe', ['-NoProfile', '-Command', '[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new(); ' + command], { encoding: 'utf8', timeout: 15000 });
+  const script = '[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new(); ' + command;
+  return spawnSync('powershell.exe', ['-NoProfile', '-EncodedCommand', Buffer.from(script, 'utf16le').toString('base64')], { encoding: 'utf8', timeout: 15000 });
 }
 function inspectWindowsRuntime() {
   const target = executable.replaceAll("'", "''");
-  const result = powershell(`$file = Get-Item -LiteralPath '${target}' -ErrorAction SilentlyContinue; $processes = @(Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -eq '${target}' -or $_.Name -match '地垫|installer' } | Select-Object ProcessId, ParentProcessId, ExecutablePath, CommandLine); $listeners = @(Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue | Where-Object { $_.LocalPort -in @(4173,4188,9225) } | Select-Object LocalAddress, LocalPort, OwningProcess); [pscustomobject]@{ executable = [pscustomobject]@{ path = '${target}'; exists = [bool]$file; productVersion = $file.VersionInfo.ProductVersion; fileVersion = $file.VersionInfo.FileVersion }; processes = $processes; listeners = $listeners } | ConvertTo-Json -Depth 5 -Compress`);
+  const result = powershell(`$file = Get-Item -LiteralPath '${target}' -ErrorAction SilentlyContinue; $listeners = @(Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue | Where-Object { $_.LocalPort -in @(4173,4188,9225) } | Select-Object LocalAddress, LocalPort, OwningProcess); $processes = @(Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -eq '${target}' -or $_.Name -match '地垫|installer|setup|nsis' -or $_.CommandLine -match '--updated|mat-upgrade-validation' -or $_.ProcessId -in $listeners.OwningProcess } | Select-Object ProcessId, ParentProcessId, ExecutablePath, CommandLine); [pscustomobject]@{ executable = [pscustomobject]@{ path = '${target}'; exists = [bool]$file; productVersion = $file.VersionInfo.ProductVersion; fileVersion = $file.VersionInfo.FileVersion }; processes = $processes; listeners = $listeners } | ConvertTo-Json -Depth 5 -Compress`);
   if (result.error || result.status !== 0) throw Error(`Windows process inspection failed: ${result.error?.message || result.stderr || result.status}`);
   return JSON.parse(result.stdout.trim());
 }
@@ -58,7 +59,11 @@ async function until(check, label, timeout = 90000) {
 async function json(url, options) { const response = await fetch(url, { signal: AbortSignal.timeout(10000), ...options }); if (!response.ok) throw Error(`${url}: ${response.status} ${await response.text()}`); return response.json(); }
 function stopApp() { powershell(`Get-Process | Where-Object { $_.Path -eq '${executable.replaceAll("'", "''")}' } | Stop-Process -Force -ErrorAction SilentlyContinue`); }
 async function startApp(version) {
-  const child = spawn(executable, ['--remote-debugging-port=9225'], { env, stdio: 'ignore' });
+  const child = spawn(executable, ['--remote-debugging-port=9225'], { env, stdio: ['ignore', 'pipe', 'pipe'] });
+  const launch = { version, pid: child.pid, output: '' };
+  (report.launches ||= []).push(launch);
+  for (const stream of [child.stdout, child.stderr]) stream.on('data', data => { launch.output = (launch.output + data.toString('utf8')).slice(-24000); });
+  child.on('exit', (code, signal) => { launch.exitCode = code; launch.signal = signal; });
   child.on('error', error => { report.launchError = error.message; });
   child.unref();
   const health = await until(async () => { const h = await json(base + '/api/health'); return h.version === version && h; }, `v${version} health`);
@@ -118,11 +123,13 @@ async function main() {
   assert.equal(downloaded.state, 'downloaded'); assert.equal(downloaded.version, version);
   assert.ok(requests.includes(file));
   record('old-client-downloads-candidate', { version, sha512: expected, requests });
-  // Invoke the exact production IPC method. The production updater performs a
-  // silent NSIS install and relaunches the app without requiring an interactive
-  // desktop session on the runner.
+  // Invoke the unmodified v1.1.10 IPC method (quitAndInstall(false, true)).
+  // The candidate installer handles its --updated flag, enters silent mode,
+  // and honors --force-run. Do not inject candidate JS into the old client.
   report.installInvocation = { state: 'requested' };
   evaluate('window.matUpdates.quitAndInstall()').then(result => { report.installInvocation = { state: 'returned', result }; }).catch(error => { report.installInvocation = { state: 'renderer-disconnected-or-error', message: error.message }; console.log('Update IPC result:', error.message); });
+  await sleep(3000);
+  report.installRuntime = inspectWindowsRuntime();
   const upgraded = await until(async () => { const h = await json(base + '/api/health'); return h.version === version && h; }, 'updated application relaunch', 180000);
   // This assertion occurs before any manual launch of the new version.
   report.automaticRestart = assertRunningInstallation(upgraded);

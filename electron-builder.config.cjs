@@ -28,6 +28,7 @@ module.exports = {
     artifactName: '${productName}-${version}-windows-${arch}.${ext}'
   },
   nsis: {
+    include: path.join('build', 'installer.nsh'),
     oneClick: false,
     allowToChangeInstallationDirectory: true,
     perMachine: false,
