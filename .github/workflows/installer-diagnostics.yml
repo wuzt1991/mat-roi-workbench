@@ -13,13 +13,13 @@ jobs:
       - name: Verify previous installer and run directly in PowerShell
         shell: pwsh
         run: |
+          trap { Write-Host ('::error::' + ($_ | Out-String) -replace '\r?\n',' / '); exit 1 }
           $dir = Join-Path $env:RUNNER_TEMP 'mat-installer-diagnostic'
           New-Item -ItemType Directory -Force $dir | Out-Null
           $exe = Join-Path $dir 'old-installer.exe'
           Invoke-WebRequest 'https://github.com/wuzt1991/mat-roi-workbench/releases/download/v1.1.10/mat-roi-workbench-setup-1.1.10.exe' -OutFile $exe
-          $metadata = (Invoke-WebRequest 'https://github.com/wuzt1991/mat-roi-workbench/releases/download/v1.1.10/latest.yml').Content
           $digest = [Convert]::ToBase64String([System.Security.Cryptography.SHA512]::HashData([IO.File]::ReadAllBytes($exe)))
-          if (-not $metadata.Contains($digest)) { throw 'Previous installer SHA-512 mismatch' }
+          if ((Get-FileHash $exe -Algorithm SHA256).Hash.ToLowerInvariant() -ne '42dd061a3edf6af011f957dbdd30f63a04417f8b49277617459c5548de137303') { throw 'Previous installer SHA-256 mismatch' }
           $dest = Join-Path $dir 'installed'
           $process = Start-Process -FilePath $exe -ArgumentList @('/S', "/D=$dest") -Wait -PassThru
           $installed = Test-Path (Join-Path $dest '地垫工作台.exe')
