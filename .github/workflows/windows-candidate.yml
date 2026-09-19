@@ -41,8 +41,10 @@ jobs:
           $testExit = $LASTEXITCODE
           $output | Write-Output
           if ($testExit -ne 0) {
-            $details = ($output | Select-Object -Last 130) -join "`n"
-            Write-Host ('::error::' + $details.Replace('%','%25').Replace("`r",'%0D').Replace("`n",'%0A'))
+            ($output -join "`n") -split '(?m)(?=^test at )' | Select-Object -Skip 1 | ForEach-Object {
+              $details = $_.Substring(0, [Math]::Min($_.Length, 3500))
+              Write-Host ('::error::' + $details.Replace('%','%25').Replace("`r",'%0D').Replace("`n",'%0A'))
+            }
             exit $testExit
           }
 
