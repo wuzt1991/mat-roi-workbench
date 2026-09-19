@@ -8,6 +8,7 @@ const {Transform}=require('node:stream');
 const {FileJobBroker}=require('./file-job-broker.cjs');
 const {ImportSessionStore,SessionError,digest}=require('./import-session-store.cjs');
 const {LIMITS}=require('./xlsx-stream-reader.cjs');
+const Recognition=require('../public/product-recognition.js');
 const TEMPLATE=path.join(__dirname,'..','public','assets','product-template.xlsx');
 const SESSION_TOTAL_LIMIT=8*1024*1024*1024,SESSION_LIMIT=2*1024*1024*1024,FREE_LIMIT=1024*1024*1024;
 const ALLOWED_AUXILIARY=new Set(['export-backup','inspect-backup','export-listing']);
@@ -44,7 +45,7 @@ function createFileService({store,dataDir}){
   async function upload(id,request,ownerToken){
     const directory=sessionDirectory(id),session=openSession(id);try{session.assertContext({ownerToken});if(request.headers['content-type']&&!request.headers['content-type'].startsWith('application/octet-stream'))throw new SessionError(415,'请以原始文件流上传 Excel。','UNSUPPORTED_CONTENT_TYPE');if(broker.active)throw new SessionError(409,'已有文件任务正在进行。','FILE_JOB_BUSY');const statfs=fs.statfsSync(root),free=Number(statfs.bavail)*Number(statfs.bsize);if(free<FREE_LIMIT)throw new SessionError(507,'磁盘剩余空间不足 1 GiB。','DISK_SPACE_LOW');if(directoryBytes(root)>SESSION_TOTAL_LIMIT)throw new SessionError(507,'文件会话已占用 8 GiB，请先放弃不需要的会话。','SESSION_QUOTA');const part=path.join(directory,`source.${crypto.randomUUID()}.part`),hash=crypto.createHash('sha256');let bytes=0;request.on('data',chunk=>{bytes+=chunk.length;hash.update(chunk);if(bytes>LIMITS.sourceBytes)request.destroy(new SessionError(413,'文件超过 100 MiB。','SOURCE_TOO_LARGE'));});try{await pipeline(request,fs.createWriteStream(part,{flags:'wx'}));}catch(error){try{fs.unlinkSync(part);}catch{}throw error;}if(bytes===0){fs.unlinkSync(part);throw new SessionError(422,'上传文件为空。','EMPTY_FILE');}if(directoryBytes(directory)>SESSION_LIMIT){fs.unlinkSync(part);throw new SessionError(507,'当前会话占用超过 2 GiB。','SESSION_QUOTA');}const source=path.join(directory,'source.xlsx');fs.renameSync(part,source);session.updateMeta({phase:'inspecting',sourceHash:hash.digest('hex'),sourceBytes:bytes,candidateSheets:[],artifact:null,error:null});return startSessionJob(id,'inspect',{});}finally{session.close();}
   }
-  function status(id){const session=openSession(id);try{const meta=session.metadata(),counts=session.counts(meta.generation||0),job=meta.job?.jobId?broker.get(meta.job.jobId)||meta.job:null,candidateSheets=meta.candidateSheets||[];return {sessionId:id,kind:meta.kind,phase:meta.phase,revision:meta.revision,generation:meta.generation,workspaceId:meta.workspaceId,storageEpoch:meta.storageEpoch,candidateSheets,sheets:candidateSheets,inspection:meta.inspection||null,job,ready:counts.ready,counts,artifact:meta.artifact||null,error:meta.error||null};}finally{session.close();}}
+  function status(id){const session=openSession(id);try{const meta=session.metadata(),counts=session.counts(meta.generation||0),job=meta.job?.jobId?broker.get(meta.job.jobId)||meta.job:null,candidateSheets=meta.candidateSheets||[];return {sessionId:id,kind:meta.kind,phase:meta.phase,revision:meta.revision,generation:meta.generation,workspaceId:meta.workspaceId,storageEpoch:meta.storageEpoch,candidateSheets,sheets:candidateSheets,inspection:meta.inspection||null,selectedSheets:meta.selectedSheets||[],duplicateRows:meta.duplicateRows||0,job,ready:counts.ready,counts,artifact:meta.artifact||null,error:meta.error||null};}finally{session.close();}}
   async function handle(request,response,url){
     const parts=url.pathname.split('/').filter(Boolean);if(parts[0]!=='api'||!['file-sessions','file-jobs'].includes(parts[1]))return false;
     if(parts[1]==='file-jobs'){
@@ -66,7 +67,30 @@ function createFileService({store,dataDir}){
     const id=parts[2];if(!id)throw new SessionError(404,'文件会话不存在。','SESSION_NOT_FOUND');
     if(parts.length===3&&request.method==='GET')return json(response,200,status(id)),true;
     if(parts[3]==='source'&&request.method==='PUT'){const job=await upload(id,request,request.headers['x-session-owner']);return json(response,202,{jobId:job.jobId,...status(id)}),true;}
-    if(parts[3]==='select-sheet'&&request.method==='POST'){const input=await readJson(request),session=openSession(id);try{session.assertContext(input);const sheets=session.getMeta('candidateSheets',[]),selected=sheets.find(x=>x.sheetId===input.sheetId);if(!selected)throw new SessionError(422,'选中的工作表不存在。','SHEET_NOT_FOUND');const rules=input.rules||currentRules(),mapping={...normalizeMapping(selected.mapping),...normalizeMapping(input.mapping)},type=session.getMeta('kind')==='sales'?'aggregate-sales':'import';if(type==='aggregate-sales'&&!Number.isInteger(mapping.sales))throw new SessionError(422,'请明确选择数量列。','SALES_QUANTITY_REQUIRED');session.updateMeta({rules,rulesFingerprint:digest(rules),phase:'importing'});const job=startSessionJob(id,type,{sheetId:input.sheetId,mapping:Object.keys(mapping).length?mapping:null,rules,period:input.period||null});return json(response,202,{jobId:job.jobId}),true;}finally{session.close();}}
+    if(parts[3]==='select-sheet'&&request.method==='POST'){
+      const input=await readJson(request),session=openSession(id);
+      try{
+        const meta=session.assertContext(input);
+        if(broker.active)throw new SessionError(409,'已有文件任务正在进行。','FILE_JOB_BUSY');
+        if(Number(meta.generation)>0)throw new SessionError(409,'该会话已进入复核，请重新选择文件建立新导入。','IMPORT_ALREADY_PUBLISHED');
+        const sheets=session.getMeta('candidateSheets',[]),sales=meta.kind==='sales';
+        const choices=input.selections??[{sheetId:input.sheetId,mapping:input.mapping}];
+        if(!Array.isArray(choices)||!choices.length||new Set(choices.map(x=>x?.sheetId)).size!==choices.length)throw new SessionError(422,'请选择工作表，且不能重复选择。','INVALID_SHEET_SELECTION');
+        if(sales&&choices.length!==1)throw new SessionError(422,'销售导入每次请选择一个工作表。','INVALID_SHEET_SELECTION');
+        const selections=choices.map(choice=>{
+          const selected=sheets.find(x=>x.sheetId===choice?.sheetId);
+          if(!selected)throw new SessionError(422,'选中的工作表不存在。','SHEET_NOT_FOUND');
+          const mapping={...normalizeMapping(selected.mapping),...normalizeMapping(choice.mapping)};
+          if(!sales&&Recognition.productMappingIssues(selected.header.headers,mapping).length)throw new SessionError(422,`请确认“${selected.name}”的商品字段。`,'PRODUCT_MAPPING_REQUIRED');
+          if(sales&&!Number.isInteger(mapping.sales))throw new SessionError(422,'请明确选择数量列。','SALES_QUANTITY_REQUIRED');
+          return {sheetId:selected.sheetId,mapping};
+        });
+        const rules=input.rules||currentRules(),type=sales?'aggregate-sales':'import';
+        const payload=sales?{...selections[0],rules,period:input.period||null}:{selections,rules};
+        const job=startSessionJob(id,type,payload);
+        return json(response,202,{jobId:job.jobId}),true;
+      }finally{session.close();}
+    }
     if(parts[3]==='rows'&&request.method==='GET'){const session=openSession(id);try{return json(response,200,session.page({status:url.searchParams.get('status')||'all',missingThickness:url.searchParams.get('missingThickness')==='1',page:url.searchParams.get('page')||1,pageSize:url.searchParams.get('pageSize')||100})),true;}finally{session.close();}}
     if(parts[3]==='sales-aggregates'&&request.method==='GET'){const session=openSession(id);try{if(session.getMeta('kind')!=='sales')throw new SessionError(422,'该会话不是销售导入。','INVALID_SESSION_KIND');return json(response,200,session.salesPage({page:url.searchParams.get('page')||1,pageSize:url.searchParams.get('pageSize')||100})),true;}finally{session.close();}}
     if(parts[3]==='sales-candidate'&&request.method==='POST'){const input=await readJson(request),session=openSession(id);try{if(session.getMeta('kind')!=='sales')throw new SessionError(422,'该会话不是销售导入。','INVALID_SESSION_KIND');session.assertContext(input);return json(response,200,session.salesCandidate(input)),true;}finally{session.close();}}

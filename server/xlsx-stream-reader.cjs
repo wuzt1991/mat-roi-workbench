@@ -63,25 +63,59 @@ function cellValue(cell,store){
   if(raw==='')return {value:'',type:'blank',lexical:''};
   return {value:raw,type:cell.formula?'formula-cache':'number',lexical:raw,formula:!!cell.formula};
 }
-async function scanSheet(info,sheet,store,{collectRows=false,recognize=true,headerLimit=40,mapping=null,progress,canceled,onBatch}={}){
+async function scanSheet(info,sheet,store,{collectRows=false,recognize=true,headerLimit=40,mapping=null,selectedHeader=null,rowOffset=0,progress,canceled,onBatch}={}){
   const entry=info.map.get(sheet.part);if(!entry)throw new SessionError(422,'工作表数据缺失。','MISSING_SHEET');
-  let currentRow=null,currentCell=null,inValue=false,inText=false,physical=0,business=0,maxColumn=0,batch=[],batchBytes=0,headerRows=[],header=null,nextRowId=1;
+  let currentRow=null,currentCell=null,inValue=false,inText=false,physical=0,business=0,maxColumn=0,batch=[],batchBytes=0,headerRows=[],headerSourceRows=[],header=selectedHeader,nextRowId=rowOffset+1;
   const flush=()=>{if(!batch.length)return;onBatch?.(batch);batch=[];batchBytes=0;};
   await parseXmlStream(info.zip,entry,parser=>{
     parser.ondoctype=()=>{throw new SessionError(422,'Excel XML 不允许 DTD。','DTD_NOT_ALLOWED');};
     parser.onopentag=node=>{if(node.name==='row'){physical++;currentRow=collectRows||headerRows.length<headerLimit?{sourceRow:Number(node.attributes.r)||physical,cells:[]}:null;}else if(node.name==='c'&&currentRow){currentCell={ref:node.attributes.r||'',type:node.attributes.t||'n',raw:'',text:'',formula:false};}else if(node.name==='v'&&currentCell)inValue=true;else if(node.name==='t'&&currentCell)inText=true;else if(node.name==='f'&&currentCell)currentCell.formula=true;};
     parser.ontext=value=>{if(inValue&&currentCell)currentCell.raw+=value;if(inText&&currentCell)currentCell.text+=value;};parser.oncdata=value=>{if(inText&&currentCell)currentCell.text+=value;};
-    parser.onclosetag=name=>{if(name==='v')inValue=false;else if(name==='t')inText=false;else if(name==='c'&&currentCell){const index=columnIndex(currentCell.ref);if(index<0||index>=LIMITS.columns)throw new SessionError(422,'工作表超过 200 列。','COLUMN_LIMIT');maxColumn=Math.max(maxColumn,index+1);const parsed=cellValue(currentCell,store);if(String(parsed.value).length>LIMITS.cellUtf16)throw new SessionError(422,`第 ${currentRow.sourceRow} 行存在超长单元格。`,'CELL_TOO_LONG');currentRow.cells[index]=parsed;currentCell=null;}else if(name==='row'&&currentRow){const values=Array.from({length:Math.max(maxColumn,currentRow.cells.length)},(_,i)=>currentRow.cells[i]?.value??'');if(headerRows.length<headerLimit)headerRows.push(values);if(!header&&headerRows.length){header=Recognition.detectHeader(headerRows);}if(collectRows&&header&&currentRow.sourceRow>header.rowIndex+1&&!values.every(v=>Recognition.text(v)==='')&&!repeatedHeader(values,header)&&!sectionMarker(values)){business++;if(business>LIMITS.rows)throw new SessionError(413,'选中工作表超过 500000 条业务数据。','ROW_LIMIT');const activeMap=mapping||header.mapping,raw={rowId:nextRowId++,sheetId:sheet.sheetId,sourceRow:currentRow.sourceRow,values,mapping:activeMap};let platform='',shop='',productId='',skuId='',groupId='',originalMissingThickness=false;if(recognize){const derived=Recognition.deriveTransferRow(raw,{}, {rules:store.getMeta('rules',{}),mapping:activeMap});({platform,shop,productId,skuId,groupId,originalMissingThickness}=derived);}else{const get=field=>Number.isInteger(activeMap[field])?String(values[activeMap[field]]??''):'',rowId=raw.rowId;platform=get('platform');shop=get('shop');productId=get('productId');skuId=get('specId');groupId=Recognition.groupKey(platform,shop,productId,rowId);}const record={...raw,sourceHash:crypto.createHash('sha256').update(JSON.stringify(currentRow.cells)).digest('hex'),platform,shop,productId,skuId,groupId,originalMissingThickness};const bytes=Buffer.byteLength(JSON.stringify(record));if(bytes>LIMITS.rowJson)throw new SessionError(422,`第 ${currentRow.sourceRow} 行超过 2 MiB。`,'ROW_TOO_LARGE');if(batch.length>=LIMITS.chunkRows||batchBytes+bytes>LIMITS.chunkBytes)flush();batch.push(record);batchBytes+=bytes;}currentRow=null;}
+    parser.onclosetag=name=>{if(name==='v')inValue=false;else if(name==='t')inText=false;else if(name==='c'&&currentCell){const index=columnIndex(currentCell.ref);if(index<0||index>=LIMITS.columns)throw new SessionError(422,'工作表超过 200 列。','COLUMN_LIMIT');maxColumn=Math.max(maxColumn,index+1);const parsed=cellValue(currentCell,store);if(String(parsed.value).length>LIMITS.cellUtf16)throw new SessionError(422,`第 ${currentRow.sourceRow} 行存在超长单元格。`,'CELL_TOO_LONG');currentRow.cells[index]=parsed;currentCell=null;}else if(name==='row'&&currentRow){const values=Array.from({length:Math.max(maxColumn,currentRow.cells.length)},(_,i)=>currentRow.cells[i]?.value??'');if(headerRows.length<headerLimit){headerRows.push(values);headerSourceRows.push(currentRow.sourceRow);}if(!header&&headerRows.length){const found=Recognition.detectHeader(headerRows);if(found)header={...found,sourceRow:headerSourceRows[found.rowIndex]};}if(collectRows&&header&&currentRow.sourceRow>(header.sourceRow??header.rowIndex+1)&&!values.every(v=>Recognition.text(v)==='')&&!repeatedHeader(values,header)&&!sectionMarker(values)){business++;if(rowOffset+business>LIMITS.rows)throw new SessionError(413,'选中的工作表合计超过 500000 条业务数据。','ROW_LIMIT');const activeMap=mapping||header.mapping,raw={rowId:nextRowId++,sheetId:sheet.sheetId,sourceRow:currentRow.sourceRow,values,mapping:activeMap};let platform='',shop='',productId='',skuId='',groupId='',originalMissingThickness=false;if(recognize){const derived=Recognition.deriveTransferRow(raw,{}, {rules:store.getMeta('rules',{}),mapping:activeMap});({platform,shop,productId,skuId,groupId,originalMissingThickness}=derived);}else{const get=field=>Number.isInteger(activeMap[field])?String(values[activeMap[field]]??''):'',rowId=raw.rowId;platform=get('platform');shop=get('shop');productId=get('productId');skuId=get('specId');groupId=Recognition.groupKey(platform,shop,productId,rowId);}const record={...raw,sourceHash:crypto.createHash('sha256').update(JSON.stringify(Object.keys(Recognition.FIELD_ALIASES).filter(key=>!['seq','sales','date'].includes(key)).map(key=>Number.isInteger(activeMap[key])?Recognition.text(values[activeMap[key]]):''))).digest('hex'),platform,shop,productId,skuId,groupId,originalMissingThickness};const bytes=Buffer.byteLength(JSON.stringify(record));if(bytes>LIMITS.rowJson)throw new SessionError(422,`第 ${currentRow.sourceRow} 行超过 2 MiB。`,'ROW_TOO_LARGE');if(batch.length>=LIMITS.chunkRows||batchBytes+bytes>LIMITS.chunkBytes)flush();batch.push(record);batchBytes+=bytes;}currentRow=null;}
     };
-  },{limit:LIMITS.selectedSheet,progress:(event)=>progress?.({...event,rowsRead:business}),canceled,phase:'sheet',stopWhen:collectRows?null:()=>headerRows.length>=headerLimit});flush();return {physicalRows:physical,businessRows:business,maxColumn,header:Recognition.detectHeader(headerRows),headerRows};
+  },{limit:LIMITS.selectedSheet,progress:(event)=>progress?.({...event,rowsRead:business}),canceled,phase:'sheet',stopWhen:collectRows?null:()=>headerRows.length>=headerLimit});flush();const detected=selectedHeader||Recognition.detectHeader(headerRows);return {physicalRows:physical,businessRows:business,maxColumn,header:detected?{...detected,sourceRow:detected.sourceRow??headerSourceRows[detected.rowIndex]}:null,headerRows};
 }
 
 async function inspectWorkbook(filename,sessionDirectory,options={}){
   const info=await workbookInfo(filename),store=new ImportSessionStore(sessionDirectory);try{await loadSharedStrings(info,store,options);const candidates=[];for(const sheet of info.sheets){checkCanceled(options.canceled);const scan=await scanSheet(info,sheet,store,{headerLimit:40,progress:options.progress,canceled:options.canceled});candidates.push({...sheet,header:scan.header,physicalRows:scan.physicalRows,maxColumn:scan.maxColumn});}return {sourceBytes:info.sourceBytes,totalUncompressed:info.total,date1904:info.date1904,sheets:candidates};}finally{store.close();info.zip.close();}
 }
-async function importSheet(filename,sessionDirectory,{sheetId,mapping,rules,derive=true,progress,canceled}={}){
-  const info=await workbookInfo(filename),sheet=info.sheets.find(x=>x.sheetId===sheetId),store=new ImportSessionStore(sessionDirectory);if(!sheet){store.close();info.zip.close();throw new SessionError(422,'选中的工作表不存在。','SHEET_NOT_FOUND');}
-  try{store.resetImport();store.updateMeta({phase:'importing',rules,mapping: mapping||{},sheetId});await loadSharedStrings(info,store,{progress,canceled});const result=await scanSheet(info,sheet,store,{collectRows:true,recognize:derive,mapping,progress,canceled,onBatch:rows=>{store.insertRawBatch(rows);progress?.({phase:'importing',rowsCommitted:rows.at(-1)?.rowId||0});}});if(!result.header)throw new SessionError(422,'未找到有效表头。','HEADER_NOT_FOUND');const selectedMapping=mapping||result.header.mapping;store.updateMeta({mapping:selectedMapping,header:result.header.headers,sourceRows:result.businessRows});const derived=derive?store.rebuildDerived(rules,{progress,canceled}):{generation:0,total:result.businessRows,pending:0,confirmed:0,missingThickness:0,ready:false};return {...result,...derived};}finally{store.close();info.zip.close();}
+async function importSheets(filename,sessionDirectory,{selections,rules,derive=true,progress,canceled}={}){
+  const info=await workbookInfo(filename),store=new ImportSessionStore(sessionDirectory);
+  try{
+    if(!Array.isArray(selections)||!selections.length)throw new SessionError(422,'请选择需要读取的工作表。','EMPTY_SHEET_SELECTION');
+    const ids=selections.map(x=>x.sheetId);
+    if(new Set(ids).size!==ids.length||ids.some(id=>!info.sheets.some(sheet=>sheet.sheetId===id)))throw new SessionError(422,'工作表选择重复或已失效。','INVALID_SHEET_SELECTION');
+    const ordered=info.sheets.filter(sheet=>ids.includes(sheet.sheetId));
+    // Resolve every header before clearing any prior import, then read all selected sheets as one candidate.
+    await loadSharedStrings(info,store,{progress,canceled});
+    const prepared=[];
+    for(const sheet of ordered){
+      checkCanceled(canceled);
+      const choice=selections.find(x=>x.sheetId===sheet.sheetId),scan=await scanSheet(info,sheet,store,{progress,canceled});
+      if(!scan.header)throw new SessionError(422,`“${sheet.name}”未找到有效表头。`,'HEADER_NOT_FOUND');
+      const mapping=choice.mapping||scan.header.mapping;
+      if(derive&&Recognition.productMappingIssues(scan.header.headers,mapping).length)throw new SessionError(422,`请确认“${sheet.name}”的商品字段。`,'PRODUCT_MAPPING_REQUIRED');
+      prepared.push({sheet,header:scan.header,mapping});
+    }
+    store.resetImport({keepSharedStrings:true});
+    const sheetMappings=Object.fromEntries(prepared.map(x=>[x.sheet.sheetId,x.mapping]));
+    store.updateMeta({phase:'importing',rules,mapping:prepared[0].mapping,sheetMappings,selectedSheets:ordered.map(({sheetId,name})=>({sheetId,name})),sourceRows:0,duplicateRows:0});
+    let total=0;const results=[];
+    for(const {sheet,header,mapping} of prepared){
+      checkCanceled(canceled);
+      const report=value=>progress?.({...value,sheetId:sheet.sheetId,sheetName:sheet.name,message:`正在读取 ${sheet.name}`});
+      const result=await scanSheet(info,sheet,store,{collectRows:true,recognize:derive,mapping,selectedHeader:header,rowOffset:total,progress:report,canceled,onBatch:rows=>{store.insertRawBatch(rows);report({phase:'importing',rowsCommitted:rows.at(-1)?.rowId||0});}});
+      total+=result.businessRows;results.push({sheetId:sheet.sheetId,name:sheet.name,header:result.header,businessRows:result.businessRows});
+    }
+    checkCanceled(canceled);
+    const duplicateRows=derive?Number(store.db.prepare("SELECT coalesce(sum(n-1),0) n FROM (SELECT count(*) n FROM raw_rows WHERE platform<>'' AND shop<>'' AND product_id<>'' AND sku_id<>'' GROUP BY source_hash HAVING count(*)>1)").get().n):0;
+    store.updateMeta({header:results[0].header.headers,sourceRows:total,duplicateRows});
+    const derived=derive?store.rebuildDerived(rules,{progress,canceled}):{generation:0,total,pending:0,confirmed:0,missingThickness:0,ready:false};
+    return {businessRows:total,header:results[0].header,sheets:results,duplicateRows,...derived};
+  }finally{store.close();info.zip.close();}
+}
+async function importSheet(filename,sessionDirectory,{sheetId,mapping,...options}={}){
+  return importSheets(filename,sessionDirectory,{...options,selections:[{sheetId,mapping}]});
 }
 
-module.exports={LIMITS,catalog,workbookInfo,inspectWorkbook,importSheet,scanSheet,loadSharedStrings,decodeExcelEscapes};
+module.exports={LIMITS,catalog,workbookInfo,inspectWorkbook,importSheet,importSheets,scanSheet,loadSharedStrings,decodeExcelEscapes};

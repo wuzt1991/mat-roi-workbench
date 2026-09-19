@@ -5,6 +5,7 @@
 })(typeof globalThis==='object'?globalThis:this,function(root){
   'use strict';
 
+  const Recognition=typeof module==='object'&&module.exports?require('./product-recognition.js'):root.ProductRecognition;
   const PAGE_SIZE=100;
   const BLANK='__blank__';
   const CUSTOM='__custom__';
@@ -12,7 +13,7 @@
   const CHOOSE='__choose__';
   const DERIVED='__derived__';
   const INLINE_OPTION_LIMIT=40;
-  const REQUIRED_PRODUCT_FIELDS={platform:'平台',shop:'店铺',productName:'商品名称',specName:'规格名称',productId:'商品 ID',specId:'SKU ID',price:'售价',status:'售卖状态',inventory:'库存'};
+  const REQUIRED_PRODUCT_FIELDS=Recognition.REQUIRED_PRODUCT_FIELDS;
   const TERMINAL_PHASES=new Set(['ready','review','reviewing','completed','complete','done']);
   const WAITING_SHEET_PHASES=new Set(['awaiting-selection','awaiting-sheet','sheet-selection','choose-sheet','mapping']);
   const FAILED_PHASES=new Set(['failed','error','interrupted','cancelled','canceled']);
@@ -76,7 +77,7 @@
       context:{},session:null,candidate:null,candidateStatus:null,page:null,pageNumber:1,
       filter:'all',missingThickness:false,moreOpen:false,selected:new Set(),
       busy:false,jobId:'',jobKind:'',error:'',requestSerial:0,pollTimer:0,dialog:null,lastFocus:null,
-      undo:null,active:false,destroyed:false,listeners:false
+      sheetSelection:new Set(),sheetMappings:{},selectionInitialized:false,undo:null,active:false,destroyed:false,listeners:false
     };
 
     async function call(action,payload={}){
@@ -146,7 +147,7 @@
         local.candidateStatus=status||{};
         if(Number.isFinite(Number(status?.revision)))local.candidate.revision=Number(status.revision);
         if(candidateFailed(status)){local.busy=false;local.jobId='';local.jobKind='';local.error=safeMessage(status?.error||status?.job?.error,'文件处理失败。');scheduleRender();return;}
-        if(candidateReady(status)||needsSheet(status)){local.busy=false;local.jobId='';local.jobKind='';scheduleRender();return;}
+        if(candidateReady(status)||needsSheet(status)){local.busy=false;local.jobId='';local.jobKind='';await prepareSheetSelection();scheduleRender();return;}
         scheduleRender();queuePoll(pollCandidate);
       }catch(error){local.busy=false;local.jobId='';setError(error,'无法读取文件处理进度。');}
     }
@@ -157,28 +158,37 @@
       try{
         if(local.candidate)await call('discard',{sessionId:local.candidate.sessionId,ownerToken:local.candidate.ownerToken}).catch(()=>{});
         const created=await call('create',{kind:'product',target:target(),rules:stateRules()});
-        local.candidate={...created,filename:file.name};
+        local.candidate={...created,filename:file.name};local.sheetSelection.clear();local.sheetMappings={};local.selectionInitialized=false;
         const status=await call('upload',{sessionId:created.sessionId,file,ownerToken:created.ownerToken});
         local.candidateStatus=status||{};if(Number.isFinite(Number(status?.revision)))local.candidate.revision=Number(status.revision);local.jobId=text(status?.jobId||status?.job?.jobId);local.jobKind='import';
-        if(candidateReady(status)||needsSheet(status)){local.busy=false;scheduleRender();}
+        if(candidateReady(status)||needsSheet(status)){local.busy=false;await prepareSheetSelection();scheduleRender();}
         else queuePoll(pollCandidate,300);
       }catch(error){local.busy=false;local.jobId='';setError(error,'Excel 上传失败，请检查文件后重试。');}
     }
+    function candidateSheets(){return array(local.candidateStatus?.candidateSheets||local.candidateStatus?.sheets);}
+    function sheetMapping(sheet){return local.sheetMappings[text(sheet.sheetId||sheet.id)]||sheet.header?.mapping||sheet.mapping||{};}
+    function sheetIssues(sheet){return Recognition.productMappingIssues(array(sheet.header?.headers),sheetMapping(sheet));}
+    async function prepareSheetSelection(){
+      if(!needsSheet(local.candidateStatus)||local.selectionInitialized)return;
+      local.selectionInitialized=true;
+      const sheets=candidateSheets();
+      if(sheets.length===1){local.sheetSelection.add(text(sheets[0].sheetId||sheets[0].id));await chooseSheet();}
+    }
     async function chooseSheet(){
       if(!local.candidate||local.busy)return;
-      const select=root.document?.querySelector('[data-product-v4] [data-pv4-sheet]');
-      const sheetId=text(select?.value);
-      if(!sheetId){notify('请选择要读取的工作表');return;}
-      const sheet=array(local.candidateStatus?.candidateSheets||local.candidateStatus?.sheets).find(item=>text(item.sheetId||item.id)===sheetId)||{},mapping=sheet?.header?.mapping||sheet.mapping;
-      if(!sheet?.header||Object.keys(REQUIRED_PRODUCT_FIELDS).some(key=>!Number.isInteger(mapping?.[key]))){openMapping(sheet);return;}
-      await startSheetImport(sheetId,mapping);
+      const selected=candidateSheets().filter(sheet=>local.sheetSelection.has(text(sheet.sheetId||sheet.id)));
+      if(!selected.length){notify('请选择要读取的工作表');return;}
+      const unresolved=selected.find(sheet=>sheetIssues(sheet).length);
+      if(unresolved){openMapping(unresolved,true);return;}
+      await startSheetImport(selected.map(sheet=>({sheetId:text(sheet.sheetId||sheet.id),mapping:sheetMapping(sheet)})));
     }
-    async function startSheetImport(sheetId,mapping){
+    async function startSheetImport(selections){
       local.busy=true;local.error='';scheduleRender();
       try{
-        const options={sheetId,rules:stateRules(),ownerToken:local.candidate.ownerToken,expectedSessionRevision:Number(local.candidateStatus?.revision??local.candidate.revision)};if(mapping)options.mapping=mapping;
+        const options={selections,rules:stateRules(),ownerToken:local.candidate.ownerToken,expectedSessionRevision:Number(local.candidateStatus?.revision??local.candidate.revision)};
         const result=await call('selectSheet',{sessionId:local.candidate.sessionId,options});
-        local.jobId=text(result?.jobId);local.jobKind='import';queuePoll(pollCandidate,300);
+        local.candidateStatus={...local.candidateStatus,phase:'importing'};
+        local.jobId=text(result?.jobId);local.jobKind='import';scheduleRender();queuePoll(pollCandidate,300);
       }catch(error){local.busy=false;setError(error,'工作表读取失败。');}
     }
     async function useCandidate(){
@@ -310,7 +320,7 @@
     function rawIdentity(row){return text(rawValue(row,'specId','skuId','platformSkuId'));}
     function sourceCell(row){
       const name=rawValue(row,'productName','name');const spec=rawValue(row,'specName','spec','skuName');
-      return `<p class="pv4-product-name">${htmlEscape(name||'未命名商品')}</p><p class="pv4-product-spec">${htmlEscape(spec||'未提供规格')}</p><p class="pv4-source-id" title="${htmlEscape(rawIdentity(row))}">SKU ${htmlEscape(truncateId(rawIdentity(row)))}</p>`;
+      return `<p class="pv4-product-name">${htmlEscape(name||'未命名商品')}</p><p class="pv4-product-spec">${htmlEscape(spec||'未提供规格')}</p><p class="pv4-source-id" title="${htmlEscape(rawIdentity(row))}">SKU ${htmlEscape(truncateId(rawIdentity(row)))}</p><p class="pv4-source-id">${htmlEscape(row.sheetName||'原表')} · 第 ${htmlEscape(row.sourceRow||row.rowId)} 行</p>`;
     }
     function rowHtml(row){
       const id=text(row.rowId),material=rowMaterialValue(row),thickness=thicknessId(row),status=statusLabel(row);
@@ -366,9 +376,9 @@
       if(!local.candidate)return '';
       const status=local.candidateStatus||{};
       if(needsSheet(status)){
-        const sheets=array(status.candidateSheets||status.sheets);return `<section class="pv4-candidate"><div><strong>${htmlEscape(local.candidate.filename)}</strong><p>选择需要读取的工作表。</p></div><div class="pv4-candidate-actions"><select name="product-sheet" data-pv4-sheet aria-label="选择工作表"><option value="">选择工作表</option>${sheets.map(sheet=>`<option value="${htmlEscape(sheet.sheetId||sheet.id)}">${htmlEscape(sheet.name||sheet.title||sheet.sheetId||sheet.id)}</option>`).join('')}</select><button type="button" class="btn" data-pv4-read-sheet>读取工作表</button><button type="button" class="btn ghost" data-pv4-discard>取消</button></div></section>`;
+        const sheets=candidateSheets();return `<section class="pv4-candidate pv4-sheet-picker"><div><strong>${htmlEscape(local.candidate.filename)}</strong><p>选择需要转表的工作表，可多选。字段默认自动识别。</p></div><div class="pv4-sheet-list">${sheets.map(sheet=>{const id=text(sheet.sheetId||sheet.id),issues=sheetIssues(sheet),available=array(sheet.header?.headers).length>0;return `<div class="pv4-sheet-option"><label><input type="checkbox" data-pv4-sheet="${htmlEscape(id)}" ${local.sheetSelection.has(id)?'checked':''} ${available&&!local.busy?'':'disabled'}><span>${htmlEscape(sheet.name||id)}<small>${!available?'未识别到表头':issues.length?'需确认 '+issues.map(key=>REQUIRED_PRODUCT_FIELDS[key]).join('、'):'已自动识别商品字段'}</small></span></label>${available?`<button type="button" class="btn ghost" data-pv4-map-sheet="${htmlEscape(id)}" ${local.busy?'disabled':''}>核对字段</button>`:''}</div>`;}).join('')}</div><div class="pv4-candidate-actions"><button type="button" class="btn" data-pv4-read-sheet ${local.busy||!local.sheetSelection.size?'disabled':''}>读取所选 ${local.sheetSelection.size} 张表</button><button type="button" class="btn ghost" data-pv4-discard ${local.busy?'disabled':''}>取消</button></div></section>`;
       }
-      if(candidateReady(status))return `<section class="pv4-candidate ready"><div><strong>${htmlEscape(local.candidate.filename)}</strong><p>已完成校验，共 ${htmlEscape(status.counts?.total??status.totalRows??status.total??'—')} 条规格。使用后将替换当前复核会话。</p></div><div class="pv4-candidate-actions"><button type="button" class="btn" data-pv4-use>使用这次导入</button><button type="button" class="btn ghost" data-pv4-discard>取消</button></div></section>`;
+      if(candidateReady(status))return `<section class="pv4-candidate ready"><div><strong>${htmlEscape(local.candidate.filename)}</strong><p>已完成校验，共 ${htmlEscape(status.counts?.total??status.totalRows??status.total??'—')} 条规格，来自 ${array(status.selectedSheets).length||1} 张工作表。${status.duplicateRows?`发现 ${htmlEscape(status.duplicateRows)} 条重复商品内容，已全部保留，请核对来源。`:''}使用后将替换当前复核会话。</p></div><div class="pv4-candidate-actions"><button type="button" class="btn" data-pv4-use>使用这次导入</button><button type="button" class="btn ghost" data-pv4-discard>取消</button></div></section>`;
       return progressHtml(status);
     }
     function pagerHtml(){
@@ -382,7 +392,7 @@
         <div class="wide-content pv4-content">
           <section class="pv4-upload"><div><h2>ERP 商品规格</h2><p>${local.session?`当前会话 ${htmlEscape(local.session.filename||local.session.sessionId)}`:'支持单个 .xlsx 文件，页面每次只读取当前 100 条。'}</p></div><label class="btn pv4-file-button">${icon('file-up')}选择 Excel<input type="file" name="product-file" accept=".xlsx" data-pv4-file ${local.busy?'disabled':''}></label></section>
           ${candidateHtml()}${local.error?`<div class="pv4-error" role="alert">${htmlEscape(local.error)}<button type="button" class="icon-btn" data-pv4-dismiss aria-label="关闭提示">${icon('x')}</button></div>`:''}
-          ${local.session?`<section class="pv4-review"><div class="pv4-toolbar">${filterHtml()}<div class="pv4-actions"><span>${selected?`已选 ${selected} 条`:`本页 ${array(local.page?.rows).length} 条`}</span><button type="button" class="btn" data-pv4-batch ${!selected||local.busy?'disabled':''}>${icon('layers')}批量处理所选</button>${local.undo?`<button type="button" class="btn ghost" data-pv4-undo ${local.busy?'disabled':''}>${icon('undo-2')}撤销</button>`:''}</div></div>${local.busy&&!local.candidate?progressHtml({message:local.jobId?'正在处理任务':'正在保存复核结果'}):''}${tableHtml()}${pagerHtml()}</section>`:`<div class="pv4-empty"><h2>等待商品规格文件</h2><p>选择 Excel 后，系统会自动识别并在这里集中复核。</p></div>`}
+          ${local.session?`<section class="pv4-review">${local.page?.duplicateRows?`<p class="pv4-dialog-note">发现 ${htmlEscape(local.page.duplicateRows)} 条重复商品内容，原行已全部保留。</p>`:''}<div class="pv4-toolbar">${filterHtml()}<div class="pv4-actions"><span>${selected?`已选 ${selected} 条`:`本页 ${array(local.page?.rows).length} 条`}</span><button type="button" class="btn" data-pv4-batch ${!selected||local.busy?'disabled':''}>${icon('layers')}批量处理所选</button>${local.undo?`<button type="button" class="btn ghost" data-pv4-undo ${local.busy?'disabled':''}>${icon('undo-2')}撤销</button>`:''}</div></div>${local.busy&&!local.candidate?progressHtml({message:local.jobId?'正在处理任务':'正在保存复核结果'}):''}${tableHtml()}${pagerHtml()}</section>`:`<div class="pv4-empty"><h2>等待商品规格文件</h2><p>选择 Excel 后，系统会自动识别并在这里集中复核。</p></div>`}
         </div>
       </div>`;
     }
@@ -390,7 +400,7 @@
     function ensureDialog(){
       if(!root.document)return null;
       let dialog=root.document.getElementById('product-v4-dialog');
-      if(!dialog){dialog=root.document.createElement('dialog');dialog.id='product-v4-dialog';dialog.className='pv4-dialog';dialog.setAttribute('aria-labelledby','pv4-dialog-title');root.document.body.append(dialog);dialog.addEventListener('click',dialogClick);dialog.addEventListener('change',dialogChange);dialog.addEventListener('input',dialogInput);dialog.addEventListener('close',()=>{local.dialog=null;local.lastFocus?.focus?.({preventScroll:true});local.lastFocus=null;});}
+      if(!dialog){dialog=root.document.createElement('dialog');dialog.id='product-v4-dialog';dialog.className='pv4-dialog';dialog.setAttribute('aria-labelledby','pv4-dialog-title');root.document.body.append(dialog);dialog.addEventListener('click',dialogClick);dialog.addEventListener('change',dialogChange);dialog.addEventListener('input',dialogInput);dialog.addEventListener('close',()=>{if(dialog.open)return;local.dialog=null;local.lastFocus?.focus?.({preventScroll:true});local.lastFocus=null;});}
       return dialog;
     }
     function closeDialog(){const dialog=ensureDialog();if(dialog?.open)dialog.close();}
@@ -414,12 +424,12 @@
       const dialog=ensureDialog();dialog.innerHTML=dialogShell('输入本次尺寸',`<p class="pv4-dialog-note">只应用到当前规格，不写入可复用尺寸方案。</p><div class="pv4-custom-size"><label>宽 / cm<input name="custom-width" type="number" min="0.000001" max="10000" step="any" required></label><label>长 / cm<input name="custom-length" type="number" min="0.000001" max="10000" step="any" required></label></div>`,'应用尺寸');
       dialog.showModal();root.lucide?.createIcons?.();dialog.querySelector('input')?.focus();
     }
-    function openMapping(sheet){
-      const headers=array(sheet?.header?.headers),mapping=sheet?.header?.mapping||{};
+    function openMapping(sheet,continueImport=false){
+      const headers=array(sheet?.header?.headers),mapping=sheetMapping(sheet),issues=sheetIssues(sheet);
       if(!headers.length){notify('所选工作表没有可用表头');return;}
-      local.lastFocus=root.document.activeElement;local.dialog={type:'mapping',sheetId:text(sheet.sheetId||sheet.id),revision:local.candidate?.revision,baseMapping:Object.fromEntries(Object.entries(mapping).filter(([,value])=>Number.isInteger(value)))};
-      const fields=Object.entries(REQUIRED_PRODUCT_FIELDS).map(([key,label])=>`<label>${label}<select name="map-${htmlEscape(key)}"><option value="">未选择</option>${headers.map((header,index)=>`<option value="${index}" ${mapping[key]===index?'selected':''}>${htmlEscape(header||`第 ${index+1} 列`)}</option>`).join('')}</select></label>`).join('');
-      const dialog=ensureDialog();dialog.innerHTML=dialogShell('确认商品字段',`<p class="pv4-dialog-note">表头缺失或存在多个同名列，请为必需字段选择对应列。</p><div class="pv4-mapping-grid">${fields}</div>`,'读取工作表');dialog.showModal();root.lucide?.createIcons?.();dialog.querySelector('select')?.focus();
+      local.lastFocus=root.document.activeElement;local.dialog={type:'mapping',continueImport,sheetId:text(sheet.sheetId||sheet.id),revision:local.candidate?.revision,baseMapping:Object.fromEntries(Object.entries(mapping).filter(([,value])=>Number.isInteger(value)))};
+      const fields=Object.entries(REQUIRED_PRODUCT_FIELDS).map(([key,label])=>`<label>${label}<select name="map-${htmlEscape(key)}"><option value="">未选择</option>${headers.map((header,index)=>`<option value="${index}" ${mapping[key]===index?'selected':''}>第 ${index+1} 列 · ${htmlEscape(header||'空表头')}</option>`).join('')}</select></label>`).join('');
+      const dialog=ensureDialog();dialog.innerHTML=dialogShell('确认商品字段',`<p class="pv4-dialog-note">${htmlEscape(sheet.name||'工作表')}：${issues.length?'请补充或确认 '+issues.map(key=>REQUIRED_PRODUCT_FIELDS[key]).join('、')+'；其余字段已自动识别。':'字段已自动识别，可在这里手动核对。'}</p><div class="pv4-mapping-grid">${fields}</div>`,continueImport?'确认并继续':'保存字段');dialog.showModal();root.lucide?.createIcons?.();dialog.querySelector('select')?.focus();
     }
     function openPicker({field,rowId='',groupId=''}){
       const entries=field==='material'?materials().map(item=>({id:text(item.id),label:text(item.name)})):sizes().map(item=>({id:text(item.id),label:sizeLabel(item)}));
@@ -459,7 +469,7 @@
       let patch,overwrite=false;
       if(local.dialog.type==='mapping'){
         const requiredMapping={};for(const key of Object.keys(REQUIRED_PRODUCT_FIELDS)){const value=form.elements[`map-${key}`]?.value;if(value===''){error.textContent=`请选择${REQUIRED_PRODUCT_FIELDS[key]}对应的列。`;return;}requiredMapping[key]=Number(value);}if(new Set(Object.values(requiredMapping)).size!==Object.keys(requiredMapping).length){error.textContent='同一列不能同时对应多个必需字段。';return;}const mapping={...local.dialog.baseMapping,...requiredMapping};
-        const snapshot={...local.dialog};closeDialog();await startSheetImport(snapshot.sheetId,mapping);return;
+        const snapshot={...local.dialog};local.sheetMappings[snapshot.sheetId]=mapping;closeDialog();scheduleRender();if(snapshot.continueImport)await chooseSheet();return;
       }else if(local.dialog.type==='custom-size'){
         const width=number(form.elements['custom-width'].value),length=number(form.elements['custom-length'].value);
         if(!(width>0&&width<=10000&&length>0&&length<=10000)){error.textContent='宽和长需大于 0，且不超过 10000 cm。';return;}
@@ -495,6 +505,7 @@
     async function documentChange(event){
       const target=event.target;if(!target.closest?.('[data-product-v4]'))return;
       if(target.matches('[data-pv4-file]')){const file=target.files?.[0];if(file)await startImport(file);target.value='';return;}
+      if(target.matches('[data-pv4-sheet]')){const id=text(target.dataset.pv4Sheet);target.checked?local.sheetSelection.add(id):local.sheetSelection.delete(id);scheduleRender();return;}
       if(target.matches('[data-pv4-select-page]')){toggleRows(pageRows(),target.checked);return;}
       if(target.matches('[data-pv4-select-group]')){toggleRows(text(target.dataset.groupRows).split(',').filter(Boolean),target.checked);return;}
       if(target.matches('[data-pv4-select-row]')){toggleRows([text(target.dataset.pv4SelectRow)],target.checked);return;}
@@ -510,6 +521,7 @@
       if(button.matches('[data-pv4-batch]'))openBatch();
       else if(button.matches('[data-pv4-export]'))await exportFile();
       else if(button.matches('[data-pv4-use]'))await useCandidate();
+      else if(button.matches('[data-pv4-map-sheet]')){const sheet=candidateSheets().find(x=>text(x.sheetId||x.id)===button.dataset.pv4MapSheet);if(sheet)openMapping(sheet);}
       else if(button.matches('[data-pv4-read-sheet]'))await chooseSheet();
       else if(button.matches('[data-pv4-discard]'))await discardCandidate();
       else if(button.matches('[data-pv4-cancel]'))await cancelJob();

@@ -28,7 +28,7 @@ function aggregateSales(sessionDirectory,mapping){
 async function run(jobType,payload,context){
   const common={progress,canceled};
   if(jobType==='inspect')return Reader.inspectWorkbook(context.sourcePath,context.sessionDirectory,common);
-  if(jobType==='import')return Reader.importSheet(context.sourcePath,context.sessionDirectory,{...payload,...common});
+  if(jobType==='import')return Reader.importSheets(context.sourcePath,context.sessionDirectory,{...payload,...common,selections:payload.selections||[{sheetId:payload.sheetId,mapping:payload.mapping}]});
   if(jobType==='aggregate-sales'){const imported=await Reader.importSheet(context.sourcePath,context.sessionDirectory,{...payload,derive:false,...common});return {...imported,sales:aggregateSales(context.sessionDirectory,payload.mapping||imported.header.mapping)};}
   if(jobType==='apply-review'){
     const store=new ImportSessionStore(context.sessionDirectory);try{return store.applyReview(payload,payload.rules||store.getMeta('rules',{}));}finally{store.close();}

@@ -46,12 +46,28 @@ function readPayload(payload) {
     };
   }
   const asar = require('@electron/asar');
-  const files = asar.listPackage(payload.path)
-    .map(normalize)
-    .filter(file => !asar.statFile(payload.path, file).files);
+  const entries = asar.listPackage(payload.path).map(listedPath => {
+    const normalizedPath = normalize(listedPath);
+    const nativePath = normalizedPath.split('/').join(path.sep);
+    const leadingNativePath = `${path.sep}${nativePath}`;
+    const candidates = process.platform === 'win32'
+      ? [listedPath, leadingNativePath, nativePath, normalizedPath]
+      : [normalizedPath, listedPath, nativePath];
+    let lastError;
+    for (const archivePath of [...new Set(candidates)]) {
+      try {
+        return { normalizedPath, archivePath, stat: asar.statFile(payload.path, archivePath) };
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    throw lastError;
+  }).filter(entry => !entry.stat.files);
+  const files = entries.map(entry => entry.normalizedPath);
+  const archivePaths = new Map(entries.map(entry => [entry.normalizedPath, entry.archivePath]));
   return {
     files,
-    read: file => asar.extractFile(payload.path, file)
+    read: file => asar.extractFile(payload.path, archivePaths.get(normalize(file)) || file)
   };
 }
 

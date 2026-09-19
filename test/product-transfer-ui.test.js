@@ -1,5 +1,7 @@
 const test=require('node:test');
 const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
 const UI=require('../public/product-transfer-ui.js');
 const {ruleSnapshot}=require('../server/file-service.cjs');
 
@@ -17,6 +19,14 @@ test('商品转表初始界面只提供真实 Excel 入口，不再暴露示例�
   assert.doesNotMatch(html,/载入示例|下载示例表/);
   assert.equal(controller.isBusy(),false);
   assert.equal(controller.canQuit(),true);
+});
+
+test('正式入口先加载商品识别模块，再加载商品转表脚本',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'../public/index.html'),'utf8');
+  const recognition=html.indexOf('product-recognition.js');
+  const transfer=html.indexOf('product-transfer.js');
+  const transferUI=html.indexOf('product-transfer-ui.js');
+  assert.ok(recognition>=0&&recognition<transfer&&recognition<transferUI);
 });
 
 test('创建会话只发送服务端指纹采用的规则字段',async()=>{

@@ -12,6 +12,7 @@ const {
   productionPackageNames,
   validateSource
 } = require('../common/runtime-manifest.cjs');
+const { readPayload } = require('../scripts/audit-release-package.cjs');
 
 const root = path.join(__dirname, '..');
 
@@ -37,4 +38,14 @@ test('production dependency closure includes streaming transitive packages', () 
   for (const name of ['sax', 'yauzl', 'pend', 'yazl', 'buffer-crc32']) assert.ok(packages.includes(name), name);
   assert.ok(packages.includes('electron-updater'));
   assert.ok(!packages.includes('electron-builder'));
+});
+
+test('asar payload lookup keeps package files readable after path normalization', async () => {
+  const asar = require('@electron/asar');
+  const source = path.join(root, 'node_modules', 'argparse');
+  const archive = path.join('/tmp', `runtime-manifest-${process.pid}.asar`);
+  await asar.createPackage(source, archive);
+  const payload = readPayload({ type: 'asar', path: archive });
+  assert.ok(payload.files.includes('LICENSE'));
+  assert.equal(payload.read('LICENSE').toString('utf8').startsWith('A. HISTORY'), true);
 });

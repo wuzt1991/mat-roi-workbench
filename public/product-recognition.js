@@ -11,6 +11,7 @@
     productId:['平台商品ID','商品ID','商品id'],specId:['平台规格ID','SKU ID','SKUID','规格ID','主条码','货品编码'],price:['平台售价','售价'],status:['售卖状态','状态'],inventory:['平台库存','库存'],
     productCode:['商品编码'],merchantCode:['商家编码'],specType:['规格类型'],goodsCode:['货品编码'],goodsShort:['货品简称'],specShort:['规格简称'],sales:['销量','支付件数','成交件数','销售数量','货品数量','修改数量'],date:['日期','支付日期','下单日期']
   };
+  const REQUIRED_PRODUCT_FIELDS={platform:'平台',shop:'店铺',productName:'商品名称',specName:'规格名称',productId:'商品 ID',specId:'SKU ID',price:'售价',status:'售卖状态',inventory:'库存'};
   const text=v=>v==null?'':String(v).trim();
   const compact=v=>text(v).normalize('NFKC').replace(/[\s\u3000]/g,'').toLowerCase();
   const number=v=>{if(v===''||v==null||typeof v==='boolean')return null;const n=Number(String(v).replace(/,/g,'').trim());return Number.isFinite(n)?n:null;};
@@ -61,13 +62,20 @@
   function mapFields(headers){
     const normalized=headers.map(compact),map={};
     for(const [field,aliases] of Object.entries(FIELD_ALIASES)){
-      const indexes=[];for(const alias of aliases){const index=normalized.indexOf(compact(alias));if(index>=0&&!indexes.includes(index))indexes.push(index);}
+      // Platform columns are authoritative in ERP exports that also contain internal goods columns.
+      const preferred=aliases[0].startsWith('平台')&&normalized.includes(compact(aliases[0]));
+      const names=new Set((preferred?[aliases[0]]:aliases).map(compact));
+      const indexes=normalized.flatMap((name,index)=>names.has(name)?[index]:[]);
       if(indexes.length===1)map[field]=indexes[0];else if(indexes.length>1)map[field]={ambiguous:indexes};
     }
     return map;
   }
+  function productMappingIssues(headers,mapping={}){
+    const keys=Object.keys(REQUIRED_PRODUCT_FIELDS);
+    return keys.filter(key=>!Number.isInteger(mapping[key])||mapping[key]<0||mapping[key]>=headers.length||keys.some(other=>other!==key&&mapping[other]===mapping[key]));
+  }
   function detectHeader(rows){
-    let best=null;for(let i=0;i<Math.min(rows.length,40);i++){const row=rows[i],mapped=mapFields(row),score=Object.values(mapped).filter(Number.isInteger).length;if(!best||score>best.score)best={rowIndex:i,score,headers:row,mapping:mapped};}
+    let best=null;for(let i=0;i<Math.min(rows.length,40);i++){const row=rows[i],mapped=mapFields(row),score=Object.keys(mapped).length;if(!best||score>best.score)best={rowIndex:i,score,headers:row,mapping:mapped};}
     return best&&best.score>=3?best:null;
   }
   function field(raw,mapping,name){const index=mapping?.[name];return Number.isInteger(index)?raw[index]:'';}
@@ -128,5 +136,5 @@
     return {review:next,derived:deriveTransferRow(raw,next,{rules}),protectedFields};
   }
 
-  return {OUTPUT_HEADERS,FIELD_ALIASES,text,compact,number,validDimension,parseDimensions,identifyMaterial,thicknessEvidence,resolveThickness,mapFields,detectHeader,deriveTransferRow,previewTransferRowPatch,groupKey};
+  return {OUTPUT_HEADERS,FIELD_ALIASES,REQUIRED_PRODUCT_FIELDS,productMappingIssues,text,compact,number,validDimension,parseDimensions,identifyMaterial,thicknessEvidence,resolveThickness,mapFields,detectHeader,deriveTransferRow,previewTransferRowPatch,groupKey};
 });
