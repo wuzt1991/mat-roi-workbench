@@ -46,7 +46,7 @@ test('ordinary saves reject schema bypass and preserve frozen records after rest
 });
 test('HTTP recovery works with broken JSON; restore releases broker admission on failure',async t=>{
   const dir=directory();let before=0,after=0;const running=createServer({dataDir:dir,port:0,fileServiceFactory:()=>({handle:async()=>false,beforeRestore:async()=>{before++;},afterRestore:async()=>{after++;},canQuit:()=>true,close:()=>{}})}),url=await running.listen();
-  t.after(async()=>{await new Promise(resolve=>{running.server.close(resolve);running.server.closeAllConnections();});fs.rmSync(dir,{recursive:true,force:true});});
+  t.after(async()=>{await running.close();fs.rmSync(dir,{recursive:true,force:true});});
   const state=running.store.read().state;running.store.db.prepare('UPDATE workspace SET data=? WHERE id=1').run('{bad');
   assert.equal((await fetch(url+'/api/state')).status,422);assert.equal(await(await fetch(url+'/api/recovery/current/raw')).text(),'{bad');assert.equal((await(await fetch(url+'/api/recovery/status')).json()).revision,0);
   const send=(body,route='/api/restore',method='POST')=>fetch(url+route,{method,headers:mutationHeaders,body:JSON.stringify(body)});

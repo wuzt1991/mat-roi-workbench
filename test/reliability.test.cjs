@@ -10,7 +10,6 @@ const {createServer}=require('../server/index.cjs');
 const {SaveQueue}=require('../public/persistence.js');
 function temp(){return fs.mkdtempSync(path.join(os.tmpdir(),'mat-workbench-test-'));}
 function cleanup(t,directory,close){t.after(async()=>{await close();fs.rmSync(directory,{recursive:true,force:true,maxRetries:5,retryDelay:50});});}
-function closeServer(server){return new Promise(resolve=>{server.close(resolve);server.closeAllConnections?.();});}
 
 test('展示保本 ROI 向上保留两位，不因四舍五入低估保本线',()=>{
   assert.equal(M.ceilRoi(2.5347942334),2.54);assert.equal(M.ceilRoi(2.53),2.53);assert.equal(M.ceilRoi(null),null);
@@ -60,7 +59,7 @@ test('SQLite 重启仍保留数据；旧版本、改账和坏数据不能覆盖'
 });
 test('HTTP 保存、冲突、备份、来源限制与私有文件隔离',async t=>{
   const directory=temp(),running=createServer({dataDir:directory,port:0}),url=await running.listen();
-  cleanup(t,directory,()=>closeServer(running.server));
+  cleanup(t,directory,()=>running.close());
   const headers={'Content-Type':'application/json','X-Workbench':'1'};
   assert.equal((await (await fetch(url+'/api/state')).json()).revision,0);
   const state=running.store.read().state;let response=await fetch(url+'/api/state',{method:'PUT',headers,body:JSON.stringify({state,revision:0})});assert.equal(response.status,200);

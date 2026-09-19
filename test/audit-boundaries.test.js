@@ -28,7 +28,7 @@ test('P1 v3 原始 Excel 仍通过旧版可读表校验，新导出使用实际�
 });
 test('P1 版本配置脚本与 package.json 同源，包含实际平台限制',async t=>{
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'roi-config-test-')),running=createServer({dataDir:dir,port:0});
-  t.after(async()=>{await new Promise(resolve=>{running.server.close(resolve);running.server.closeAllConnections();});fs.rmSync(dir,{recursive:true,force:true});});
+  t.after(async()=>{await running.close();fs.rmSync(dir,{recursive:true,force:true});});
   const url=await running.listen(),response=await fetch(url+'/app-config.js');assert.equal(response.status,200);
   const context={window:{}};vm.runInNewContext(await response.text(),context);assert.equal(context.window.WorkbenchConfig.version,require('../package.json').version);assert.equal(context.window.WorkbenchConfig.updatesSupported,process.platform==='win32'&&process.arch==='x64');
 });

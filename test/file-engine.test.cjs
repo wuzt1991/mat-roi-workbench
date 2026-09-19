@@ -73,8 +73,8 @@ test('平台商家编码经过 XLSX 导入和流式导出保持文本与前导�
 });
 
 test('分页先筛选当前代的行号，再加载整行，跨页顺序与缺厚度交叉筛选一致',t=>{
-  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'mat-page-filter-'));t.after(()=>fs.rmSync(directory,{recursive:true,force:true}));
-  const store=new ImportSessionStore(directory,{create:true,meta:{sessionId:'page',ownerToken:'test',rules:rules()}});t.after(()=>store.close());
+  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'mat-page-filter-'));
+  const store=new ImportSessionStore(directory,{create:true,meta:{sessionId:'page',ownerToken:'test',rules:rules()}});t.after(()=>{store.close();fs.rmSync(directory,{recursive:true,force:true});});
   const mapping={platform:0,shop:1,productName:2,specName:3,productId:4,specId:5,price:6,status:7,inventory:8};store.setMeta('mapping',mapping);
   const records=[];for(let rowId=1;rowId<=240;rowId++){
     const values=['抖音','测试店','硅藻泥地垫',rowId%2?'40*60cm':'40*60cm 3mm','product',String(rowId),20,'在售',1];

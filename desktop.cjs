@@ -32,7 +32,7 @@ else{
     const port=Number(process.env.MAT_PORT||4173);let url=`http://127.0.0.1:${port}`,info;
     try{info=await (await fetch(url+'/api/health',{signal:AbortSignal.timeout(1000)})).json();}catch{}
     if(info&&(info.app!=='mat-roi-workbench'||info.version!==version||info.dataDir!==dataDir))throw Error('另一个版本或测试服务正在使用工作台端口。请退出旧版工作台后重新打开。');
-    if(!info){running=createServer({dataDir,port});try{url=await running.listen();}catch(error){running.store.close();running=null;throw Error(error.code==='EADDRINUSE'?'本机工作台端口被占用，请退出旧版工作台或本地预览后重试。':error.message);}}
+    if(!info){running=createServer({dataDir,port});try{url=await running.listen();}catch(error){await running.close();running=null;throw Error(error.code==='EADDRINUSE'?'本机工作台端口被占用，请退出旧版工作台或本地预览后重试。':error.message);}}
     appUrl=url;
     win=new BrowserWindow({width:1440,height:960,minWidth:1100,minHeight:740,title:productName,icon:path.join(__dirname,'public','assets','app-icon.png'),backgroundColor:'#f5f6f8',autoHideMenuBar:true,webPreferences:{contextIsolation:true,nodeIntegration:false,sandbox:true,preload:path.join(__dirname,'preload.cjs')}});
     autoUpdater.autoDownload=false;
@@ -74,5 +74,12 @@ else{
     updateService.start();
   }).catch(error=>{dialog.showErrorBox('工作台启动失败',error.message);app.quit();});
   app.on('window-all-closed',()=>app.quit());
-  app.on('will-quit',()=>{if(quitting)return;quitting=true;updateService?.dispose();running?.server.close();});
+  app.on('will-quit',event=>{
+    if(quitting)return;
+    updateService?.dispose();
+    if(!running){quitting=true;return;}
+    // Wait for file children and SQLite handles before the process exits.
+    event.preventDefault();
+    running.close().then(()=>{quitting=true;app.quit();}).catch(error=>{dialog.showErrorBox('工作台暂未退出',error.message);});
+  });
 }

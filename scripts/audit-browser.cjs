@@ -51,7 +51,7 @@ async function run(){
     }
     assert.deepEqual(errors,[]);console.log(JSON.stringify({passed:true,checks:['entry quote and frozen cost','manual total weight','field association and focus','Escape dirty confirmation','filter focus','price review','desktop tablet mobile layout'],screenshots:output},null,2));
   }finally{
-    await browser?.close();await new Promise(resolve=>{running.server.close(resolve);running.server.closeAllConnections();});
+    await browser?.close();await running.close();
     // Keep screenshots for inspection; the database is confined to this temporary directory.
     console.log('Isolated test directory: '+dir);
   }

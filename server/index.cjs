@@ -30,10 +30,11 @@ function createServer({ dataDir = defaultDirectory(), port = 4173, storeOptions,
   let factory=fileServiceFactory;
   if(factory===undefined){try{factory=require('./file-service.cjs').createFileService;}catch(error){if(error.code!=='MODULE_NOT_FOUND'||!error.message.includes("'./file-service.cjs'"))throw error;}}
   const fileService=factory?factory({store,dataDir}):null;
-  let restoring=false;
+  let restoring=false,activeRequests=0,requestsDrained;
   const attachment=(response,name,raw)=>{response.writeHead(200,{'Content-Type':'application/json; charset=utf-8','Content-Disposition':'attachment; filename="'+name+'"'});response.end(raw);};
   const requireJSON=request=>{if(!request.headers['content-type']?.startsWith('application/json')||request.headers['x-workbench']!=='1')throw new StoreError(415,'请求格式不支持。','UNSUPPORTED_CONTENT_TYPE');};
   const server = http.createServer(async (request, response) => {
+    activeRequests++;
     response.setHeader('Cache-Control', 'no-store');
     response.setHeader('X-Content-Type-Options', 'nosniff');
     response.setHeader('Referrer-Policy', 'no-referrer');
@@ -90,10 +91,28 @@ function createServer({ dataDir = defaultDirectory(), port = 4173, storeOptions,
       response.writeHead(200, { 'Content-Type': TYPES[path.extname(filename)] });
       response.end(request.method === 'HEAD' ? undefined : bytes);
     } catch (error) { if(!response.headersSent)json(response,error.status||500,{error:error.status?error.message:'保存服务发生错误，请重试。已有数据保留。',code:error.code||'INTERNAL_ERROR'});else response.destroy(); }
+    finally {if(--activeRequests===0)requestsDrained?.();}
   });
   server.requestTimeout = 15000;
-  server.on('close',()=>{Promise.resolve(fileService?.close?.()).catch(()=>{}).finally(()=>store.close());});
-  return { server,store,fileService,canQuit:()=>!restoring&&(fileService?.canQuit?.()??true), listen: () => new Promise((resolve, reject) => {
+  let resourcesClosed,shutdown;
+  function closeResources(){
+    if(!resourcesClosed)resourcesClosed=Promise.resolve().then(async()=>{
+      // HTTP may finish before an asynchronous request finalizer (for example restore).
+      if(activeRequests)await new Promise(resolve=>{requestsDrained=resolve;});
+      try{await fileService?.close?.();}finally{store.close();}
+    });
+    return resourcesClosed;
+  }
+  // Keep direct server.close() compatible; callers needing cleanup completion use close().
+  server.on('close',()=>{closeResources().catch(()=>{});});
+  function close(){
+    if(!shutdown)shutdown=new Promise((resolve,reject)=>{
+      server.close(error=>{if(error&&error.code!=='ERR_SERVER_NOT_RUNNING')reject(error);else resolve();});
+    }).finally(closeResources);
+    return shutdown;
+  }
+  return { server,store,fileService,close,canQuit:()=>!restoring&&(fileService?.canQuit?.()??true), listen: () => new Promise((resolve, reject) => {
+    if(shutdown||resourcesClosed)return reject(new Error('保存服务已经关闭。'));
     server.once('error', reject);
     server.listen(port, '127.0.0.1', () => { server.removeListener('error', reject); resolve(`http://127.0.0.1:${server.address().port}`); });
   }) };
@@ -101,6 +120,6 @@ function createServer({ dataDir = defaultDirectory(), port = 4173, storeOptions,
 if (require.main === module) {
   const running = createServer({ port: Number(process.env.MAT_PORT || 4173), dataDir: process.env.MAT_DATA_DIR || defaultDirectory() });
   running.listen().then(url => console.log(`地垫工作台 v${version}：${url}\n数据目录：${path.dirname(running.store.filename)}`)).catch(error => { console.error(error.message); process.exit(1); });
-  for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => running.server.close());
+  for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => {running.close().catch(error=>{console.error(error.message);process.exitCode=1;});});
 }
 module.exports = { createServer, defaultDirectory };

@@ -6,7 +6,6 @@ const {Store}=require('../server/store.cjs'),{createServer}=require('../server/i
 const {SaveQueue}=require('../public/persistence.js');
 function temp(){return fs.mkdtempSync(path.join(os.tmpdir(),'mat-release-test-'));}
 function cleanup(t,dir,close=()=>{}){t.after(async()=>{await close();fs.rmSync(dir,{recursive:true,force:true,maxRetries:5,retryDelay:50});});}
-function closeServer(server){return new Promise(resolve=>{server.close(resolve);server.closeAllConnections?.();});}
 function seed(){const s=M.seed();s.records=[];return s;}
 function entry(s,date='2026-09-01'){return M.confirmRecord(s,{frame:M.makeFrame(s,s.plans[0]),date});}
 function legacyDB(dir,state){const store=new Store(dir);store.db.prepare('INSERT OR REPLACE INTO workspace VALUES(1,7,?,?)').run(JSON.stringify(state),'2026-09-01T00:00:00Z');store.close();}
@@ -54,7 +53,7 @@ test('孤立更正、循环更正、店铺错配和旧账金额伪装不允许�
   const old=L.seed();old.plans[0].history.push(L.createRecord(old,old.plans[0],'2026-09-01'));const migrated=M.migrate(old);migrated.records.find(h=>h.kind==='daily').result.price=999;assert.equal(M.validateBackup(migrated),false);
 });
 test('正式服务正确提供版本、字体、Excel 库；CSP 与无缓存生效',async t=>{
-  const dir=temp(),running=createServer({dataDir:dir,port:0}),url=await running.listen();cleanup(t,dir,()=>closeServer(running.server));
+  const dir=temp(),running=createServer({dataDir:dir,port:0}),url=await running.listen();cleanup(t,dir,()=>running.close());
   assert.equal((await(await fetch(url+'/api/health')).json()).version,require('../package.json').version);
   for(const file of ['assets/InterVariable.woff2','assets/exceljs.min.js','persistence.js','revision.css']){const r=await fetch(url+'/'+file);assert.equal(r.status,200);assert.equal(r.headers.get('cache-control'),'no-store');}
   assert.match((await fetch(url+'/assets/InterVariable.woff2')).headers.get('content-type'),/font\/woff2/);
