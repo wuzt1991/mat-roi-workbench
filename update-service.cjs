@@ -120,7 +120,10 @@ class UpdateService {
     if (this.status.state !== 'downloaded') throw new Error('请先下载更新');
     if (!(await this.canQuit())) throw new Error('请先完成保存后再重启安装');
     if (!this.updater || typeof this.updater.quitAndInstall !== 'function') throw new Error('更新服务暂时不可用');
-    this.updater.quitAndInstall(false, true);
+    // The update action is already an explicit user choice. Run NSIS silently so
+    // the installer does not depend on a visible desktop session, then relaunch
+    // the application with the new version.
+    this.updater.quitAndInstall(true, true);
     return this.status;
   }
 

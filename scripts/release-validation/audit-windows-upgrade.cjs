@@ -23,7 +23,7 @@ for (const key of Object.keys(env)) {
   if (/^(?:ELECTRON_RUN_AS_NODE|MAT_DATA_DIR|MAT_PORT|MAT_UPDATE_OWNER|MAT_UPDATE_REPO|GH_REPO_OWNER|GH_REPO_NAME)$/i.test(key)) delete env[key];
 }
 const report = { candidateRun: process.env.CANDIDATE_RUN, source: process.env.CANDIDATE_SHA, steps: [] };
-let feed, socket, wizard;
+let feed, socket;
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 function record(name, details = {}) { report.steps.push({ name, ...details }); console.log(JSON.stringify({ name, ...details })); }
 function annotation(level, details) { console.log(`::${level}::` + JSON.stringify(details).replaceAll('%', '%25').replaceAll('\r', '%0D').replaceAll('\n', '%0A')); }
@@ -118,11 +118,9 @@ async function main() {
   assert.equal(downloaded.state, 'downloaded'); assert.equal(downloaded.version, version);
   assert.ok(requests.includes(file));
   record('old-client-downloads-candidate', { version, sha512: expected, requests });
-  wizard = spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', path.join(__dirname, 'complete-test-installer.ps1')], { env, stdio: 'inherit' });
-  report.wizard = { pid: wizard.pid, state: 'running' };
-  wizard.on('error', error => { report.wizard = { ...report.wizard, state: 'error', error: error.message }; });
-  wizard.on('exit', (code, signal) => { report.wizard = { ...report.wizard, state: 'exited', code, signal }; });
-  // Invoke the exact production IPC method. The helper only operates the isolated NSIS wizard.
+  // Invoke the exact production IPC method. The production updater performs a
+  // silent NSIS install and relaunches the app without requiring an interactive
+  // desktop session on the runner.
   report.installInvocation = { state: 'requested' };
   evaluate('window.matUpdates.quitAndInstall()').then(result => { report.installInvocation = { state: 'returned', result }; }).catch(error => { report.installInvocation = { state: 'renderer-disconnected-or-error', message: error.message }; console.log('Update IPC result:', error.message); });
   const upgraded = await until(async () => { const h = await json(base + '/api/health'); return h.version === version && h; }, 'updated application relaunch', 180000);
@@ -155,7 +153,6 @@ main().catch(async error => {
   report.healthDiagnostics = await Promise.all([4173, 4188].map(async port => { try { return { port, health: await json(`http://127.0.0.1:${port}/api/health`, { signal: AbortSignal.timeout(2500) }) }; } catch (failure) { return { port, error: failure.message }; } }));
   try { report.runtimeDiagnostics = inspectWindowsRuntime(); } catch (failure) { report.runtimeDiagnostics = { error: failure.message }; }
   report.windowsDiagnostics = powershell("Get-WinEvent -FilterHashtable @{LogName='Application'; StartTime=(Get-Date).AddMinutes(-5)} -ErrorAction SilentlyContinue | Where-Object { $_.ProviderName -match 'Application Error|Windows Error Reporting' } | Select-Object -First 3 | ForEach-Object { $_.Message }").stdout;
-  if (wizard) report.wizard = { ...report.wizard, exitCode: wizard.exitCode, signalCode: wizard.signalCode };
   fs.mkdirSync(root, { recursive: true }); fs.writeFileSync(path.join(root, 'report.json'), JSON.stringify(report, null, 2)); console.error(error);
   annotation('error', report); process.exitCode = 1;
-}).finally(() => { socket?.close(); feed?.close(); wizard?.kill(); stopApp(); });
+}).finally(() => { socket?.close(); feed?.close(); stopApp(); });

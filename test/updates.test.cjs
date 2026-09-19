@@ -14,7 +14,7 @@ class FakeUpdater extends EventEmitter {
   constructor(){super();this.checkCalls=0;this.downloadCalls=0;this.installCalls=0;}
   async checkForUpdates(){this.checkCalls++;}
   async downloadUpdate(){this.downloadCalls++;}
-  quitAndInstall(){this.installCalls++;}
+  quitAndInstall(...args){this.installCalls++;this.installArgs=args;}
   setFeedURL(config){this.feedURL=config;}
 }
 
@@ -50,7 +50,7 @@ test('未保存修改阻止重启安装，保存完成后允许',async()=>{
   const service=new UpdateService({updater,enabled:true,canQuit,config:{provider:'github',owner:'owner',repo:'repo'}});
   service.start();updater.emit('update-downloaded',{version:'1.1.2'});
   await assert.rejects(service.quitAndInstall(),/请先完成保存/);assert.equal(updater.installCalls,0);
-  service.canQuit=()=>true;await service.quitAndInstall();assert.equal(updater.installCalls,1);
+  service.canQuit=()=>true;await service.quitAndInstall();assert.equal(updater.installCalls,1);assert.deepEqual(updater.installArgs,[true,true]);
 });
 
 test('更新服务不改写 SQLite 数据目录和工作区文件',async t=>{
