@@ -8,7 +8,6 @@ const http = require('node:http');
 const { spawn, spawnSync } = require('node:child_process');
 const root = path.resolve(process.env.RUNNER_TEMP, 'mat-upgrade-validation');
 const artifacts = path.resolve(process.argv[2]);
-const oldInstaller = path.resolve(process.argv[3]);
 const installDir = path.join(root, 'installed');
 const dataDir = path.join(root, 'data');
 const executable = path.join(installDir, '地垫工作台.exe');
@@ -29,12 +28,6 @@ async function until(check, label, timeout = 90000) {
   throw Error(`${label} timed out${last ? ': ' + last.message : ''}`);
 }
 async function json(url, options) { const response = await fetch(url, { signal: AbortSignal.timeout(10000), ...options }); if (!response.ok) throw Error(`${url}: ${response.status} ${await response.text()}`); return response.json(); }
-async function run(file, args, timeout = 150000) {
-  // NSIS is a GUI executable. Use the Windows shell launch path verified by the installer diagnostic.
-  const quote = value => "'" + String(value).replaceAll("'", "''") + "'";
-  const command = `$taskProcess = Start-Process -FilePath ${quote(file)} -ArgumentList @(${args.map(quote).join(',')}) -Wait -PassThru; exit $taskProcess.ExitCode`;
-  return new Promise((resolve, reject) => { const child = spawn('powershell.exe', ['-NoProfile', '-Command', command], { env, stdio: 'inherit' }); const timer = setTimeout(() => { child.kill(); reject(Error(`${file} timed out`)); }, timeout); child.on('error', reject); child.on('exit', code => { clearTimeout(timer); code === 0 ? resolve() : reject(Error(`${file} exited ${code}`)); }); });
-}
 function stopApp() { spawnSync('powershell.exe', ['-NoProfile', '-Command', `Get-Process | Where-Object { $_.Path -eq '${executable.replaceAll("'", "''")}' } | Stop-Process -Force -ErrorAction SilentlyContinue`], { stdio: 'ignore' }); }
 async function startApp(version) {
   spawn(executable, ['--remote-debugging-port=9225'], { env, stdio: 'ignore' }).unref();
@@ -62,7 +55,7 @@ async function main() {
   const installer = fs.readFileSync(path.join(artifacts, file));
   assert.equal(crypto.createHash('sha512').update(installer).digest('base64'), expected);
   report.installer = { file, size: installer.length, sha256: crypto.createHash('sha256').update(installer).digest('hex') };
-  await run(oldInstaller, ['/S', '/D=' + installDir]);
+  // The workflow installs the public baseline with the runner's native PowerShell host.
   stopApp();
   assert.ok(fs.existsSync(executable));
   const configPath = path.join(installDir, 'resources', 'app-update.yml');

@@ -86,6 +86,12 @@ jobs:
           Rename-Item $exe[0].FullName "mat-roi-workbench-setup-$version.exe"
           Rename-Item $map[0].FullName "mat-roi-workbench-setup-$version.exe.blockmap"
           Invoke-WebRequest 'https://github.com/wuzt1991/mat-roi-workbench/releases/download/v1.1.10/mat-roi-workbench-setup-1.1.10.exe' -OutFile (Join-Path $env:RUNNER_TEMP 'old-installer.exe')
+          $oldInstaller = Join-Path $env:RUNNER_TEMP 'old-installer.exe'
+          if ((Get-FileHash $oldInstaller -Algorithm SHA256).Hash.ToLowerInvariant() -ne '42dd061a3edf6af011f957dbdd30f63a04417f8b49277617459c5548de137303') { throw 'Previous installer checksum mismatch' }
+          $testInstall = Join-Path $env:RUNNER_TEMP 'mat-upgrade-validation/installed'
+          New-Item -ItemType Directory -Force (Split-Path $testInstall) | Out-Null
+          $oldProcess = Start-Process -FilePath $oldInstaller -ArgumentList @('/S', "/D=$testInstall") -Wait -PassThru
+          if ($oldProcess.ExitCode -ne 0) { Write-Host "::error::Previous NSIS bootstrap exited $($oldProcess.ExitCode)"; throw 'Previous installation failed' }
 
       - name: Exercise old client download, restart installation and data migration
         env:
