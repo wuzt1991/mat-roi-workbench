@@ -126,8 +126,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Installed child-process audit failed' }
           $env:MAT_VERIFY_ROOT = Join-Path $installed 'resources/app.asar'
           $env:MAT_VERIFY_OUTPUT = Join-Path $env:RUNNER_TEMP 'mat-upgrade-validation/fixtures'
-          $env:ELECTRON_RUN_AS_NODE = '1'
-          & (Join-Path $installed '地垫工作台.exe') (Join-Path $PWD 'scripts/release-validation/verify-fixtures.cjs')
+          node scripts/release-validation/run-installed.cjs $installed fixtures
           if ($LASTEXITCODE -ne 0) { throw 'Installed G62 validation failed' }
 
       - name: Validate 500000 row boundary using installed runtime
@@ -136,11 +135,10 @@ jobs:
           $installed = Get-Content (Join-Path $env:RUNNER_TEMP 'mat-upgrade-validation/installed-path.txt')
           $env:MAT_VERIFY_ROOT = Join-Path $installed 'resources/app.asar'
           $env:MAT_VERIFY_OUTPUT = Join-Path $env:RUNNER_TEMP 'mat-upgrade-validation/large'
-          $env:ELECTRON_RUN_AS_NODE = '1'
           foreach ($rows in @(500000, 500001)) {
-            & (Join-Path $installed '地垫工作台.exe') (Join-Path $PWD 'scripts/release-validation/verify-large.cjs') build $rows
+            node scripts/release-validation/run-installed.cjs $installed large build $rows
             if ($LASTEXITCODE -ne 0) { throw 'Large fixture generation failed' }
-            & (Join-Path $installed '地垫工作台.exe') (Join-Path $PWD 'scripts/release-validation/verify-large.cjs') verify $rows
+            node scripts/release-validation/run-installed.cjs $installed large verify $rows
             if ($LASTEXITCODE -ne 0) { throw 'Large boundary verification failed' }
           }
 
