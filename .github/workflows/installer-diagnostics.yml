@@ -7,7 +7,11 @@ permissions:
   contents: read
 jobs:
   diagnose:
-    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2022, windows-latest]
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 10
     steps:
       - name: Verify previous installer and run directly in PowerShell
@@ -21,7 +25,10 @@ jobs:
           $digest = [Convert]::ToBase64String([System.Security.Cryptography.SHA512]::HashData([IO.File]::ReadAllBytes($exe)))
           if ((Get-FileHash $exe -Algorithm SHA256).Hash.ToLowerInvariant() -ne '42dd061a3edf6af011f957dbdd30f63a04417f8b49277617459c5548de137303') { throw 'Previous installer SHA-256 mismatch' }
           $dest = Join-Path $dir 'installed'
-          $process = Start-Process -FilePath $exe -ArgumentList @('/S', "/D=$dest") -Wait -PassThru
-          $installed = Test-Path (Join-Path $dest '地垫工作台.exe')
-          Write-Host "::notice::PowerShell install exit=$($process.ExitCode); installed=$installed; sha512=$digest"
+          foreach ($attempt in 1..3) {
+            $process = Start-Process -FilePath $exe -ArgumentList @('/S', "/D=$dest") -Wait -PassThru
+            $installed = Test-Path (Join-Path $dest '地垫工作台.exe')
+            Write-Host "::notice::${{ matrix.os }} attempt=$attempt; PowerShell install exit=$($process.ExitCode); installed=$installed; sha512=$digest"
+            Get-Process | Where-Object { $_.Path -eq (Join-Path $dest '地垫工作台.exe') } | Stop-Process -Force -ErrorAction SilentlyContinue
+          }
           Get-WinEvent -FilterHashtable @{LogName='Application'; StartTime=(Get-Date).AddMinutes(-5)} -ErrorAction SilentlyContinue | Where-Object { $_.ProviderName -match 'Application Error|Windows Error Reporting' } | Select-Object -First 4 | ForEach-Object { Write-Host ('::notice::' + ($_.Message -replace '\r?\n',' / ')) }
