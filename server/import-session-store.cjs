@@ -26,6 +26,7 @@ class ImportSessionStore{
       CREATE TABLE IF NOT EXISTS reviews(row_id INTEGER PRIMARY KEY REFERENCES raw_rows(row_id) ON DELETE CASCADE,review_json TEXT NOT NULL DEFAULT '{}',revision INTEGER NOT NULL DEFAULT 0);
       CREATE TABLE IF NOT EXISTS derived_rows(row_id INTEGER NOT NULL REFERENCES raw_rows(row_id) ON DELETE CASCADE,generation INTEGER NOT NULL,group_id TEXT NOT NULL,status TEXT NOT NULL,original_missing_thickness INTEGER NOT NULL,derived_json TEXT NOT NULL,PRIMARY KEY(row_id,generation));
       CREATE TABLE IF NOT EXISTS groups(generation INTEGER NOT NULL,group_id TEXT NOT NULL,first_row INTEGER NOT NULL,platform TEXT NOT NULL,shop TEXT NOT NULL,product_id TEXT NOT NULL,total INTEGER NOT NULL,pending INTEGER NOT NULL,confirmed INTEGER NOT NULL,missing_thickness INTEGER NOT NULL,material_state TEXT NOT NULL,thickness_state TEXT NOT NULL,spec_examples TEXT NOT NULL,PRIMARY KEY(generation,group_id));
+      CREATE TABLE IF NOT EXISTS generation_counts(generation INTEGER PRIMARY KEY,total INTEGER NOT NULL,pending INTEGER NOT NULL,confirmed INTEGER NOT NULL,missing_thickness INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS group_value_counts(generation INTEGER NOT NULL,group_id TEXT NOT NULL,field TEXT NOT NULL,status TEXT NOT NULL,value TEXT NOT NULL,count INTEGER NOT NULL,PRIMARY KEY(generation,group_id,field,status,value));
       CREATE TABLE IF NOT EXISTS operation_changes(operation_id TEXT NOT NULL,row_id INTEGER NOT NULL,old_review TEXT NOT NULL,new_review TEXT NOT NULL,fields TEXT NOT NULL,PRIMARY KEY(operation_id,row_id));
       CREATE TABLE IF NOT EXISTS receipts(mutation_id TEXT PRIMARY KEY,digest TEXT NOT NULL,result_json TEXT NOT NULL,created TEXT NOT NULL);
@@ -54,7 +55,7 @@ class ImportSessionStore{
     if(storageEpoch!==undefined&&Number(storageEpoch)!==Number(meta.storageEpoch))throw new SessionError(409,'工作区已恢复，请重新导入或复核。','STORAGE_EPOCH_CHANGED');
     return meta;
   }
-  resetImport({keepSharedStrings=false}={}){this.transaction(()=>{if(!keepSharedStrings)this.db.exec('DELETE FROM shared_strings');for(const table of ['raw_rows','reviews','derived_rows','groups','group_value_counts','operation_changes','receipts','artifacts','sales_aggregates','sales_bindings'])this.db.exec(`DELETE FROM ${table}`);this.setMeta('generation',0);this.setMeta('revision',0);});}
+  resetImport({keepSharedStrings=false}={}){this.transaction(()=>{if(!keepSharedStrings)this.db.exec('DELETE FROM shared_strings');for(const table of ['raw_rows','reviews','derived_rows','groups','generation_counts','group_value_counts','operation_changes','receipts','artifacts','sales_aggregates','sales_bindings'])this.db.exec(`DELETE FROM ${table}`);this.setMeta('generation',0);this.setMeta('revision',0);});}
   insertSharedString(id,value){this.db.prepare('INSERT INTO shared_strings(id,value) VALUES(?,?)').run(id,value);}
   sharedString(id){return this.db.prepare('SELECT value FROM shared_strings WHERE id=?').get(id)?.value;}
   insertRawBatch(records){
@@ -70,15 +71,51 @@ class ImportSessionStore{
     for(let start=0;start<rows.length;start+=batch){if(canceled?.())throw Object.assign(Error('任务已取消'),{code:'CANCELED'});this.transaction(()=>{for(const item of rows.slice(start,start+batch)){const raw=this.raw(item.row_id),review=this.review(item.row_id),derived=Recognition.deriveTransferRow(raw,review,{rules,mapping:raw.mapping});this.putDerived(derived,generation);}});done=Math.min(rows.length,start+batch);progress?.({phase:'deriving',rowsRead:done,rowsTotal:rows.length});}
     this.rebuildGroups(generation);this.transaction(()=>{this.setMeta('generation',generation);this.setMeta('rules',rules);this.setMeta('rulesFingerprint',digest(rules));this.setMeta('phase','reviewing');});return {generation,...this.counts(generation)};
   }
-  rebuildGroups(generation){
-    this.transaction(()=>{
-      this.db.prepare('DELETE FROM groups WHERE generation=?').run(generation);this.db.prepare('DELETE FROM group_value_counts WHERE generation=?').run(generation);
-      const groups=new Map(),rows=this.db.prepare('SELECT r.row_id,r.platform,r.shop,r.product_id,d.group_id,d.status,d.original_missing_thickness,d.derived_json FROM raw_rows r JOIN derived_rows d ON d.row_id=r.row_id AND d.generation=? ORDER BY d.row_id').iterate(generation);
-      for(const row of rows){const d=parse(row.derived_json,{});if(!groups.has(row.group_id))groups.set(row.group_id,{first:row.row_id,platform:row.platform,shop:row.shop,productId:row.product_id,total:0,pending:0,confirmed:0,missing:0,materials:new Set(),thicknesses:new Set(),examples:[]});const g=groups.get(row.group_id);g.total++;g[row.status==='confirmed'?'confirmed':'pending']++;if(row.original_missing_thickness)g.missing++;if(d.material?.status==='value')g.materials.add(d.material.materialId);else g.materials.add(d.material?.status||'pending');if(d.thickness?.status==='value')g.thicknesses.add(`${d.thickness.materialId}:${d.thickness.ruleId}`);else g.thicknesses.add(d.thickness?.status||'pending');if(g.examples.length<3&&d.specName)g.examples.push(d.specName);}
-      const insert=this.db.prepare('INSERT INTO groups VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)');for(const [id,g] of groups)insert.run(generation,id,g.first,g.platform,g.shop,g.productId,g.total,g.pending,g.confirmed,g.missing,g.materials.size===1?[...g.materials][0]:'mixed',g.thicknesses.size===1?[...g.thicknesses][0]:'mixed',JSON.stringify(g.examples));
-    });
+  rebuildGroups(generation){this.transaction(()=>this.rebuildGroupsOutsideTransaction(generation));}
+  rebuildGroupsOutsideTransaction(generation){
+    this.db.prepare('DELETE FROM groups WHERE generation=?').run(generation);
+    this.db.prepare('DELETE FROM group_value_counts WHERE generation=?').run(generation);
+    // Aggregation stays in SQLite, including workbooks with one distinct group per row.
+    for(const field of ['material','thickness']){
+      const value=field==='material'?"coalesce(json_extract(derived_json,'$.material.materialId'),'')":"coalesce(json_extract(derived_json,'$.thickness.materialId'),'')||':'||coalesce(json_extract(derived_json,'$.thickness.ruleId'),'')";
+      this.db.prepare(`INSERT INTO group_value_counts SELECT generation,group_id,?,coalesce(json_extract(derived_json,'$.${field}.status'),'pending'),CASE WHEN json_extract(derived_json,'$.${field}.status')='value' THEN ${value} ELSE '' END,count(*) FROM derived_rows WHERE generation=? GROUP BY group_id,4,5`).run(field,generation);
+    }
+    this.db.prepare(`INSERT INTO groups SELECT d.generation,d.group_id,min(d.row_id),r.platform,r.shop,r.product_id,count(*),sum(d.status<>'confirmed'),sum(d.status='confirmed'),sum(d.original_missing_thickness),'mixed','mixed','[]' FROM derived_rows d JOIN raw_rows r ON r.row_id=d.row_id WHERE d.generation=? GROUP BY d.group_id`).run(generation);
+    const examples=this.db.prepare("SELECT derived_json FROM derived_rows WHERE generation=? AND group_id=? ORDER BY row_id LIMIT 3"),putExamples=this.db.prepare('UPDATE groups SET spec_examples=? WHERE generation=? AND group_id=?');
+    for(const row of this.db.prepare('SELECT group_id FROM groups WHERE generation=?').iterate(generation)){
+      this.refreshGroupStates(generation,row.group_id);
+      putExamples.run(JSON.stringify(examples.all(generation,row.group_id).map(x=>parse(x.derived_json,{}).specName).filter(Boolean)),generation,row.group_id);
+    }
+    this.db.prepare(`INSERT OR REPLACE INTO generation_counts SELECT ?,coalesce(sum(total),0),coalesce(sum(pending),0),coalesce(sum(confirmed),0),coalesce(sum(missing_thickness),0) FROM groups WHERE generation=?`).run(generation,generation);
   }
-  counts(generation=this.getMeta('generation',0)){const total=this.db.prepare('SELECT count(*) n,sum(status<>\'confirmed\') pending,sum(status=\'confirmed\') confirmed,sum(original_missing_thickness) missing FROM derived_rows WHERE generation=?').get(generation);return {total:Number(total?.n||0),pending:Number(total?.pending||0),confirmed:Number(total?.confirmed||0),missingThickness:Number(total?.missing||0),ready:Number(total?.n||0)>0&&Number(total?.pending||0)===0};}
+  refreshGroupStates(generation,groupId){
+    const query=this.db.prepare('SELECT status,value FROM group_value_counts WHERE generation=? AND group_id=? AND field=? AND count>0 LIMIT 2');
+    const state=field=>{const values=query.all(generation,groupId,field);return values.length===1?(values[0].status==='value'?values[0].value:values[0].status):'mixed';};
+    this.db.prepare('UPDATE groups SET material_state=?,thickness_state=? WHERE generation=? AND group_id=?').run(state('material'),state('thickness'),generation,groupId);
+  }
+  ensureGroupCounts(generation){
+    if(!this.db.prepare('SELECT 1 FROM generation_counts WHERE generation=?').get(generation))this.rebuildGroupsOutsideTransaction(generation);
+  }
+  replaceDerivedIncrementally(previous,next,generation){
+    if(!previous||previous.groupId!==next.groupId)throw new SessionError(409,'商品分组已变化，请重新导入。','GROUP_CHANGED');
+    const pending=(next.status==='confirmed'?0:1)-(previous.status==='confirmed'?0:1),missing=Number(!!next.originalMissingThickness)-Number(!!previous.originalMissingThickness);
+    this.db.prepare('UPDATE groups SET pending=pending+?,confirmed=confirmed-?,missing_thickness=missing_thickness+? WHERE generation=? AND group_id=?').run(pending,pending,missing,generation,next.groupId);
+    this.db.prepare('UPDATE generation_counts SET pending=pending+?,confirmed=confirmed-?,missing_thickness=missing_thickness+? WHERE generation=?').run(pending,pending,missing,generation);
+    const add=this.db.prepare('INSERT INTO group_value_counts VALUES(?,?,?,?,?,1) ON CONFLICT(generation,group_id,field,status,value) DO UPDATE SET count=count+1'),subtract=this.db.prepare('UPDATE group_value_counts SET count=count-1 WHERE generation=? AND group_id=? AND field=? AND status=? AND value=?'),remove=this.db.prepare('DELETE FROM group_value_counts WHERE generation=? AND group_id=? AND field=? AND status=? AND value=? AND count=0');
+    for(const field of ['material','thickness']){
+      const key=d=>{const part=d[field]||{},status=part.status||'pending';return [status,status==='value'?(field==='material'?String(part.materialId||''):`${part.materialId||''}:${part.ruleId||''}`):''];};
+      const oldKey=key(previous),newKey=key(next);if(oldKey[0]===newKey[0]&&oldKey[1]===newKey[1])continue;
+      subtract.run(generation,next.groupId,field,...oldKey);remove.run(generation,next.groupId,field,...oldKey);add.run(generation,next.groupId,field,...newKey);
+    }
+    this.putDerived(next,generation);
+    this.db.prepare('INSERT OR IGNORE INTO mutation_groups VALUES(?)').run(next.groupId);
+  }
+  finishMutationGroups(generation){for(const row of this.db.prepare('SELECT group_id FROM mutation_groups').iterate())this.refreshGroupStates(generation,row.group_id);}
+  counts(generation=this.getMeta('generation',0)){
+    const cached=this.db.prepare('SELECT total n,pending,confirmed,missing_thickness missing FROM generation_counts WHERE generation=?').get(generation);
+    const total=cached||this.db.prepare("SELECT count(*) n,sum(status<>'confirmed') pending,sum(status='confirmed') confirmed,sum(original_missing_thickness) missing FROM derived_rows WHERE generation=?").get(generation);
+    return {total:Number(total?.n||0),pending:Number(total?.pending||0),confirmed:Number(total?.confirmed||0),missingThickness:Number(total?.missing||0),ready:Number(total?.n||0)>0&&Number(total?.pending||0)===0};
+  }
   page({status='all',missingThickness=false,page=1,pageSize=100}={}){
     pageSize=Math.max(1,Math.min(100,Number(pageSize)||100));page=Math.max(1,Number(page)||1);const generation=this.getMeta('generation',0),where=['d.generation=?'],params=[generation];
     if(status==='pending'){where.push("d.status<>'confirmed'");}else if(status==='confirmed'){where.push("d.status='confirmed'");}else if(status!=='all')throw new SessionError(400,'筛选条件无效。','INVALID_FILTER');
@@ -92,29 +129,65 @@ class ImportSessionStore{
     return {rows,groups,page,pageSize,total,totalPages,duplicateRows:this.getMeta('duplicateRows',0),counts,revision:this.getMeta('revision',0),generation,ready:counts.ready};
   }
   targetRowIds({rowIds,groupId}){if(groupId)return this.db.prepare('SELECT row_id FROM raw_rows WHERE group_id=? ORDER BY row_id').all(groupId).map(x=>x.row_id);const ids=[...new Set((rowIds||[]).map(Number).filter(Number.isSafeInteger))];if(!ids.length)throw new SessionError(422,'请选择需处理的规格。','EMPTY_TARGET');return ids;}
-  applyReview(command,rules){
-    const meta=this.assertContext(command),bodyDigest=digest(command),oldReceipt=this.db.prepare('SELECT * FROM receipts WHERE mutation_id=?').get(command.mutationId);
-    if(!command.mutationId)throw new SessionError(400,'操作编号不能为空。','MISSING_MUTATION_ID');
-    if(oldReceipt){if(oldReceipt.digest!==bodyDigest)throw new SessionError(409,'同一操作编号已用于其他内容。','MUTATION_CONFLICT');return {...parse(oldReceipt.result_json,{}),replayed:true};}
-    const ids=this.targetRowIds(command),missing=ids.filter(id=>!this.raw(id));if(missing.length)throw new SessionError(422,'包含已失效的规格，请刷新后重试。','ROW_NOT_FOUND');
-    const previews=[];for(const rowId of ids){const raw=this.raw(rowId),review=this.review(rowId),preview=Recognition.previewTransferRowPatch(raw,review,command.patch,command.action,rules);previews.push({rowId,oldReview:review,...preview});}
-    const changed=previews.filter(x=>JSON.stringify(x.oldReview)!==JSON.stringify(x.review));if(!changed.length)throw new SessionError(422,'没有可保存的变更。','NO_CHANGES');
-    const revision=Number(meta.revision)+1,generation=Number(meta.generation),operationId=crypto.randomUUID(),fields=Object.keys(command.patch||{}).filter(k=>(command.patch[k]?.mode||command.patch[k]?.status||command.patch[k])!=='keep');
-    const result=this.transaction(()=>{const upsert=this.db.prepare('INSERT INTO reviews(row_id,review_json,revision) VALUES(?,?,?) ON CONFLICT(row_id) DO UPDATE SET review_json=excluded.review_json,revision=excluded.revision'),change=this.db.prepare('INSERT INTO operation_changes VALUES(?,?,?,?,?)');for(const item of changed){upsert.run(item.rowId,JSON.stringify(item.review),revision);this.putDerived(item.derived,generation);change.run(operationId,item.rowId,JSON.stringify(item.oldReview),JSON.stringify(item.review),JSON.stringify(fields));}this.setMeta('revision',revision);this.setMeta('lastOperation',{operationId,revision});this.rebuildGroupsOutsideTransaction(generation);const summary={mutationId:command.mutationId,operationId,revision,changed:changed.length,protected:previews.reduce((n,x)=>n+x.protectedFields.length,0),counts:this.counts(generation)};this.db.prepare('INSERT INTO receipts VALUES(?,?,?,?)').run(command.mutationId,bodyDigest,JSON.stringify(summary),now());this.db.prepare('DELETE FROM receipts WHERE mutation_id IN (SELECT mutation_id FROM receipts ORDER BY created DESC LIMIT -1 OFFSET 1000)').run();return summary;});
-    return result;
+  targetRowCount(command){return command.groupId?Number(this.db.prepare('SELECT count(*) n FROM raw_rows WHERE group_id=?').get(command.groupId).n):this.targetRowIds(command).length;}
+  *iterateTargets(command){
+    if(command.groupId){for(const item of this.db.prepare('SELECT row_id FROM raw_rows WHERE group_id=? ORDER BY row_id').iterate(command.groupId))yield item.row_id;}
+    else yield* this.targetRowIds(command);
   }
-  rebuildGroupsOutsideTransaction(generation){
-    this.db.prepare('DELETE FROM groups WHERE generation=?').run(generation);this.db.prepare('DELETE FROM group_value_counts WHERE generation=?').run(generation);
-    const groups=new Map(),rows=this.db.prepare('SELECT r.row_id,r.platform,r.shop,r.product_id,d.group_id,d.status,d.original_missing_thickness,d.derived_json FROM raw_rows r JOIN derived_rows d ON d.row_id=r.row_id AND d.generation=? ORDER BY d.row_id').iterate(generation);for(const row of rows){const d=parse(row.derived_json,{});if(!groups.has(row.group_id))groups.set(row.group_id,{first:row.row_id,platform:row.platform,shop:row.shop,productId:row.product_id,total:0,pending:0,confirmed:0,missing:0,materials:new Set(),thicknesses:new Set(),examples:[]});const g=groups.get(row.group_id);g.total++;g[row.status==='confirmed'?'confirmed':'pending']++;if(row.original_missing_thickness)g.missing++;g.materials.add(d.material?.status==='value'?d.material.materialId:(d.material?.status||'pending'));g.thicknesses.add(d.thickness?.status==='value'?`${d.thickness.materialId}:${d.thickness.ruleId}`:(d.thickness?.status||'pending'));if(g.examples.length<3&&d.specName)g.examples.push(d.specName);}const insert=this.db.prepare('INSERT INTO groups VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)');for(const [id,g] of groups)insert.run(generation,id,g.first,g.platform,g.shop,g.productId,g.total,g.pending,g.confirmed,g.missing,g.materials.size===1?[...g.materials][0]:'mixed',g.thicknesses.size===1?[...g.thicknesses][0]:'mixed',JSON.stringify(g.examples));
+  checkedReceipt(command){
+    this.assertContext({...command,expectedSessionRevision:undefined});
+    if(!command.mutationId)throw new SessionError(400,'操作编号不能为空。','MISSING_MUTATION_ID');
+    const receipt=this.db.prepare('SELECT * FROM receipts WHERE mutation_id=?').get(command.mutationId);
+    if(!receipt)return null;
+    if(receipt.digest!==digest(command))throw new SessionError(409,'同一操作编号已用于其他内容。','MUTATION_CONFLICT');
+    return {...parse(receipt.result_json,{}),replayed:true};
+  }
+  applyReview(command,rules){
+    const replay=this.checkedReceipt(command);if(replay)return replay;
+    return this.transaction(()=>{
+      const meta=this.assertContext(command),generation=Number(meta.generation),revision=Number(meta.revision)+1,operationId=crypto.randomUUID();
+      this.ensureGroupCounts(generation);this.db.exec('CREATE TEMP TABLE IF NOT EXISTS mutation_groups(group_id TEXT PRIMARY KEY); DELETE FROM mutation_groups');
+      const fields=JSON.stringify(Object.keys(command.patch||{}).filter(k=>(command.patch[k]?.mode||command.patch[k]?.status||command.patch[k])!=='keep'));
+      const previous=this.db.prepare('SELECT derived_json FROM derived_rows WHERE row_id=? AND generation=?'),upsert=this.db.prepare('INSERT INTO reviews(row_id,review_json,revision) VALUES(?,?,?) ON CONFLICT(row_id) DO UPDATE SET review_json=excluded.review_json,revision=excluded.revision'),change=this.db.prepare('INSERT INTO operation_changes VALUES(?,?,?,?,?)');
+      let changed=0,protectedCount=0;
+      // The transaction is the staging boundary: a late invalid row or killed process
+      // rolls back reviews, counters, undo data and receipts together. Only one row's
+      // preview is retained in JS, even for a whole 500,000-row group.
+      for(const rowId of this.iterateTargets(command)){
+        const raw=this.raw(rowId);if(!raw)throw new SessionError(422,'包含已失效的规格，请刷新后重试。','ROW_NOT_FOUND');
+        const review=this.review(rowId),preview=Recognition.previewTransferRowPatch(raw,review,command.patch,command.action,rules),oldJson=JSON.stringify(review),newJson=JSON.stringify(preview.review);protectedCount+=preview.protectedFields.length;
+        if(oldJson===newJson)continue;
+        const oldDerived=parse(previous.get(rowId,generation)?.derived_json);
+        this.replaceDerivedIncrementally(oldDerived,preview.derived,generation);upsert.run(rowId,newJson,revision);change.run(operationId,rowId,oldJson,newJson,fields);changed++;
+      }
+      if(!changed)throw new SessionError(422,'没有可保存的变更。','NO_CHANGES');
+      this.finishMutationGroups(generation);this.setMeta('revision',revision);this.setMeta('lastOperation',{operationId,revision,rulesFingerprint:meta.rulesFingerprint});
+      const summary={mutationId:command.mutationId,operationId,revision,changed,protected:protectedCount,counts:this.counts(generation)};
+      this.db.prepare('INSERT INTO receipts VALUES(?,?,?,?)').run(command.mutationId,digest(command),JSON.stringify(summary),now());
+      this.db.prepare('DELETE FROM receipts WHERE mutation_id IN (SELECT mutation_id FROM receipts ORDER BY created DESC LIMIT -1 OFFSET 1000)').run();
+      this.db.prepare('DELETE FROM operation_changes WHERE operation_id<>?').run(operationId);
+      return summary;
+    });
   }
   undo(command,rules){
-    const meta=this.assertContext(command),last=meta.lastOperation;if(!last||last.revision!==meta.revision)throw new SessionError(409,'最近操作已无法撤销。','UNDO_EXPIRED');const changes=this.db.prepare('SELECT * FROM operation_changes WHERE operation_id=? ORDER BY row_id').all(last.operationId);if(!changes.length)throw new SessionError(409,'没有可撤销的操作。','UNDO_MISSING');
-    const revision=Number(meta.revision)+1,generation=Number(meta.generation);return this.transaction(()=>{const put=this.db.prepare('INSERT INTO reviews(row_id,review_json,revision) VALUES(?,?,?) ON CONFLICT(row_id) DO UPDATE SET review_json=excluded.review_json,revision=excluded.revision');for(const item of changes){const review=parse(item.old_review,{});put.run(item.row_id,JSON.stringify(review),revision);this.putDerived(Recognition.deriveTransferRow(this.raw(item.row_id),review,{rules}),generation);}this.setMeta('revision',revision);this.setMeta('lastOperation',null);this.rebuildGroupsOutsideTransaction(generation);return {revision,undone:changes.length,counts:this.counts(generation)};});
+    return this.transaction(()=>{
+      const meta=this.assertContext(command),last=meta.lastOperation;if(!last||last.revision!==meta.revision)throw new SessionError(409,'最近操作已无法撤销。','UNDO_EXPIRED');
+      if(last.rulesFingerprint&&last.rulesFingerprint!==meta.rulesFingerprint)throw new SessionError(409,'规则已变更，最近操作已无法撤销。','RULES_CHANGED');
+      const generation=Number(meta.generation),revision=Number(meta.revision)+1;this.ensureGroupCounts(generation);this.db.exec('CREATE TEMP TABLE IF NOT EXISTS mutation_groups(group_id TEXT PRIMARY KEY); DELETE FROM mutation_groups');
+      const put=this.db.prepare('INSERT INTO reviews(row_id,review_json,revision) VALUES(?,?,?) ON CONFLICT(row_id) DO UPDATE SET review_json=excluded.review_json,revision=excluded.revision'),previous=this.db.prepare('SELECT derived_json FROM derived_rows WHERE row_id=? AND generation=?');let undone=0;
+      for(const item of this.db.prepare('SELECT * FROM operation_changes WHERE operation_id=? ORDER BY row_id').iterate(last.operationId)){
+        const review=parse(item.old_review,{}),derived=Recognition.deriveTransferRow(this.raw(item.row_id),review,{rules});
+        this.replaceDerivedIncrementally(parse(previous.get(item.row_id,generation)?.derived_json),derived,generation);put.run(item.row_id,JSON.stringify(review),revision);undone++;
+      }
+      if(!undone)throw new SessionError(409,'没有可撤销的操作。','UNDO_MISSING');
+      this.finishMutationGroups(generation);this.setMeta('revision',revision);this.setMeta('lastOperation',null);this.db.prepare('DELETE FROM operation_changes WHERE operation_id=?').run(last.operationId);
+      return {revision,undone,counts:this.counts(generation)};
+    });
   }
   registerArtifact(filename,name,fingerprint){const artifactId=crypto.randomUUID();this.db.prepare('INSERT INTO artifacts VALUES(?,?,?,?,?)').run(artifactId,filename,name,fingerprint,now());return {artifactId,name};}
   artifact(id){return this.db.prepare('SELECT * FROM artifacts WHERE artifact_id=?').get(id)||null;}
   salesPage({page=1,pageSize=100}={}){pageSize=Math.max(1,Math.min(100,Number(pageSize)||100));page=Math.max(1,Number(page)||1);const total=Number(this.db.prepare('SELECT count(*) n FROM sales_aggregates').get().n),totalPages=Math.max(1,Math.ceil(total/pageSize));page=Math.min(page,totalPages);const representative=this.db.prepare('SELECT row_id FROM raw_rows WHERE platform=? AND shop=? AND product_id=? AND sku_id=? ORDER BY row_id LIMIT 1'),binding=this.db.prepare('SELECT item_id,excluded FROM sales_bindings WHERE row_id=?'),items=this.db.prepare('SELECT platform,shop,product_id,sku_id,quantity_text,quantity,source_count FROM sales_aggregates ORDER BY platform,shop,product_id,sku_id LIMIT ? OFFSET ?').all(pageSize,(page-1)*pageSize).map(row=>{const isolated=/^@row:(\d+)$/.exec(row.product_id),rowId=isolated?Number(isolated[1]):representative.get(row.platform,row.shop,row.product_id,row.sku_id)?.row_id||null,saved=rowId?binding.get(rowId):null;return {rowId,platform:row.platform,shop:row.shop,productId:isolated?'':row.product_id,skuId:/^@row:/.test(row.sku_id)?'':row.sku_id,quantityText:row.quantity_text,quantity:row.quantity,sourceCount:row.source_count,needsBinding:!!isolated,itemId:saved?.item_id||'',excluded:!!saved?.excluded};});const totals=this.db.prepare('SELECT coalesce(sum(quantity),0) quantity,coalesce(sum(source_count),0) sourceRows,count(distinct platform) platforms,count(distinct shop) shops FROM sales_aggregates').get();return {items,page,pageSize,total,totalPages,summary:{quantity:Number(totals.quantity),sourceRows:Number(totals.sourceRows),platforms:Number(totals.platforms),shops:Number(totals.shops),fingerprint:this.getMeta('salesFingerprint','')},revision:this.getMeta('revision',0),workspaceId:this.getMeta('workspaceId'),storageEpoch:this.getMeta('storageEpoch'),target:this.getMeta('target')};}
-  salesReview(command){this.assertContext(command);if(!command.mutationId)throw new SessionError(400,'操作编号不能为空。','MISSING_MUTATION_ID');const commandDigest=digest(command),oldReceipt=this.db.prepare('SELECT * FROM receipts WHERE mutation_id=?').get(command.mutationId);if(oldReceipt){if(oldReceipt.digest!==commandDigest)throw new SessionError(409,'同一操作编号已用于其他内容。','MUTATION_CONFLICT');return {...parse(oldReceipt.result_json,{}),replayed:true};}const seeds=this.targetRowIds(command),expanded=new Set();for(const rowId of seeds){const raw=this.raw(rowId);if(raw?.platform&&raw.shop&&raw.productId&&raw.skuId)for(const item of this.db.prepare('SELECT row_id FROM raw_rows WHERE platform=? AND shop=? AND product_id=? AND sku_id=?').all(raw.platform,raw.shop,raw.productId,raw.skuId))expanded.add(item.row_id);else expanded.add(rowId);}const ids=[...expanded],itemId=String(command.patch?.itemId||''),excluded=!!command.patch?.excluded;if(!excluded&&!itemId)throw new SessionError(422,'请选择绑定的 SKU，或明确排除。','INVALID_SALES_BINDING');const meta=this.metadata(),revision=Number(meta.revision)+1;return this.transaction(()=>{const put=this.db.prepare('INSERT INTO sales_bindings(row_id,item_id,excluded,revision) VALUES(?,?,?,?) ON CONFLICT(row_id) DO UPDATE SET item_id=excluded.item_id,excluded=excluded.excluded,revision=excluded.revision');for(const rowId of ids)put.run(rowId,itemId,excluded?1:0,revision);this.setMeta('revision',revision);const result={mutationId:command.mutationId,revision,changed:ids.length};this.db.prepare('INSERT INTO receipts VALUES(?,?,?,?)').run(command.mutationId,commandDigest,JSON.stringify(result),now());return result;});}
+  salesReview(command){const replay=this.checkedReceipt(command);if(replay)return replay;this.assertContext(command);const commandDigest=digest(command);const seeds=this.targetRowIds(command),expanded=new Set();for(const rowId of seeds){const raw=this.raw(rowId);if(raw?.platform&&raw.shop&&raw.productId&&raw.skuId)for(const item of this.db.prepare('SELECT row_id FROM raw_rows WHERE platform=? AND shop=? AND product_id=? AND sku_id=?').all(raw.platform,raw.shop,raw.productId,raw.skuId))expanded.add(item.row_id);else expanded.add(rowId);}const ids=[...expanded],itemId=String(command.patch?.itemId||''),excluded=!!command.patch?.excluded;if(!excluded&&!itemId)throw new SessionError(422,'请选择绑定的 SKU，或明确排除。','INVALID_SALES_BINDING');const meta=this.metadata(),revision=Number(meta.revision)+1;return this.transaction(()=>{const put=this.db.prepare('INSERT INTO sales_bindings(row_id,item_id,excluded,revision) VALUES(?,?,?,?) ON CONFLICT(row_id) DO UPDATE SET item_id=excluded.item_id,excluded=excluded.excluded,revision=excluded.revision');for(const rowId of ids)put.run(rowId,itemId,excluded?1:0,revision);this.setMeta('revision',revision);const result={mutationId:command.mutationId,revision,changed:ids.length};this.db.prepare('INSERT INTO receipts VALUES(?,?,?,?)').run(command.mutationId,commandDigest,JSON.stringify(result),now());return result;});}
   salesCandidate(meta={}){
     const planItems=meta.items||meta.planItems||[];if(!Array.isArray(planItems)||planItems.length>10000)throw new SessionError(422,'计划 SKU 数量超限。','PLAN_ITEM_LIMIT');const seen=new Set(),matchedKeys=new Set(),items=[],byId=new Map();let missing=0,excluded=0,total=0;const query=this.db.prepare('SELECT * FROM sales_aggregates WHERE product_id=? AND sku_id=?'),filtered=this.db.prepare('SELECT * FROM sales_aggregates WHERE product_id=? AND sku_id=? AND platform=? AND shop=?');for(const item of planItems){const itemId=String(item.itemId||item.id||'');if(!itemId||seen.has(itemId))throw new SessionError(422,'计划 SKU 编号缺失或重复。','INVALID_PLAN_ITEMS');seen.add(itemId);const productId=String(item.productId||''),skuId=String(item.skuId||''),rows=meta.platform&&meta.sourceShop?filtered.all(productId,skuId,String(meta.platform),String(meta.sourceShop)):query.all(productId,skuId);let count=0,isExcluded=false;if(!productId||!skuId||rows.length===0){missing++;isExcluded=meta.missingPolicy!=='zero';if(isExcluded)excluded++;}else if(rows.length>1&&!meta.platform&&!meta.sourceShop){isExcluded=true;excluded++;}else{count=rows.reduce((sum,row)=>sum+Number(row.quantity),0);for(const row of rows)matchedKeys.add(JSON.stringify([row.platform,row.shop,row.product_id,row.sku_id]));total+=count;}const output={id:itemId,itemId,count,productId,skuId,excluded:isExcluded};items.push(output);byId.set(itemId,output);}
     const supplied=new Map((meta.bindings||[]).filter(x=>Number.isSafeInteger(Number(x.rowId))).map(x=>[Number(x.rowId),x])),stored=this.db.prepare('SELECT row_id,item_id,excluded FROM sales_bindings').all();for(const row of stored)if(!supplied.has(row.row_id))supplied.set(row.row_id,{rowId:row.row_id,itemId:row.item_id,excluded:!!row.excluded});const mapping=this.getMeta('mapping',{});for(const binding of supplied.values()){const raw=this.raw(Number(binding.rowId));if(!raw)continue;const get=name=>Number.isInteger(mapping[name])?raw.values[mapping[name]]:'',quantityText=Recognition.text(get('sales'));if(!/^\d+$/.test(quantityText))continue;const quantity=Number(quantityText),sourceProductId=String(get('productId')??''),sourceSkuId=String(get('specId')??''),platform=Recognition.text(get('platform')),shop=Recognition.text(get('shop')),isolated=!platform||!shop||!sourceProductId||!sourceSkuId,productId=isolated?`@row:${raw.rowId}`:sourceProductId,skuId=sourceSkuId||`@row:${raw.rowId}`,auto=items.find(x=>x.productId===sourceProductId&&x.skuId===sourceSkuId&&!x.excluded);if(auto){auto.count=Math.max(0,auto.count-quantity);total=Math.max(0,total-quantity);}matchedKeys.add(JSON.stringify([platform,shop,productId,skuId]));if(!binding.excluded&&byId.has(String(binding.itemId))){const target=byId.get(String(binding.itemId));if(target.excluded){target.excluded=false;excluded=Math.max(0,excluded-1);}target.count+=quantity;total+=quantity;}}
