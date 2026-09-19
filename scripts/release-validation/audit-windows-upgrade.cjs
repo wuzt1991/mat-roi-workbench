@@ -30,7 +30,10 @@ async function until(check, label, timeout = 90000) {
 }
 async function json(url, options) { const response = await fetch(url, { signal: AbortSignal.timeout(10000), ...options }); if (!response.ok) throw Error(`${url}: ${response.status} ${await response.text()}`); return response.json(); }
 async function run(file, args, timeout = 150000) {
-  return new Promise((resolve, reject) => { const child = spawn(file, args, { env, stdio: 'inherit' }); const timer = setTimeout(() => { child.kill(); reject(Error(`${file} timed out`)); }, timeout); child.on('error', reject); child.on('exit', code => { clearTimeout(timer); code === 0 ? resolve() : reject(Error(`${file} exited ${code}`)); }); });
+  // NSIS is a GUI executable. Use the Windows shell launch path verified by the installer diagnostic.
+  const quote = value => "'" + String(value).replaceAll("'", "''") + "'";
+  const command = `$taskProcess = Start-Process -FilePath ${quote(file)} -ArgumentList @(${args.map(quote).join(',')}) -Wait -PassThru; exit $taskProcess.ExitCode`;
+  return new Promise((resolve, reject) => { const child = spawn('powershell.exe', ['-NoProfile', '-Command', command], { env, stdio: 'inherit' }); const timer = setTimeout(() => { child.kill(); reject(Error(`${file} timed out`)); }, timeout); child.on('error', reject); child.on('exit', code => { clearTimeout(timer); code === 0 ? resolve() : reject(Error(`${file} exited ${code}`)); }); });
 }
 function stopApp() { spawnSync('powershell.exe', ['-NoProfile', '-Command', `Get-Process | Where-Object { $_.Path -eq '${executable.replaceAll("'", "''")}' } | Stop-Process -Force -ErrorAction SilentlyContinue`], { stdio: 'ignore' }); }
 async function startApp(version) {
