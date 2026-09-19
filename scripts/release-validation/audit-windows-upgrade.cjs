@@ -109,4 +109,10 @@ async function main() {
   fs.writeFileSync(path.join(root, 'installed-path.txt'), installDir);
   fs.writeFileSync(path.join(root, 'report.json'), JSON.stringify(report, null, 2));
 }
-main().catch(error => { report.error = error.stack; fs.mkdirSync(root, { recursive: true }); fs.writeFileSync(path.join(root, 'report.json'), JSON.stringify(report, null, 2)); console.error(error); console.log('::error::' + JSON.stringify({ steps: report.steps, error: error.stack }).replaceAll('%','%25').replaceAll('\r','%0D').replaceAll('\n','%0A')); process.exitCode = 1; }).finally(() => { socket?.close(); feed?.close(); wizard?.kill(); stopApp(); });
+main().catch(error => {
+  report.error = error.stack;
+  report.installedExists = fs.existsSync(executable);
+  report.windowsDiagnostics = spawnSync('powershell.exe', ['-NoProfile', '-Command', "Get-WinEvent -FilterHashtable @{LogName='Application'; StartTime=(Get-Date).AddMinutes(-5)} -ErrorAction SilentlyContinue | Where-Object { $_.ProviderName -match 'Application Error|Windows Error Reporting' } | Select-Object -First 3 | ForEach-Object { $_.Message }; Get-Process | Where-Object { $_.ProcessName -match '地垫|installer' } | Select-Object ProcessName,Path | Format-List"], { encoding: 'utf8', timeout: 15000 }).stdout;
+  fs.mkdirSync(root, { recursive: true }); fs.writeFileSync(path.join(root, 'report.json'), JSON.stringify(report, null, 2)); console.error(error);
+  console.log('::error::' + JSON.stringify(report).replaceAll('%','%25').replaceAll('\r','%0D').replaceAll('\n','%0A')); process.exitCode = 1;
+}).finally(() => { socket?.close(); feed?.close(); wizard?.kill(); stopApp(); });

@@ -70,7 +70,10 @@ jobs:
             }
             if (-not $ready) { throw 'Packaged application health check did not become ready' }
           } finally {
-            Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+            # Electron child processes otherwise survive a forced stop of only the main PID.
+            taskkill /PID $process.Id /T /F 2>$null
+            Get-Process | Where-Object { $_.Path -eq $executable } | Stop-Process -Force -ErrorAction SilentlyContinue
+            $global:LASTEXITCODE = 0
           }
 
       - name: Match release filenames and retrieve previous installer
