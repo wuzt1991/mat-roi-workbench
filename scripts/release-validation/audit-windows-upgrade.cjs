@@ -67,8 +67,8 @@ async function main() {
   feed = http.createServer((req, res) => { const name = decodeURIComponent(new URL(req.url, 'http://localhost').pathname).slice(1); requests.push(name); if (!['latest.yml', file, file + '.blockmap'].includes(name)) { res.writeHead(404); return res.end(); } const input = path.join(artifacts, name); res.writeHead(200, { 'Content-Length': fs.statSync(input).size, 'Content-Type': 'application/octet-stream' }); fs.createReadStream(input).pipe(res); });
   await new Promise(resolve => feed.listen(4199, '127.0.0.1', resolve));
   await startApp('1.1.10');
-  const state = await json(base + '/api/state');
-  assert.ok(state.state?.shops?.length > 0);
+  // v1.1.10 initializes its first workspace from the renderer after the HTTP server becomes healthy.
+  const state = await until(async () => { const value = await json(base + '/api/state'); return value.state?.shops?.length > 0 && value; }, 'initial workspace saved');
   state.state.shops[0].name = 'CI-UPGRADE-DATA-PRESERVED';
   const saved = await json(base + '/api/state', { method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-Workbench': '1', Origin: base }, body: JSON.stringify({ state: state.state, revision: state.revision, reason: 'save' }) });
   record('old-installed-and-saved', { version: '1.1.10', revision: saved.revision });
