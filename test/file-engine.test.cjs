@@ -72,6 +72,24 @@ test('平台商家编码经过 XLSX 导入和流式导出保持文本与前导�
   assert.equal(exported.worksheets[0].getCell('P2').value,'0000123');assert.equal(exported.worksheets[0].getCell('Q2').value,'0000456');
 });
 
+test('分页先筛选当前代的行号，再加载整行，跨页顺序与缺厚度交叉筛选一致',t=>{
+  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'mat-page-filter-'));t.after(()=>fs.rmSync(directory,{recursive:true,force:true}));
+  const store=new ImportSessionStore(directory,{create:true,meta:{sessionId:'page',ownerToken:'test',rules:rules()}});t.after(()=>store.close());
+  const mapping={platform:0,shop:1,productName:2,specName:3,productId:4,specId:5,price:6,status:7,inventory:8};store.setMeta('mapping',mapping);
+  const records=[];for(let rowId=1;rowId<=240;rowId++){
+    const values=['抖音','测试店','硅藻泥地垫',rowId%2?'40*60cm':'40*60cm 3mm','product',String(rowId),20,'在售',1];
+    const d=Recognition.deriveTransferRow({rowId,sourceRow:rowId+1,values,mapping},{},{rules:rules()});
+    records.push({rowId,sheetId:'r1',sourceRow:rowId+1,values,sourceHash:String(rowId),platform:d.platform,shop:d.shop,productId:d.productId,skuId:d.skuId,groupId:d.groupId,originalMissingThickness:d.originalMissingThickness});
+  }
+  store.insertRawBatch(records);store.rebuildDerived(rules());store.rebuildDerived(rules());
+  const page=store.page({status:'pending',missingThickness:true,page:2});
+  assert.equal(page.generation,2);assert.equal(page.total,120);assert.equal(page.rows.length,20);
+  assert.deepEqual(page.rows.map(r=>r.rowId),Array.from({length:20},(_,i)=>201+i*2));
+  assert.equal(page.groups[0].total,240);assert.equal(page.groups[0].hidden,220);assert.equal(page.counts.total,240);
+  const empty=store.page({status:'confirmed',missingThickness:true});assert.equal(empty.total,0);assert.equal(empty.rows.length,0);assert.equal(empty.counts.total,240);
+  assert.equal(store.page({status:'confirmed',page:2}).rows[0].rowId,202);
+});
+
 test('多表不同列序独立映射、统一行号，重开复核与导出不串列、不丢重复行',async(t)=>{
   const directory=fs.mkdtempSync(path.join(os.tmpdir(),'mat-multi-sheet-'));t.after(()=>fs.rmSync(directory,{recursive:true,force:true}));
   const filename=path.join(directory,'source.xlsx'),session=path.join(directory,'session'),output=path.join(directory,'out.xlsx');
