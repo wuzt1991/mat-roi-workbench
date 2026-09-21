@@ -18,9 +18,10 @@ const sourceRows=[
 ];
 const planItems=[[40,60],[45,70],[50,80],[60,90],[80,100]].map(([width,height],i)=>({id:'item-'+i,width,height,productId:'keep-product',skuId:'keep-'+i}));
 function storeFor(t,rows=sourceRows){
- const directory=fs.mkdtempSync(path.join(os.tmpdir(),'mat-sales-size-'));t.after(()=>fs.rmSync(directory,{recursive:true,force:true}));
- const store=new ImportSessionStore(directory,{create:true,meta:{kind:'sales',phase:'reviewing',sessionId:'session',ownerToken:'owner',workspaceId:'w',storageEpoch:0}});
- t.after(()=>store.close());
+ const directory=fs.mkdtempSync(path.join(os.tmpdir(),'mat-sales-size-'));let store;
+ // Windows cannot remove SQLite files until their connection is closed.
+ t.after(()=>{store?.close();fs.rmSync(directory,{recursive:true,force:true});});
+ store=new ImportSessionStore(directory,{create:true,meta:{kind:'sales',phase:'reviewing',sessionId:'session',ownerToken:'owner',workspaceId:'w',storageEpoch:0}});
  const mapping={...Recognition.mapFields(headers),sales:5};
  store.setMeta('mapping',mapping);
  store.insertRawBatch(rows.map(([title,orders,units,platform='',shop='',productId=''],i)=>({rowId:i+1,sourceRow:i+2,sheetId:'s',values:['',title,'sku-'+i,'2026/09/14-2026/09/20','',String(orders),'',String(units),platform,shop,productId],sourceHash:String(i),platform,shop,productId,skuId:'sku-'+i,groupId:'g',originalMissingThickness:false})));
@@ -41,15 +42,16 @@ test('真实销售表字段与 19 条图案数据按尺寸汇总：488 单、508
  assert.throws(()=>Size.candidate(store,{basis:'orders',items:planItems}),/口径/);
 });
 test('原始 Excel 经流读、汇总、UI 候选、业务写入及撤销，不改售价和编号',async t=>{
- const directory=fs.mkdtempSync(path.join(os.tmpdir(),'mat-sales-size-xlsx-'));t.after(()=>fs.rmSync(directory,{recursive:true,force:true}));
+ const directory=fs.mkdtempSync(path.join(os.tmpdir(),'mat-sales-size-xlsx-'));let store;
+ t.after(()=>{store?.close();fs.rmSync(directory,{recursive:true,force:true});});
  const filename=path.join(directory,'source.xlsx'),sessionDir=path.join(directory,'session');fs.mkdirSync(sessionDir);
  const book=new Excel.Workbook(),sheet=book.addWorksheet('sheet1');sheet.addRow(headers);
  sourceRows.forEach(([title,orders,units],i)=>sheet.addRow(['',title,'0000'+i,'2026/09/14-2026/09/20','',orders,orders,units]));
  fs.writeFileSync(filename,Buffer.from(await book.xlsx.writeBuffer()));
- let store=new ImportSessionStore(sessionDir,{create:true,meta:{kind:'sales',phase:'reviewing',sessionId:'session',ownerToken:'owner',workspaceId:'w',storageEpoch:0}});store.close();
+ store=new ImportSessionStore(sessionDir,{create:true,meta:{kind:'sales',phase:'reviewing',sessionId:'session',ownerToken:'owner',workspaceId:'w',storageEpoch:0}});store.close();
  const inspection=await Reader.inspectWorkbook(filename,sessionDir),selected=inspection.sheets[0],mapping={...selected.header.mapping,sales:selected.header.mapping.orderCount};
  const imported=await Reader.importSheet(filename,sessionDir,{sheetId:selected.sheetId,mapping,rules:{},derive:false});assert.equal(imported.businessRows,19);
- store=new ImportSessionStore(sessionDir);t.after(()=>store.close());Size.aggregate(store,mapping);store.setMeta('phase','reviewing');
+ store=new ImportSessionStore(sessionDir);Size.aggregate(store,mapping);store.setMeta('phase','reviewing');
  const state=Domain.initialState(),plan=state.plans.find(p=>p.id===state.active)||state.plans[0];
  plan.items=planItems.map((i,n)=>{const size={id:'test-size-'+n,name:'',salesW:i.width,salesH:i.height,irregular:false,productionW:'',productionH:'',active:true,deleted:false,needsReview:false};state.sizes.push(size);return {id:i.id,sizeId:size.id,productId:i.productId,skuId:i.skuId,sales:null,share:n===0?100:0,price:20+n,priceMode:'manual',weight:.3};});
  assert.ok(Domain.validateBackup(state));
