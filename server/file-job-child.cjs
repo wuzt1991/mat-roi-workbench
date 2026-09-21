@@ -55,5 +55,11 @@ async function run(jobType,payload,context){
 
 process.on('message',async message=>{
   if(message?.type==='cancel'&&active?.jobId===message.jobId){active.canceled=true;return;}
-  if(message?.type!=='run'||active)return;active={jobId:message.jobId,canceled:false};try{const result=await run(message.jobType,message.payload||{},message.context||{});if(canceled())throw Object.assign(Error('任务已取消'),{code:'CANCELED'});process.send?.({type:'result',jobId:active.jobId,result});}catch(error){process.send?.({type:'error',jobId:active.jobId,error:safeError(error)});}finally{setTimeout(()=>process.exit(0),10);}
+  if(message?.type!=='run'||active)return;active={jobId:message.jobId,canceled:false};let reply;
+  try{const result=await run(message.jobType,message.payload||{},message.context||{});if(canceled())throw Object.assign(Error('任务已取消'),{code:'CANCELED'});reply={type:'result',jobId:active.jobId,result};}
+  catch(error){reply={type:'error',jobId:active.jobId,error:safeError(error)};}
+  // A fixed exit delay can truncate buffered IPC. Flush the result, then close naturally.
+  try{if(process.connected)await new Promise((resolve,reject)=>process.send(reply,error=>error?reject(error):resolve()));}
+  catch{process.exitCode=1;}
+  finally{if(process.connected)process.disconnect();}
 });

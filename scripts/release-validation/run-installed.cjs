@@ -35,10 +35,11 @@ async function main() {
   const script = path.join(__dirname, mode === 'locks' ? '../../test/import-session-lock.test.cjs' : mode === 'lifecycle' ? 'stress-file-lifecycle.cjs' : mode === 'fixtures' ? 'verify-fixtures.cjs' : mode === 'scroll' ? 'verify-product-scroll.cjs' : 'verify-large.cjs');
   const evidence = path.join(out, mode === 'locks' ? 'lock-report.json' : mode === 'lifecycle' ? 'lifecycle-report.json' : mode === 'fixtures' ? 'fixture-report.json' : mode === 'scroll' ? 'scroll-windows-installed.json' : operation === 'build' ? `synthetic-${count}.xlsx` : `report-${count}.json`);
   assert.ok(!fs.existsSync(evidence), `Refusing stale validation evidence: ${evidence}`);
-  await runProcess(path.join(path.resolve(artifact), '地垫工作台.exe'), [script, ...(mode === 'large' ? [operation, count] : [])], {
+  const args = mode === 'locks' ? ['--test', script, path.join(__dirname, '../../test/file-job-completion.test.cjs')] : [script, ...(mode === 'large' ? [operation, count] : [])];
+  await runProcess(path.join(path.resolve(artifact), '地垫工作台.exe'), args, {
     env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', MAT_VERIFY_ROOT: path.join(path.resolve(artifact), 'resources', 'app.asar'), ...(mode === 'lifecycle' ? { MAT_DIAGNOSTIC_OUTPUT: evidence } : {}) }
   });
-  if (mode === 'locks') { fs.mkdirSync(out, { recursive: true }); fs.writeFileSync(evidence, JSON.stringify({ passed: true, platform: process.platform, root: path.join(path.resolve(artifact), 'resources', 'app.asar'), tests: 3 })); }
+  if (mode === 'locks') { fs.mkdirSync(out, { recursive: true }); fs.writeFileSync(evidence, JSON.stringify({ passed: true, platform: process.platform, root: path.join(path.resolve(artifact), 'resources', 'app.asar'), tests: 7 })); }
   assert.ok(fs.statSync(evidence).size > 0, 'Validation produced no evidence');
   if (!evidence.endsWith('.xlsx')) {
     const report = JSON.parse(fs.readFileSync(evidence, 'utf8'));
@@ -47,7 +48,7 @@ async function main() {
     if (mode === 'fixtures') assert.deepEqual(report.checks.map(check => check.businessRows), [1, 60, 99, 100, 139]);
     else if (mode === 'scroll') { assert.equal(report.installedWindow, true); assert.equal(report.paginationReached, true); }
     else if (mode === 'lifecycle') { assert.equal(report.runs, 100); assert.equal(report.failed, 0); }
-    else if (mode === 'locks') assert.equal(report.tests, 3);
+    else if (mode === 'locks') assert.equal(report.tests, 7);
     else assert.equal(report.count, Number(count));
   }
   console.log(JSON.stringify({ installedValidation: 'passed', mode, operation, count, evidence }));
