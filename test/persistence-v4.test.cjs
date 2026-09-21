@@ -82,3 +82,13 @@ test('asynchronous draft clearing cannot erase edits typed while save acknowledg
   let releaseWrite,cached;const queue=new SaveQueue({delay:60000,cache:{write:async value=>{if(value.state.value===1)await new Promise(resolve=>releaseWrite=resolve);cached=value;},clear:async()=>{cached=null;}},send:async(state,revision)=>({revision:revision+1})});
   queue.enqueue({value:1});const saving=queue.flush();await new Promise(resolve=>setImmediate(resolve));queue.enqueue({value:2});releaseWrite();await saving;queue.dispose();assert.equal(queue.revision,2);assert.equal(queue.pending,null);assert.equal(cached,null);
 });
+
+test('文件名尚未取得时先登记会话，上传后仍可恢复同一商品复核',async()=>{
+  const drafts=new SessionDrafts({workspaceId:'w',storageEpoch:2,sessionId:'new-upload',ownerToken:'owner-a',indexedDB:null});
+  await drafts.saveSession({filename:'',fileKind:'product'});
+  await drafts.touchSession({filename:'新商品.xlsx',revision:3});
+  const listed=await drafts.listSessions();assert.equal(listed.length,1);assert.equal(listed[0].fileKind,'product');
+  const restored=await drafts.restoreSession('new-upload',{ownerToken:'owner-a'});
+  assert.equal(restored.filename,'新商品.xlsx');assert.equal(restored.revision,3);assert.equal(restored.ownerToken,'owner-a');
+  await assert.rejects(drafts.saveSession({filename:'../坏文件.xlsx'}),/文件名无效/);
+});

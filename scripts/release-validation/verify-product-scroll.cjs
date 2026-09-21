@@ -15,7 +15,7 @@ async function main(){
    const deadline=Date.now()+45000;while(true){try{const health=await(await fetch(url+'/api/health')).json();assert.equal(health.dataDir,directory);break;}catch(error){if(Date.now()>deadline)throw error;await new Promise(resolve=>setTimeout(resolve,250));}}
    browser=await chromium.connectOverCDP('http://127.0.0.1:9226');page=browser.contexts()[0].pages()[0];await page.waitForURL(url+'/**');await page.setViewportSize({width:1440,height:850});
   }else{server=createServer({port:0,dataDir:directory});url=await server.listen();browser=await chromium.launch({channel:'chrome',headless:true});page=await browser.newPage({viewport:{width:1440,height:850}});}
-  const workspace=async()=>await(await fetch(url+'/api/state')).json(),before=await workspace();const errors=[];page.on('pageerror',e=>errors.push(e.message));
+  const workspace=async()=>await(await fetch(url+'/api/state')).json(),before=await workspace();const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',message=>{if(message.type()==='error'&&message.text().includes('[workbench] file session draft'))errors.push(message.text());});
   await page.goto(url);await page.evaluate(()=>UiAppearance.setMotion(false));await page.locator('[data-action="product-view"]').click();
   const importFile=async file=>{if(!lattice)lattice=await require('./verify-lattice-loader.cjs').verifyWaitingUpload(page,file,out,label);else await page.locator('[data-pv4-file]').setInputFiles(file);await page.locator('[data-pv4-use]').click();await page.locator('.pv4-table tbody tr').first().waitFor();};
   const Excel=require(path.join(root,'public/assets/exceljs.min.js'));let sourceBytes;
@@ -54,8 +54,10 @@ async function main(){
   await page.locator('.pv4-table').scrollIntoViewIfNeeded();await hoverTable();for(let i=0;i<40;i++)await page.mouse.wheel(0,1800);
   await page.waitForFunction(()=>{const r=document.querySelector('.pv4-pager').getBoundingClientRect();return r.top<innerHeight&&r.bottom>0;});
   await page.locator('[data-pv4-page="2"]').click();await page.waitForFunction(()=>document.querySelector('.pv4-pager').textContent.includes('第 2 / 2 页'));assert.match(await page.locator('.pv4-actions').innerText(),/本页 40 条/);
+  await page.reload();await page.locator('[data-action="product-view"]').click();await page.locator('.pv4-table tbody tr').first().waitFor();
+  assert.match(await page.locator('.pv4-current-file').innerText(),/scroll-140-rows.xlsx/);assert.match(await page.locator('.pv4-actions').innerText(),/本页 100 条/);
   assert.deepEqual(await workspace(),before);assert.deepEqual(errors,[]);
-  const report={passed:true,lattice,root,host:process.platform,installedWindow:!!installed,sourceKind:source?'user-supplied':'synthetic',workbookRows:60,twoPageFixtureRows:140,checks,paginationReached:true,scrollDoesNotChangeSessionOrWorkspace:true,errors};fs.writeFileSync(path.join(out,`scroll-${label}.json`),JSON.stringify(report,null,2));console.log(JSON.stringify(report,null,2));
+  const report={passed:true,lattice,root,host:process.platform,installedWindow:!!installed,sourceKind:source?'user-supplied':'synthetic',workbookRows:60,twoPageFixtureRows:140,checks,paginationReached:true,sessionRestoredAfterReload:true,scrollDoesNotChangeSessionOrWorkspace:true,errors};fs.writeFileSync(path.join(out,`scroll-${label}.json`),JSON.stringify(report,null,2));console.log(JSON.stringify(report,null,2));
  }catch(error){if(page)await page.screenshot({path:path.join(out,`scroll-failure-${label}.png`)});throw error;}finally{await browser?.close();if(child){child.kill();await new Promise(resolve=>{if(child.exitCode!==null)return resolve();child.once('exit',resolve);setTimeout(resolve,5000);});}await server?.close();fs.rmSync(directory,{recursive:true,force:true,maxRetries:10,retryDelay:200});}
 }
 main().catch(error=>{console.error(error);process.exitCode=1;});

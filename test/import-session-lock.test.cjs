@@ -19,7 +19,9 @@ test('a persistent database lock fails within its budget, closes its handle and 
  const {holder,exited}=await holdLock(directory),exec=DatabaseSync.prototype.exec;let opened;
  const instrument=t.mock.method(DatabaseSync.prototype,'exec',function(sql){opened=this;return exec.call(this,sql);});
  try{
-  holder.send({releaseAfterMs:6500});const started=Date.now();assert.throws(()=>new ImportSessionStore(directory),error=>error.code==='ERR_SQLITE_ERROR'&&error.errcode===5);
+  // Keep the lock until cleanup. A timed release can race a descheduled parent
+  // and turn this persistent-lock fixture into the temporary-lock case.
+  const started=Date.now();assert.throws(()=>new ImportSessionStore(directory),error=>error.code==='ERR_SQLITE_ERROR'&&error.errcode===5);
   assert.ok(Date.now()-started<10000,'Lock waiting must remain bounded');assert.equal(opened.isOpen,false,'A failed constructor must release the SQLite handle');
  }finally{instrument.mock.restore();holder.kill();await exited;}
  const reopened=new ImportSessionStore(directory);try{assert.equal(reopened.getMeta('preserved'),'original');}finally{reopened.close();}

@@ -22,10 +22,13 @@ async function verifyWaitingUpload(page,file,out,label){
   const started=await loader.getAttribute('data-ll-started');
   await page.waitForFunction(()=>parseFloat(document.querySelector('.lattice-loader__timer').textContent)>=0.3);
   await page.locator('[data-action="ledger-view"]').click();assert.equal(await loader.count(),0);
+  // Slow first paint reproduces the pending-play drift observed on Windows.
+  await page.evaluate(()=>window.addEventListener('click',()=>{const until=performance.now()+350;while(performance.now()<until){}},{once:true}));
   await page.locator('[data-action="product-view"]').click();await loader.waitFor();
   assert.equal(await loader.getAttribute('data-ll-started'),started);
-  const elapsed=await loader.evaluate(el=>({timer:parseFloat(el.querySelector('.lattice-loader__timer').textContent),animation:el.querySelector('.lattice-loader__run .lattice-loader__cell').getAnimations()[0]?.currentTime,elapsed:performance.now()-Number(el.dataset.llStarted)}));
-  assert.ok(elapsed.timer>=0.3);assert.ok(Math.abs(elapsed.animation-elapsed.elapsed)<100,'Animation timeline must survive page replacement');
+  const elapsed=await loader.evaluate(el=>({timer:parseFloat(el.querySelector('.lattice-loader__timer').textContent),animations:[...el.querySelectorAll('.lattice-loader__run .lattice-loader__cell')].flatMap(cell=>cell.getAnimations().map(a=>({currentTime:a.currentTime,startTime:a.startTime,pending:a.pending}))),timeline:document.timeline.currentTime,started:Number(el.dataset.llStarted)}));
+  assert.ok(elapsed.timer>=0.3);assert.equal(elapsed.animations.length,8);
+  for(const animation of elapsed.animations){assert.equal(animation.pending,false,JSON.stringify(elapsed));assert.ok(Math.abs(animation.startTime-elapsed.started)<1,'Animation start must survive delayed paint: '+JSON.stringify(elapsed));assert.ok(Math.abs(animation.currentTime-(elapsed.timeline-elapsed.started))<1,'Animation timeline must survive page replacement: '+JSON.stringify(elapsed));}
   await page.locator('.pv4-lattice-wait').screenshot({path:path.join(out,`lattice-${label}-rays.png`)});
   await page.evaluate(()=>UiAppearance.setMode('day'));
   await page.locator('.pv4-lattice-wait').screenshot({path:path.join(out,`lattice-${label}-day.png`)});
@@ -33,7 +36,7 @@ async function verifyWaitingUpload(page,file,out,label){
   await page.evaluate(()=>UiAppearance.setMotion(false));assert.equal(await loader.evaluate(el=>el.getAnimations({subtree:true}).length),0);
   assert.ok(await loader.isVisible());
   await page.setViewportSize({width:1440,height:850});
-  return {passed:true,geometry,timerSurvivesRerender:true,animationSurvivesRerender:true,disabledDuringUpload:true,dayAndRays:true,narrowWindow:true,motionPreferenceRespected:true};
+  return {passed:true,geometry,timerSurvivesRerender:true,animationSurvivesRerender:true,delayedPaintPreservesTimeline:true,disabledDuringUpload:true,dayAndRays:true,narrowWindow:true,motionPreferenceRespected:true};
  }finally{release();await finished;await page.unroute(pattern,handler);}
 }
 module.exports={verifyWaitingUpload};

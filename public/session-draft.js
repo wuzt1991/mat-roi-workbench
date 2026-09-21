@@ -42,7 +42,7 @@
       if(!validId(meta.sessionId)||meta.sessionId!==this.sessionId)throw Error('文件会话标识无效。');
       if(!validId(meta.ownerToken))throw Error('文件会话所有者标识无效。');
       if(!validRevision(meta.revision))throw Error('文件会话版本无效。');
-      if(meta.filename!==undefined&&!safeFilename(meta.filename))throw Error('文件会话文件名无效。');
+      if(meta.filename!==undefined&&meta.filename!==''&&!safeFilename(meta.filename))throw Error('文件会话文件名无效。');
       if(!allowOwnerChange&&meta.ownerToken!==this.ownerToken)throw Object.assign(Error('文件会话已由其他窗口占用，请明确接管。'),{code:'SESSION_OWNER_ACTIVE'});
       return meta;
     }

@@ -26,7 +26,9 @@
       const paint=()=>{for(const node of loaders){const target=node.querySelector('.lattice-loader__timer');if(target)target.textContent=fmt(Math.max(0,Math.floor((now()-Number(node.dataset.llStarted))/100)));}};
       // The workbench replaces page markup on polling. Resume the original CSS
       // animation timeline instead of replaying its first frame on every render.
-      for(const node of loaders){const elapsed=Math.max(0,now()-Number(node.dataset.llStarted));for(const cell of node.querySelectorAll('.lattice-loader__run .lattice-loader__cell'))for(const animation of cell.getAnimations())animation.currentTime=elapsed;}
+      // Anchor to the document clock: currentTime alone leaves a pending play
+      // operation and loses any time spent waiting for the first painted frame.
+      for(const node of loaders){const startedAt=Number(node.dataset.llStarted);for(const cell of node.querySelectorAll('.lattice-loader__run .lattice-loader__cell'))for(const animation of cell.getAnimations())animation.startTime=startedAt;}
       paint();interval=root.setInterval(paint,100);
     }
     return {html,activate,stop};
