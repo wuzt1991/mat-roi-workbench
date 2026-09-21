@@ -14,6 +14,7 @@ const Recognition=require('../public/product-recognition.js');
 async function fixture(t,{kind='product'}={}){
   const dataDir=fs.mkdtempSync(path.join(os.tmpdir(),'mat-lifecycle-')),state=Domain.initialState();
   const workspace={workspaceId:'workspace',storageEpoch:0},store={metadata:()=>({...workspace}),read:()=>({state})},service=createFileService({store,dataDir});
+  service.broker.entry=path.join(__dirname,'fixtures','diagnostic-file-job.cjs');
   t.after(async()=>{await service.close();fs.rmSync(dataDir,{recursive:true,force:true});});
   async function request(method,url,body){const stream=Readable.from(body===undefined?[]:[Buffer.from(JSON.stringify(body))]);stream.method=method;stream.headers={'content-type':'application/json'};const chunks=[],response=new Writable({write(chunk,encoding,done){chunks.push(chunk);done();}});response.writeHead=status=>{response.statusCode=status;};const done=new Promise(resolve=>response.on('finish',resolve));await service.handle(stream,response,new URL(url,'http://localhost'));await done;const value=Buffer.concat(chunks).toString();return {status:response.statusCode,value:value?JSON.parse(value):null};}
   const created=(await request('POST','/api/file-sessions',{kind})).value,id=created.sessionId,directory=path.join(dataDir,'import-sessions',id),open=()=>new ImportSessionStore(directory);

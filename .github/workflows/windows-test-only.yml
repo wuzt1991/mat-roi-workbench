@@ -48,6 +48,19 @@ jobs:
             exit $testExit
           }
 
+      - name: Repeat file-session recompute lifecycle on Windows
+        shell: pwsh
+        run: |
+          foreach ($attempt in 1..20) {
+            $output = node --test test/file-service-lifecycle.test.cjs 2>&1
+            if ($LASTEXITCODE -ne 0) {
+              $details = $output -join "`n"
+              Write-Host ('::error::Lifecycle repetition ' + $attempt + ': ' + $details.Replace('%','%25').Replace("`r",'%0D').Replace("`n",'%0A'))
+              exit 1
+            }
+          }
+          Write-Host '::notice::File-session lifecycle passed 20 consecutive repetitions'
+
       - name: Check source
         run: npm run check
 
