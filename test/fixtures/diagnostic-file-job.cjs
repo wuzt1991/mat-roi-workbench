@@ -1,6 +1,7 @@
 'use strict';
 // Test-only entry point: preserve SQLite details that the user-facing worker hides.
-const sessionModule=require('../../server/import-session-store.cjs');
+const path=require('node:path'),root=process.env.MAT_VERIFY_ROOT||path.resolve(__dirname,'../..');
+const sessionModule=require(path.join(root,'server/import-session-store.cjs'));
 const BaseStore=sessionModule.ImportSessionStore;
 function detailed(error){
  if(error.code==='ERR_SQLITE_ERROR'&&!error.sqliteDetailsIncluded){
@@ -18,4 +19,4 @@ for(const name of Object.getOwnPropertyNames(BaseStore.prototype)){
  DiagnosticStore.prototype[name]=function(...args){try{return BaseStore.prototype[name].apply(this,args);}catch(error){throw detailed(error);}};
 }
 sessionModule.ImportSessionStore=DiagnosticStore;
-require('../../server/file-job-child.cjs');
+require(path.join(root,'server/file-job-child.cjs'));

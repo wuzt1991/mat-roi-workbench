@@ -1,9 +1,9 @@
-name: Windows test only - 1.2.5
+name: Windows test only - 1.2.6
 
 on:
   push:
     branches:
-      - codex/windows-test-1.2.5-20260922
+      - codex/windows-test-1.2.6-20260922
   workflow_dispatch:
 
 permissions:
@@ -47,19 +47,6 @@ jobs:
             }
             exit $testExit
           }
-
-      - name: Repeat file-session recompute lifecycle on Windows
-        shell: pwsh
-        run: |
-          foreach ($attempt in 1..20) {
-            $output = node --test test/file-service-lifecycle.test.cjs 2>&1
-            if ($LASTEXITCODE -ne 0) {
-              $details = $output -join "`n"
-              Write-Host ('::error::Lifecycle repetition ' + $attempt + ': ' + $details.Replace('%','%25').Replace("`r",'%0D').Replace("`n",'%0A'))
-              exit 1
-            }
-          }
-          Write-Host '::notice::File-session lifecycle passed 20 consecutive repetitions'
 
       - name: Check source
         run: npm run check
@@ -107,6 +94,16 @@ jobs:
             $global:LASTEXITCODE = 0
           }
 
+      - name: Select the exact installer prepared for delivery
+        shell: pwsh
+        run: |
+          $expected = Get-Content validation/candidate/sha256.json -Raw | ConvertFrom-Json
+          $installer = Join-Path $PWD ('validation/candidate/' + $expected.file)
+          if ((Get-FileHash $installer -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected.sha256) { throw 'Delivery installer SHA-256 mismatch' }
+          if ((Get-Item $installer).Length -ne $expected.bytes) { throw 'Delivery installer size mismatch' }
+          Copy-Item validation/candidate/*.exe, validation/candidate/*.blockmap, validation/candidate/latest.yml dist-builder -Force
+          Write-Host ('::notice::Exact delivery installer: ' + ($expected | ConvertTo-Json -Compress))
+
       - name: Match release filenames and retrieve previous installer
         shell: pwsh
         run: |
@@ -145,6 +142,9 @@ jobs:
           $env:MAT_VERIFY_OUTPUT = Join-Path $env:RUNNER_TEMP 'mat-upgrade-validation/fixtures'
           node scripts/release-validation/run-installed.cjs $installed fixtures
           if ($LASTEXITCODE -ne 0) { throw 'Installed G62 validation failed' }
+          $env:MAT_VERIFY_OUTPUT = Join-Path $env:RUNNER_TEMP 'mat-upgrade-validation/locks'
+          node scripts/release-validation/run-installed.cjs $installed locks
+          if ($LASTEXITCODE -ne 0) { throw 'Installed lock regression failed' }
 
       - name: Verify scrolling in the actual installed Windows window
         shell: pwsh
@@ -184,13 +184,14 @@ jobs:
             ${{ runner.temp }}/mat-upgrade-validation/fixtures/fixture-report.json
             ${{ runner.temp }}/mat-upgrade-validation/large/report-*.json
             ${{ runner.temp }}/mat-upgrade-validation/scroll/*
+            ${{ runner.temp }}/mat-upgrade-validation/locks/lock-report.json
             dist-builder/builder-effective-config.yaml
           if-no-files-found: warn
 
       - name: Summarize verified data boundaries
         shell: pwsh
         run: |
-          Get-ChildItem (Join-Path $env:RUNNER_TEMP 'mat-upgrade-validation') -Recurse -Filter '*report*.json' | ForEach-Object {
+          @(Get-ChildItem (Join-Path $env:RUNNER_TEMP 'mat-upgrade-validation') -Recurse -Filter '*report*.json') + @(Get-ChildItem (Join-Path $env:RUNNER_TEMP 'mat-upgrade-validation/scroll') -Filter 'scroll-*.json') | ForEach-Object {
             $summary = (Get-Content $_.FullName -Raw | ConvertFrom-Json | ConvertTo-Json -Depth 12 -Compress)
             Write-Host ("::notice::" + $_.Name + ': ' + $summary.Replace('%','%25').Replace("`r",'%0D').Replace("`n",'%0A'))
           }
@@ -248,3 +249,36 @@ jobs:
             taskkill /PID $app.Id /T /F 2>$null
             $global:LASTEXITCODE = 0
           }
+
+  installed-lifecycle-stress:
+    runs-on: windows-2022
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Install and stress the exact delivery package 100 times
+        shell: pwsh
+        run: |
+          $expected = Get-Content validation/candidate/sha256.json -Raw | ConvertFrom-Json
+          $installer = Join-Path $PWD ('validation/candidate/' + $expected.file)
+          if ((Get-FileHash $installer -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected.sha256) { throw 'Delivery installer SHA-256 mismatch' }
+          $installed = Join-Path $env:RUNNER_TEMP 'mat-stress-installed'
+          $process = Start-Process -FilePath $installer -ArgumentList @('/S', "/D=$installed") -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw 'Stress installation failed' }
+          node scripts/audit-release-package.cjs --artifact $installed
+          if ($LASTEXITCODE -ne 0) { throw 'Stress installed payload audit failed' }
+          $env:MAT_VERIFY_OUTPUT = Join-Path $env:RUNNER_TEMP 'mat-stress-evidence'
+          node scripts/release-validation/run-installed.cjs $installed locks
+          if ($LASTEXITCODE -ne 0) { throw 'Stress installed lock regression failed' }
+          node scripts/release-validation/run-installed.cjs $installed lifecycle
+          if ($LASTEXITCODE -ne 0) { throw 'Installed lifecycle stress failed' }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: installed-lifecycle-${{ github.run_id }}
+          path: ${{ runner.temp }}/mat-stress-evidence/*.json
+          if-no-files-found: error

@@ -19,7 +19,10 @@ class ImportSessionStore{
   constructor(directory,{create=false,meta={}}={}){
     this.directory=directory;fs.mkdirSync(directory,{recursive:true});
     this.filename=path.join(directory,'session.sqlite');this.db=new DatabaseSync(this.filename);
-    this.db.exec(`PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000; PRAGMA cache_size=-8192; PRAGMA temp_store=FILE;
+    try{
+    // Set the busy handler before journal_mode can encounter another process's lock.
+    this.db.exec('PRAGMA busy_timeout=5000');
+    this.db.exec(`PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA foreign_keys=ON; PRAGMA cache_size=-8192; PRAGMA temp_store=FILE;
       CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY,value TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS shared_strings(id INTEGER PRIMARY KEY,value TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS raw_rows(row_id INTEGER PRIMARY KEY,sheet_id TEXT NOT NULL,source_row INTEGER NOT NULL,raw_json TEXT NOT NULL,source_hash TEXT NOT NULL,platform TEXT NOT NULL DEFAULT '',shop TEXT NOT NULL DEFAULT '',product_id TEXT NOT NULL DEFAULT '',sku_id TEXT NOT NULL DEFAULT '',group_id TEXT NOT NULL,original_missing_thickness INTEGER NOT NULL DEFAULT 0);
@@ -41,6 +44,7 @@ class ImportSessionStore{
       CREATE INDEX IF NOT EXISTS derived_page ON derived_rows(generation,row_id,status,original_missing_thickness);
       CREATE INDEX IF NOT EXISTS groups_order ON groups(generation,first_row);`);
     if(create){for(const [key,value] of Object.entries({schemaVersion:1,revision:0,generation:0,phase:'uploading',created:now(),updated:now(),...meta}))this.setMeta(key,value);}
+    }catch(error){try{this.db.close();}catch{}this.db=null;throw error;}
   }
   close(){if(this.db){try{this.db.exec('PRAGMA wal_checkpoint(TRUNCATE)');}catch{}this.db.close();this.db=null;}}
   transaction(fn){this.db.exec('BEGIN IMMEDIATE');try{const result=fn();this.db.exec('COMMIT');return result;}catch(error){this.db.exec('ROLLBACK');throw error;}}

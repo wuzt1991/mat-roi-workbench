@@ -6,10 +6,11 @@ const os=require('node:os');
 const path=require('node:path');
 const {Readable,Writable}=require('node:stream');
 const {EventEmitter}=require('node:events');
-const {createFileService,ruleSnapshot}=require('../server/file-service.cjs');
-const {ImportSessionStore,digest}=require('../server/import-session-store.cjs');
-const Domain=require('../public/domain.js');
-const Recognition=require('../public/product-recognition.js');
+const root=process.env.MAT_VERIFY_ROOT||path.resolve(__dirname,'..');
+const {createFileService,ruleSnapshot}=require(path.join(root,'server/file-service.cjs'));
+const {ImportSessionStore,digest}=require(path.join(root,'server/import-session-store.cjs'));
+const Domain=require(path.join(root,'public/domain.js'));
+const Recognition=require(path.join(root,'public/product-recognition.js'));
 
 async function fixture(t,{kind='product'}={}){
   const dataDir=fs.mkdtempSync(path.join(os.tmpdir(),'mat-lifecycle-')),state=Domain.initialState();

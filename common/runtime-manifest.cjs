@@ -3,7 +3,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-const APP_VERSION = '1.2.5';
+const APP_VERSION = '1.2.6';
 
 // This is the only application-file allowlist used by both supported packagers.
 // Keep entries explicit: a newly added runtime module must be reviewed here before
