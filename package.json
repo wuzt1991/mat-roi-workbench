@@ -30,7 +30,7 @@
   },
   "devDependencies": {
     "@electron/packager": "20.3.0",
-    "electron": "42.6.1",
+    "electron": "42.11.6",
     "electron-builder": "26.15.3"
   }
 }

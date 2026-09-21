@@ -6,7 +6,7 @@ const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 const { BUILD_INPUT_FILES, RUNTIME_FILES, assertSource } = require('../common/runtime-manifest.cjs');
 const { auditArtifact } = require('./audit-release-package.cjs');
-const { version, productName } = require('../package.json');
+const { version, productName, devDependencies } = require('../package.json');
 
 const root = path.join(__dirname, '..');
 
@@ -43,7 +43,7 @@ async function main() {
         executableName: productName,
         platform,
         arch,
-        electronVersion: '42.6.1',
+        electronVersion: devDependencies.electron,
         icon: path.join(root, 'build', platform === 'darwin' ? 'app.icns' : 'app.ico'),
         electronZipDir: process.env.MAT_ELECTRON_ZIPS || undefined,
         appBundleId: 'local.mat.workbench',

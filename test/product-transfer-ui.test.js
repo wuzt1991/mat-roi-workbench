@@ -62,7 +62,7 @@ function dragHarness(request){
   const zone={closest:()=>zone,contains:node=>node===zone||node===child,setAttribute:(key,value)=>attributes.set(key,value),removeAttribute:key=>attributes.delete(key)};
   const child={closest:()=>zone},dialog={open:false,remove(){}};
   const document={getElementById:()=>dialog,querySelector:selector=>selector==='[data-pv4-dropzone]'?zone:null,addEventListener:(type,handler)=>{bindings.set(type,(bindings.get(type)||0)+1);listeners.set(type,handler);},removeEventListener:(type,handler)=>{if(listeners.get(type)===handler)listeners.delete(type);}};
-  const context=vm.createContext({document,ProductRecognition:require('../public/product-recognition.js'),setTimeout,clearTimeout});
+  const context=vm.createContext({document,ProductRecognition:require('../public/product-recognition.js'),LatticeLoader:require('../public/lattice-loader.js'),setTimeout,clearTimeout});
   vm.runInContext(fs.readFileSync(path.join(__dirname,'../public/product-transfer-ui.js'),'utf8'),context);
   const controller=context.ProductTransferUI.create({toast:message=>messages.push(message),request:async(action,payload)=>{calls.push({action,payload});if(request)return request(action,payload);if(action==='create')return {sessionId:'candidate',ownerToken:'owner'};if(action==='upload')return {phase:'ready',counts:{total:1}};if(action==='rows')return {rows:[],total:0};return {};}});
   controller.activate();
@@ -122,7 +122,8 @@ test('上传期间拒绝重复拖放，上传失败后可重试',async t=>{
   await h.listeners.get('drop')(h.event({files:[{name:'b.xlsx'}]}));
   const busy=h.event();h.listeners.get('dragover')(busy);assert.equal(busy.dataTransfer.dropEffect,'none');assert.match(h.messages.at(-1),/正在处理/);
   assert.equal(h.calls.filter(x=>x.action==='create').length,1);
-  rejectUpload(Error('上传失败'));await first;assert.equal(h.controller.isBusy(),false);assert.match(h.controller.html(),/上传失败/);
+  assert.match(h.controller.html(),/lattice-loader/);assert.match(h.controller.html(),/正在上传 Excel/);
+  rejectUpload(Error('上传失败'));await first;assert.equal(h.controller.isBusy(),false);assert.match(h.controller.html(),/上传失败/);assert.doesNotMatch(h.controller.html(),/data-status="working"/);
   const retry=h.listeners.get('drop')(h.event({files:[{name:'b.xlsx'}]}));
   while(h.calls.filter(x=>x.action==='upload').length<2)await Promise.resolve();
   rejectUpload(Error('测试结束'));await retry;

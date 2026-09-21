@@ -17,3 +17,11 @@ html[data-ui-refine=true][data-ui-material=rays] .pv4-picker-results button:hove
 .pv4-current-file{overflow-wrap:anywhere}
 .pv4-file-button:focus-within{outline:2px solid var(--primary,var(--green));outline-offset:3px}
 .pv4-upload[aria-disabled=true] .pv4-file-button{opacity:.55;cursor:not-allowed}
+
+/* Waiting animation uses the unmodified React Bits lattice stylesheet. */
+.product-v4 .pv4-lattice-wait{display:flex;align-items:center;justify-content:flex-start;gap:18px;min-height:58px;color:var(--ink)}
+.product-v4 .pv4-lattice-wait .lattice-loader{min-width:0;--ll-color:currentColor}
+.product-v4 .pv4-lattice-wait .pv4-wait-percent{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.product-v4 .pv4-lattice-wait .btn{margin-left:auto;flex:none}
+:root[data-ui-material="rays"] .product-v4 .pv4-lattice-wait .lattice-loader{color:#f5f5f5}
+@media(max-width:480px){.product-v4 .pv4-lattice-wait{flex-wrap:wrap;gap:12px}.product-v4 .pv4-lattice-wait .lattice-loader{--ll-font:14px}}

@@ -7,7 +7,7 @@ const {createServer}=require(path.join(root,'server/index.cjs'));
 const source=process.env.MAT_PRODUCT_SCROLL_SOURCE;
 async function main(){
  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'mat-product-scroll-')),installed=process.env.MAT_SCROLL_INSTALLED;let server,child,browser,page,url;
- const label=process.env.MAT_VERIFY_LABEL||'source',checks=[];
+ const label=process.env.MAT_VERIFY_LABEL||'source',checks=[];let lattice;
  try{
   if(installed){
    const {spawn}=require('node:child_process'),env={...process.env,MAT_DATA_DIR:directory,MAT_PORT:'4187'};delete env.ELECTRON_RUN_AS_NODE;
@@ -17,7 +17,7 @@ async function main(){
   }else{server=createServer({port:0,dataDir:directory});url=await server.listen();browser=await chromium.launch({channel:'chrome',headless:true});page=await browser.newPage({viewport:{width:1440,height:850}});}
   const workspace=async()=>await(await fetch(url+'/api/state')).json(),before=await workspace();const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.goto(url);await page.evaluate(()=>UiAppearance.setMotion(false));await page.locator('[data-action="product-view"]').click();
-  const importFile=async file=>{await page.locator('[data-pv4-file]').setInputFiles(file);await page.locator('[data-pv4-use]').click();await page.locator('.pv4-table tbody tr').first().waitFor();};
+  const importFile=async file=>{if(!lattice)lattice=await require('./verify-lattice-loader.cjs').verifyWaitingUpload(page,file,out,label);else await page.locator('[data-pv4-file]').setInputFiles(file);await page.locator('[data-pv4-use]').click();await page.locator('.pv4-table tbody tr').first().waitFor();};
   const Excel=require(path.join(root,'public/assets/exceljs.min.js'));let sourceBytes;
   if(source)sourceBytes=fs.readFileSync(source);else{
    const sample=new Excel.Workbook(),sheet=sample.addWorksheet('ERP');sheet.addRow(require(path.join(root,'public/product-recognition.js')).OUTPUT_HEADERS);
@@ -55,7 +55,7 @@ async function main(){
   await page.waitForFunction(()=>{const r=document.querySelector('.pv4-pager').getBoundingClientRect();return r.top<innerHeight&&r.bottom>0;});
   await page.locator('[data-pv4-page="2"]').click();await page.waitForFunction(()=>document.querySelector('.pv4-pager').textContent.includes('第 2 / 2 页'));assert.match(await page.locator('.pv4-actions').innerText(),/本页 40 条/);
   assert.deepEqual(await workspace(),before);assert.deepEqual(errors,[]);
-  const report={passed:true,root,host:process.platform,installedWindow:!!installed,sourceKind:source?'user-supplied':'synthetic',workbookRows:60,twoPageFixtureRows:140,checks,paginationReached:true,scrollDoesNotChangeSessionOrWorkspace:true,errors};fs.writeFileSync(path.join(out,`scroll-${label}.json`),JSON.stringify(report,null,2));console.log(JSON.stringify(report,null,2));
+  const report={passed:true,lattice,root,host:process.platform,installedWindow:!!installed,sourceKind:source?'user-supplied':'synthetic',workbookRows:60,twoPageFixtureRows:140,checks,paginationReached:true,scrollDoesNotChangeSessionOrWorkspace:true,errors};fs.writeFileSync(path.join(out,`scroll-${label}.json`),JSON.stringify(report,null,2));console.log(JSON.stringify(report,null,2));
  }catch(error){if(page)await page.screenshot({path:path.join(out,`scroll-failure-${label}.png`)});throw error;}finally{await browser?.close();if(child){child.kill();await new Promise(resolve=>{if(child.exitCode!==null)return resolve();child.once('exit',resolve);setTimeout(resolve,5000);});}await server?.close();fs.rmSync(directory,{recursive:true,force:true,maxRetries:10,retryDelay:200});}
 }
 main().catch(error=>{console.error(error);process.exitCode=1;});
