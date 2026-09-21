@@ -16,7 +16,7 @@ const json=(response,status,value)=>{response.writeHead(status,{'Content-Type':'
 const safeName=value=>String(value||'').replace(/[\r\n"\\/]/g,'_').slice(0,120)||'download';
 async function readJson(request,limit=2*1024*1024){let size=0;const chunks=[];for await(const chunk of request){size+=chunk.length;if(size>limit)throw new SessionError(413,'请求内容超限。','REQUEST_TOO_LARGE');chunks.push(chunk);}try{return JSON.parse(Buffer.concat(chunks).toString('utf8')||'{}');}catch{throw new SessionError(400,'请求内容不是有效 JSON。','INVALID_JSON');}}
 function context(store){const meta=store.metadata?.()||store.read?.()||{};return {workspaceId:meta.workspaceId,storageEpoch:meta.storageEpoch??0};}
-function ruleSnapshot(state){return {materials:(state?.materials||[]).map(material=>({id:material.id,name:material.name,deleted:!!material.deleted,weightRules:(material.weightRules||[]).map(rule=>({id:rule.id,thickness:rule.thickness,variant:rule.variant,coefficient:rule.coefficient,costPerSqm:rule.costPerSqm,default:!!rule.default,deleted:!!rule.deleted}))})),sizes:(state?.sizes||[]).map(size=>({id:size.id,name:size.name,salesW:size.salesW,salesH:size.salesH,irregular:!!size.irregular,deleted:!!size.deleted}))};}
+function ruleSnapshot(state){return {materials:(state?.materials||[]).map(material=>({id:material.id,name:material.name,deleted:!!material.deleted,weightRules:(material.weightRules||[]).map(rule=>({id:rule.id,thickness:rule.thickness,variant:rule.variant,coefficient:rule.coefficient,costPerSqm:rule.costPerSqm,default:!!rule.default,deleted:!!rule.deleted}))})),sizes:(state?.sizes||[]).map(size=>({id:size.id,name:size.name,salesW:size.needsReview?'':(size.irregular?size.productionW:size.salesW),salesH:size.needsReview?'':(size.irregular?size.productionH:size.salesH),irregular:false,deleted:!!size.deleted}))};}
 function normalizeMapping(mapping){if(!mapping||typeof mapping!=='object'||Array.isArray(mapping))return {};return Object.fromEntries(Object.entries(mapping).map(([key,value])=>{const text=String(value??'').trim();return [key,/^\d+$/.test(text)?Number(text):value];}));}
 function normalizeCandidateSheets(sheets){return (sheets||[]).map(sheet=>{const headers=Array.isArray(sheet.header?.headers)?sheet.header.headers:[],mapping=normalizeMapping(sheet.header?.mapping);return {id:sheet.sheetId,sheetId:sheet.sheetId,name:sheet.name,columns:headers.map((name,index)=>({id:index,name})),headers,mapping,header:{...(sheet.header||{}),headers,mapping}};});}
 function directoryBytes(directory){let total=0;if(!fs.existsSync(directory))return 0;for(const item of fs.readdirSync(directory,{withFileTypes:true})){const filename=path.join(directory,item.name);try{if(item.isDirectory())total+=directoryBytes(filename);else total+=fs.statSync(filename).size;}catch{}}return total;}
@@ -89,7 +89,15 @@ function createFileService({store,dataDir}){
           return {sheetId:selected.sheetId,mapping};
         });
         const rules=input.rules||currentRules(),type=sales?'aggregate-sales':'import';
-        const payload=sales?{...selections[0],rules,period:input.period||null}:{selections,rules};
+        if(sales&&input.matchBy==='size'){
+          const mapping=selections[0].mapping;
+          if(!Number.isInteger(mapping.specName))throw new SessionError(422,'请选择商品 SKU 标题列。','SALES_TITLE_REQUIRED');
+          if(!['orders','units'].includes(input.basis))throw new SessionError(422,'请选择成交订单数或销售件数。','SALES_BASIS_REQUIRED');
+          const expected=mapping[input.basis==='orders'?'orderCount':'unitCount'];
+          if(Number.isInteger(expected)&&mapping.sales!==expected)throw new SessionError(422,'所选数量列与统计口径不一致。','SALES_BASIS_MISMATCH');
+          session.setMeta('salesSizeReady',false);
+        }
+        const payload=sales?{...selections[0],rules,period:input.period||null,matchBy:input.matchBy,basis:input.basis}:{selections,rules};
         const job=startSessionJob(id,type,payload);
         return json(response,202,{jobId:job.jobId}),true;
       }finally{session.close();}

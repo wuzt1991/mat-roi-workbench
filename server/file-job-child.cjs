@@ -30,7 +30,15 @@ async function run(jobType,payload,context){
   if(context.sessionDirectory){const store=new ImportSessionStore(context.sessionDirectory);try{const meta=store.metadata();if(meta.workspaceId!==context.workspaceId||Number(meta.storageEpoch)!==Number(context.storageEpoch)||Number(meta.revision)!==Number(context.revision)||Number(meta.generation)!==Number(context.generation))throw new SessionError(409,'文件会话已变更，请刷新后重试。','SESSION_CONTEXT_CHANGED');}finally{store.close();}}
   if(jobType==='inspect')return Reader.inspectWorkbook(context.sourcePath,context.sessionDirectory,common);
   if(jobType==='import')return Reader.importSheets(context.sourcePath,context.sessionDirectory,{...payload,...common,selections:payload.selections||[{sheetId:payload.sheetId,mapping:payload.mapping}]});
-  if(jobType==='aggregate-sales'){const imported=await Reader.importSheet(context.sourcePath,context.sessionDirectory,{...payload,derive:false,...common});return {...imported,sales:aggregateSales(context.sessionDirectory,payload.mapping||imported.header.mapping)};}
+  if(jobType==='aggregate-sales'){
+    const imported=await Reader.importSheet(context.sourcePath,context.sessionDirectory,{...payload,derive:false,...common});
+    if(payload.matchBy==='size'){
+      const store=new ImportSessionStore(context.sessionDirectory);
+      try{return {...imported,sales:require('./sales-size-import.cjs').aggregate(store,payload.mapping||imported.header.mapping,{basis:payload.basis,progress,canceled})};}
+      finally{store.close();}
+    }
+    return {...imported,sales:aggregateSales(context.sessionDirectory,payload.mapping||imported.header.mapping)};
+  }
   if(jobType==='apply-review'){
     const store=new ImportSessionStore(context.sessionDirectory);try{return store.applyReview(payload.command||payload,payload.rules||store.getMeta('rules',{}));}finally{store.close();}
   }

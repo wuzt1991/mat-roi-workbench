@@ -5,10 +5,11 @@
 })(typeof globalThis==='object'?globalThis:this,function(){
   'use strict';
 
-  const OUTPUT_HEADERS=['序号','平台','店铺','平台商品名称','平台规格名称','材质','材质名称','尺寸','面积','宽','长','重量','成本','广告费','成交金额','商品编码','商家编码','平台商品ID','平台规格ID','平台售价','售卖状态','平台库存','规格类型','规格名称','货品编码','货品简称','商品规格','规格ID','规格简称'];
+  const OUTPUT_HEADERS=['序号','平台','店铺','平台商品名称','平台规格名称','品牌','商品标签','尺寸','面积','宽','长','重量','成本','广告费','成交金额','主条码','规格辅助码','平台商品ID','平台规格ID','平台售价','售卖状态','平台库存','规格类型','规格名称','货品编码','货品简称','货品名称','商家编码','规格简称'];
   const FIELD_ALIASES={
-    seq:['序号','编号','行号'],platform:['平台','来源平台'],shop:['店铺','店铺名称'],productName:['平台商品名称','商品名称','商品标题','货品名称'],specName:['平台规格名称','SKU名称','规格名称','商品规格','商品规格名称','货品名称'],
-    productId:['平台商品ID','商品ID','商品id'],specId:['平台规格ID','SKU ID','SKUID','规格ID','主条码','货品编码'],price:['平台售价','售价','价格'],status:['售卖状态','状态','销售状态'],inventory:['平台库存','库存'],
+    seq:['序号','编号','行号'],platform:['平台','来源平台'],shop:['店铺','店铺名称'],productName:['平台商品名称','商品名称','商品标题','货品名称'],specName:['平台规格名称','SKU名称','规格名称','商品规格','商品规格名称','货品名称','商品SKU标题'],
+    productId:['平台商品ID','商品ID','商品id'],specId:['平台规格ID','SKU ID','SKUID','规格ID','主条码','货品编码','商品SKU编号'],price:['平台售价','售价','价格'],status:['售卖状态','状态','销售状态'],inventory:['平台库存','库存'],
+    orderCount:['商品成交订单数','支付订单数','成交订单数','订单数'],unitCount:['商品成交件数','销售件数','成交件数','支付件数'],
     productCode:['平台商品编码','商品编码'],merchantCode:['平台商家编码','商家编码'],specType:['规格类型'],goodsCode:['货品编码'],goodsShort:['货品简称'],specShort:['规格简称'],sales:['销量','支付件数','成交件数','销售数量','货品数量','修改数量'],date:['日期','支付日期','下单日期']
   };
   const REQUIRED_PRODUCT_FIELDS={platform:'平台',shop:'店铺',productName:'商品名称',specName:'规格名称',productId:'商品 ID',specId:'SKU ID',price:'售价',status:'售卖状态',inventory:'库存'};
@@ -102,7 +103,7 @@
     const area=size.status==='value'?size.area:null,weight=area!=null&&rule?area*number(rule.coefficient):null,cost=area!=null&&rule?area*number(rule.costPerSqm):null;
     if(rule&&(number(rule.coefficient)===null||number(rule.costPerSqm)===null))issues.push({field:'thickness',code:'INVALID_RULE',message:'厚度规则缺少重量或成本'});
     const values=Array(29).fill(null),put=(i,v)=>{values[i]=v===''||v==null?null:v;};
-    put(0,number(field(raw,mapping,'seq'))??rowId);put(1,platform);put(2,shop);put(3,productName);put(4,specName);put(5,materialEntity?.name||null);put(6,materialEntity?.name||null);put(7,size.status==='value'?size.label:null);put(8,area);put(9,size.status==='value'?size.width:null);put(10,size.status==='value'?size.length:null);put(11,weight);put(12,cost);put(15,sourceId(raw,mapping,'productCode'));put(16,sourceId(raw,mapping,'merchantCode'));put(17,productId);put(18,skuId);put(19,number(field(raw,mapping,'price'))??text(field(raw,mapping,'price')));put(20,text(field(raw,mapping,'status')));put(21,number(field(raw,mapping,'inventory'))??text(field(raw,mapping,'inventory')));put(22,text(field(raw,mapping,'specType')));put(23,specName);put(24,sourceId(raw,mapping,'goodsCode'));put(25,text(field(raw,mapping,'goodsShort')));put(26,specName);put(27,skuId);put(28,text(field(raw,mapping,'specShort')));
+    put(0,number(field(raw,mapping,'seq'))??rowId);put(1,platform);put(2,shop);put(3,productName);put(4,specName);put(5,materialEntity?.name||null);put(6,materialEntity?.name||null);put(7,size.status==='value'?size.label:null);put(8,area);put(9,size.status==='value'?size.width:null);put(10,size.status==='value'?size.length:null);put(11,weight);put(12,cost);put(17,productId);put(18,skuId);put(19,number(field(raw,mapping,'price'))??text(field(raw,mapping,'price')));put(20,text(field(raw,mapping,'status')));put(21,number(field(raw,mapping,'inventory'))??text(field(raw,mapping,'inventory')));put(22,text(field(raw,mapping,'specType')));put(23,specName);put(24,sourceId(raw,mapping,'goodsCode'));put(25,text(field(raw,mapping,'goodsShort')));put(26,specName);put(27,skuId);put(28,text(field(raw,mapping,'specShort')));
     return {rowId,sourceRow:rawRecord.sourceRow,groupId:groupKey(platform,shop,productId,rowId),platform,shop,productId,skuId,productName,specName,material,size,thickness,originalMissingThickness:evidence.originalMissingThickness,area,weight,cost,values,issues,status:issues.length?'pending':'confirmed'};
   }
 
@@ -113,8 +114,8 @@
       const result={...value,status:value.mode,source:'manual'};delete result.mode;
       if(key==='material'&&result.id){result.materialId=result.id;delete result.id;}
       if(key==='size'&&result.status==='value'){
-        const size=result.id?(rules?.sizes||[]).find(x=>x.id===result.id):null,width=number(result.width??size?.salesW??size?.w),length=number(result.length??size?.salesH??size?.h);
-        if(result.id&&!size)throw Object.assign(Error('尺寸方案不存在'),{code:'INVALID_SIZE'});
+        const size=result.id?(rules?.sizes||[]).find(x=>x.id===result.id):null,width=number(result.width??(size?.irregular?size.productionW:size?.salesW)??size?.w),length=number(result.length??(size?.irregular?size.productionH:size?.salesH)??size?.h);
+        if(result.id&&(!size||size.deleted||size.active===false||size.needsReview))throw Object.assign(Error('尺寸方案不可用'),{code:'INVALID_SIZE'});
         if(!validDimension(width)||!validDimension(length))throw Object.assign(Error('尺寸长宽无效'),{code:'INVALID_SIZE'});
         result.sizeId=size?.id||'';result.width=width;result.length=length;result.label=`${width}*${length}`;result.area=width*length/10000;delete result.id;
       }

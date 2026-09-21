@@ -62,7 +62,29 @@ test('更新服务不改写 SQLite 数据目录和工作区文件',async t=>{
   const db=new DatabaseSync(dbPath);assert.deepEqual(JSON.parse(db.prepare('SELECT data FROM workspace').get().data),state);db.close();
 });
 
-test('GitHub 更新源必须由环境变量提供，不生成虚构仓库',()=>{
-  assert.equal(resolveUpdateConfig({}),null);
-  assert.deepEqual(resolveUpdateConfig({MAT_UPDATE_OWNER:'acme',MAT_UPDATE_REPO:'workbench'}),{provider:'github',owner:'acme',repo:'workbench',private:false});
+test('构建与运行时固定国内更新源，忽略旧 GitHub 环境变量，禁止降级',()=>{
+ const expected={provider:'generic',url:'https://mat-roi-workbench-updates-2026.oss-cn-shanghai.aliyuncs.com/updates/windows/'};
+ assert.deepEqual(resolveUpdateConfig({}),expected);
+ assert.deepEqual(resolveUpdateConfig({MAT_UPDATE_OWNER:'acme',MAT_UPDATE_REPO:'workbench',MAT_UPDATE_URL:'https://example.com'}),expected);
+ assert.deepEqual(require('../electron-builder.config.cjs').publish,[expected]);
+ const updater=new FakeUpdater(),service=new UpdateService({updater});service.start();
+ assert.deepEqual(updater.feedURL,expected);assert.equal(updater.allowDowngrade,false);
+ assert.equal(updater.autoDownload,false);assert.equal(updater.autoInstallOnAppQuit,false);service.dispose();
+});
+
+test('断网、重置、附件缺失及校验失败显示可定位原因，并允许重试',async()=>{
+ const updater=new FakeUpdater(),service=new UpdateService({updater,logger:{warn(){}}});service.start();
+ for(const [code,message] of [['ERR_INTERNET_DISCONNECTED',/网络不可用/],['ECONNRESET',/连接中断/],['404',/暂未就绪/],['ERR_UPDATER_CHECKSUM_MISMATCH',/校验失败/]]){
+   updater.emit('error',Object.assign(new Error(code),{code}));
+   assert.equal(service.status.state,'error');assert.match(service.status.message,message);
+   await service.checkForUpdates();assert.equal(service.status.state,'checking');
+ }
+ assert.equal(updater.installCalls,0);service.dispose();
+});
+
+test('正式界面保留更新服务已规范化的错误原因',()=>{
+ const {appHarness}=require('./app-harness.cjs'),h=appHarness();
+ h.ui.handleUpdateStatus({state:'error',message:'更新文件校验失败，请重新下载；当前版本可继续使用。'});
+ assert.match(h.elements.get('#update-controls').innerHTML,/更新文件校验失败/);
+ assert.match(h.elements.get('#toast').textContent,/更新文件校验失败/);
 });

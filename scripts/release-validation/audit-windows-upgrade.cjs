@@ -6,6 +6,7 @@ const crypto = require('node:crypto');
 const assert = require('node:assert/strict');
 const http = require('node:http');
 const { spawn, spawnSync } = require('node:child_process');
+const { addLegacyLedgerFixture } = require('./legacy-ledger-fixture.cjs');
 assert.equal(process.platform, 'win32', 'Upgrade validation only runs on Windows');
 assert.equal(process.env.GITHUB_ACTIONS, 'true', 'Upgrade validation requires GitHub Actions');
 assert.equal(process.env.RUNNER_ENVIRONMENT, 'github-hosted', 'Upgrade validation requires a disposable GitHub-hosted runner');
@@ -46,8 +47,8 @@ function assertRunningInstallation(health) {
   assert.ok(runtime.processes.some(item => owners.includes(item.ProcessId) && samePath(item.ExecutablePath, executable)), 'The health server must belong to the installed executable');
   return runtime;
 }
-function assertProductionFeed(config) {
-  for (const [field, value] of Object.entries({ provider: 'github', owner: 'wuzt1991', repo: 'mat-roi-workbench' })) {
+function assertProductionFeed(config, legacy = false) {
+  for (const [field, value] of Object.entries(legacy ? { provider: 'github', owner: 'wuzt1991', repo: 'mat-roi-workbench' } : require('../../common/update-config.cjs').updateConfig())) {
     assert.match(config, new RegExp(`^${field}:\\s*['\"]?${value}['\"]?\\s*$`, 'm'), `Unexpected production update ${field}`);
   }
 }
@@ -100,7 +101,7 @@ async function main() {
   assert.ok(fs.existsSync(executable));
   const configPath = path.join(installDir, 'resources', 'app-update.yml');
   const productionConfig = fs.readFileSync(configPath, 'utf8');
-  assertProductionFeed(productionConfig);
+  assertProductionFeed(productionConfig, true);
   // Only the disposable OLD installation's external feed is changed. ASAR and the candidate stay byte-identical.
   fs.writeFileSync(configPath, 'provider: generic\nurl: http://127.0.0.1:4199/\nupdaterCacheDirName: mat-upgrade-validation\n');
   const requests = [];
@@ -110,8 +111,18 @@ async function main() {
   // v1.1.10 initializes its first workspace from the renderer after the HTTP server becomes healthy.
   const state = await until(async () => { const value = await json(base + '/api/state'); return value.state?.shops?.length > 0 && value; }, 'initial workspace saved');
   state.state.shops[0].name = 'CI-UPGRADE-DATA-PRESERVED';
+  const fixtureEval = await connectRenderer();
+  state.state = await fixtureEval(`(${addLegacyLedgerFixture.toString()})(window.MatModel,${JSON.stringify(state.state)})`);
+  socket.close();
   const saved = await json(base + '/api/state', { method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-Workbench': '1', Origin: base }, body: JSON.stringify({ state: state.state, revision: state.revision, reason: 'save' }) });
-  record('old-installed-and-saved', { version: '1.1.10', revision: saved.revision });
+  const baseline = await json(base + '/api/state');
+  assert.equal(baseline.state.records.length, 2);
+  for (const key of ['netMargin', 'netRoi', 'netRevenue']) {
+    assert.ok(!Object.hasOwn(baseline.state.records[0].result, key));
+    assert.ok(Object.hasOwn(baseline.state.records[1].result, key));
+  }
+  const baselineRecords = JSON.stringify(baseline.state.records);
+  record('old-installed-and-saved', { version: '1.1.10', revision: saved.revision, mixedAgeRecords: 2 });
   // Relaunch ensures the renderer has the saved revision, with no injected bypass of the quit guard.
   await stopForRelaunch(); await startApp('1.1.10');
   const evaluate = await connectRenderer();
@@ -136,11 +147,12 @@ async function main() {
   const after = await json(base + '/api/state');
   assert.equal(after.state.shops[0].name, 'CI-UPGRADE-DATA-PRESERVED');
   assert.equal(after.state.version, 4);
+  assert.equal(JSON.stringify(after.state.records), baselineRecords, 'Frozen legacy ledger must remain byte-identical');
   assert.ok(after.revision >= saved.revision);
   const backups = await json(base + '/api/backups');
   assert.ok(backups.items.some(x => x.reason === 'schema-upgrade-original'));
   assertProductionFeed(fs.readFileSync(configPath, 'utf8'));
-  record('production-restart-install-and-migration', { version: upgraded.version, dataDir: upgraded.dataDir, executable, schemaVersion: after.state.version, revision: after.revision, preservedShop: after.state.shops[0].name, originalCheckpoint: true, githubFeedRestored: true });
+  record('production-restart-install-and-migration', { version: upgraded.version, dataDir: upgraded.dataDir, executable, schemaVersion: after.state.version, revision: after.revision, preservedShop: after.state.shops[0].name, preservedMixedAgeRecords: 2, originalCheckpoint: true, domesticFeedRetained: true });
   socket?.close();
   // The genuine NSIS relaunch only passes --updated, not a DevTools port.
   // A separate, explicitly reported launch is used solely for renderer diagnostics.
@@ -152,7 +164,7 @@ async function main() {
   record('updated-renderer', await finalEval("({version:WorkbenchConfig.version,dpr:devicePixelRatio,screen:[screen.width,screen.height],webgl:!!document.createElement('canvas').getContext('webgl2'),canQuit:window.__matUpdateCanQuit()})"));
   fs.writeFileSync(path.join(root, 'installed-path.txt'), installDir);
   fs.writeFileSync(path.join(root, 'report.json'), JSON.stringify(report, null, 2));
-  annotation('notice', { candidateRun: report.candidateRun, source: report.source, installer: report.installer, automaticRestart: true, schemaVersion: after.state.version, preservedShop: after.state.shops[0].name, originalCheckpoint: true, githubFeedRestored: true, renderer: report.steps.at(-1), wizard: report.wizard });
+  annotation('notice', { candidateRun: report.candidateRun, source: report.source, installer: report.installer, automaticRestart: true, schemaVersion: after.state.version, preservedShop: after.state.shops[0].name, originalCheckpoint: true, domesticFeedRetained: true, renderer: report.steps.at(-1), wizard: report.wizard });
 }
 main().catch(async error => {
   report.error = error.stack;

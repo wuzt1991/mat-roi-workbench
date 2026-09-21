@@ -26,14 +26,14 @@ function runProcess(executable, args, { env = process.env, timeout = 30 * 60 * 1
 async function main() {
   const [artifact, mode, operation, count] = process.argv.slice(2);
   assert.equal(process.platform, 'win32', 'This entry point validates the installed Windows runtime');
-  assert.ok(artifact && ['fixtures', 'large'].includes(mode), 'Expected installed directory and fixtures|large');
+  assert.ok(artifact && ['fixtures', 'large', 'scroll'].includes(mode), 'Expected installed directory and fixtures|large|scroll');
   if (mode === 'large') {
     assert.ok(['build', 'verify'].includes(operation));
     assert.ok(['500000', '500001'].includes(count));
   }
   const out = path.resolve(process.env.MAT_VERIFY_OUTPUT);
-  const script = path.join(__dirname, mode === 'fixtures' ? 'verify-fixtures.cjs' : 'verify-large.cjs');
-  const evidence = path.join(out, mode === 'fixtures' ? 'fixture-report.json' : operation === 'build' ? `synthetic-${count}.xlsx` : `report-${count}.json`);
+  const script = path.join(__dirname, mode === 'fixtures' ? 'verify-fixtures.cjs' : mode === 'scroll' ? 'verify-product-scroll.cjs' : 'verify-large.cjs');
+  const evidence = path.join(out, mode === 'fixtures' ? 'fixture-report.json' : mode === 'scroll' ? 'scroll-windows-installed.json' : operation === 'build' ? `synthetic-${count}.xlsx` : `report-${count}.json`);
   assert.ok(!fs.existsSync(evidence), `Refusing stale validation evidence: ${evidence}`);
   await runProcess(path.join(path.resolve(artifact), '地垫工作台.exe'), [script, ...(mode === 'large' ? [operation, count] : [])], {
     env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', MAT_VERIFY_ROOT: path.join(path.resolve(artifact), 'resources', 'app.asar') }
@@ -42,8 +42,9 @@ async function main() {
   if (!evidence.endsWith('.xlsx')) {
     const report = JSON.parse(fs.readFileSync(evidence, 'utf8'));
     assert.equal(report.passed, true, 'Validation report did not pass');
-    assert.equal(mode === 'fixtures' ? report.runtime.platform : report.platform, 'win32');
+    assert.equal(mode === 'fixtures' ? report.runtime.platform : mode === 'scroll' ? report.host : report.platform, 'win32');
     if (mode === 'fixtures') assert.deepEqual(report.checks.map(check => check.businessRows), [1, 60, 99, 100, 139]);
+    else if (mode === 'scroll') { assert.equal(report.installedWindow, true); assert.equal(report.paginationReached, true); }
     else assert.equal(report.count, Number(count));
   }
   console.log(JSON.stringify({ installedValidation: 'passed', mode, operation, count, evidence }));

@@ -45,7 +45,9 @@
     if(counts.status&&Number.isFinite(Number(counts.status[key])))return Number(counts.status[key]);
     return key==='all'?Number(page?.total||0):0;
   };
-  const sizeLabel=size=>text(size?.name)||`${text(size?.salesW??size?.width)} × ${text(size?.salesH??size?.length)} cm`;
+  const sizeWidth=size=>size?.irregular?size.productionW:(size?.salesW??size?.width);
+  const sizeHeight=size=>size?.irregular?size.productionH:(size?.salesH??size?.length);
+  const sizeLabel=size=>text(size?.name)||`${text(sizeWidth(size))} × ${text(sizeHeight(size))} cm`;
   const canonicalRules=state=>({
     materials:array(state?.materials).map(material=>({
       id:material.id,name:material.name,deleted:!!material.deleted,
@@ -56,8 +58,7 @@
       }))
     })),
     sizes:array(state?.sizes).map(size=>({
-      id:size.id,name:size.name,salesW:size.salesW,salesH:size.salesH,
-      irregular:!!size.irregular,deleted:!!size.deleted
+      id:size.id,name:size.name,salesW:size.needsReview?'':(size.irregular?size.productionW:size.salesW),salesH:size.needsReview?'':(size.irregular?size.productionH:size.salesH),irregular:false,deleted:!!size.deleted
     }))
   });
   const thicknessLabel=rule=>{
@@ -281,7 +282,7 @@
     }
 
     function materials(){return active(getState()?.materials);}
-    function sizes(){return active(getState()?.sizes).filter(size=>number(size.salesW??size.width)>0&&number(size.salesH??size.length)>0&&!size.irregular);}
+    function sizes(){return active(getState()?.sizes).filter(size=>number(sizeWidth(size))>0&&number(sizeHeight(size))>0&&!size.needsReview);}
     function materialById(id){return array(getState()?.materials).find(item=>text(item.id)===text(id));}
     function materialOptions(selected,{allowBlank=true,placeholder=true,compact=true}={}){
       const allItems=materials(),selectedItem=allItems.find(item=>text(item.id)===selected),items=compact?allItems.slice(0,INLINE_OPTION_LIMIT):allItems;let out=placeholder?'<option value="">请选择材质</option>':'';
@@ -390,7 +391,7 @@
       return `<div class="product-v4" data-product-v4>
         <div class="page-header"><div class="page-heading"><h1>商品转表</h1><p class="page-sub">上传 ERP 商品规格，复核材质、厚度和尺寸后生成固定 29 列商品表。</p></div><button type="button" class="btn primary" data-pv4-export ${!ready||local.busy?'disabled':''}>${icon('download')}导出商品表</button></div>
         <div class="wide-content pv4-content">
-          <section class="pv4-upload"><div><h2>ERP 商品规格</h2><p>${local.session?`当前会话 ${htmlEscape(local.session.filename||local.session.sessionId)}`:'支持单个 .xlsx 文件，页面每次只读取当前 100 条。'}</p></div><label class="btn pv4-file-button">${icon('file-up')}选择 Excel<input type="file" name="product-file" accept=".xlsx" data-pv4-file ${local.busy?'disabled':''}></label></section>
+          <section class="pv4-upload" data-pv4-dropzone aria-label="商品 Excel 上传区域" aria-disabled="${local.busy}"><div><h2>ERP 商品规格</h2><p class="pv4-drop-hint"><span>拖入一个 .xlsx 文件，或点击选择 Excel。</span><strong>松开即可导入 Excel</strong></p>${local.session?`<p class="pv4-current-file">当前会话 ${htmlEscape(local.session.filename||local.session.sessionId)}</p>`:''}</div><label class="btn pv4-file-button">${icon('file-up')}选择 Excel<input type="file" name="product-file" accept=".xlsx" aria-label="选择商品 Excel 文件" data-pv4-file ${local.busy?'disabled':''}></label></section>
           ${candidateHtml()}${local.error?`<div class="pv4-error" role="alert">${htmlEscape(local.error)}<button type="button" class="icon-btn" data-pv4-dismiss aria-label="关闭提示">${icon('x')}</button></div>`:''}
           ${local.session?`<section class="pv4-review">${local.page?.duplicateRows?`<p class="pv4-dialog-note">发现 ${htmlEscape(local.page.duplicateRows)} 条重复商品内容，原行已全部保留。</p>`:''}<div class="pv4-toolbar">${filterHtml()}<div class="pv4-actions"><span>${selected?`已选 ${selected} 条`:`本页 ${array(local.page?.rows).length} 条`}</span><button type="button" class="btn" data-pv4-batch ${!selected||local.busy?'disabled':''}>${icon('layers')}批量处理所选</button>${local.undo?`<button type="button" class="btn ghost" data-pv4-undo ${local.busy?'disabled':''}>${icon('undo-2')}撤销</button>`:''}</div></div>${local.busy&&!local.candidate?progressHtml({message:local.jobId?'正在处理任务':'正在保存复核结果'}):''}${tableHtml()}${pagerHtml()}</section>`:`<div class="pv4-empty"><h2>等待商品规格文件</h2><p>选择 Excel 后，系统会自动识别并在这里集中复核。</p></div>`}
         </div>
@@ -502,6 +503,31 @@
     }
     function pageRows(){return array(local.page?.rows).map(row=>text(row.rowId));}
     function toggleRows(ids,checked){for(const id of ids)checked?local.selected.add(id):local.selected.delete(id);scheduleRender();}
+    function fileDrag(event){return Array.from(event.dataTransfer?.types||[]).includes('Files')||!!event.dataTransfer?.files?.length;}
+    function dropZone(target){return target?.closest?.('[data-product-v4] [data-pv4-dropzone]');}
+    function resetDrop(){root.document?.querySelector('[data-pv4-dropzone]')?.removeAttribute('data-pv4-dragging');}
+    function documentDragOver(event){
+      if(!local.active||!fileDrag(event))return;
+      event.preventDefault();
+      const zone=dropZone(event.target),available=zone&&!isBusy()&&!local.dialog;
+      event.dataTransfer.dropEffect=available?'copy':'none';
+      if(available)zone.setAttribute('data-pv4-dragging','true');else resetDrop();
+    }
+    function documentDragLeave(event){
+      const zone=dropZone(event.target);
+      if(!zone||!zone.contains(event.relatedTarget))resetDrop();
+    }
+    async function documentDrop(event){
+      if(!local.active||!fileDrag(event))return;
+      event.preventDefault();resetDrop();
+      if(isBusy()){notify('文件正在处理中，请完成或取消后再导入');return;}
+      if(local.dialog){notify('请先完成或关闭当前窗口');return;}
+      if(!dropZone(event.target)){notify('请将 Excel 拖入上方上传区域');return;}
+      const files=Array.from(event.dataTransfer.files||[]);
+      if(Array.from(event.dataTransfer.items||[]).some(item=>item.webkitGetAsEntry?.()?.isDirectory)){notify('请拖入 .xlsx 文件，不支持文件夹');return;}
+      if(files.length!==1){notify('每次只能导入一个 .xlsx 文件');return;}
+      await startImport(files[0]);
+    }
     async function documentChange(event){
       const target=event.target;if(!target.closest?.('[data-product-v4]'))return;
       if(target.matches('[data-pv4-file]')){const file=target.files?.[0];if(file)await startImport(file);target.value='';return;}
@@ -533,6 +559,11 @@
       root.document.addEventListener('click',documentClick);
       root.document.addEventListener('change',documentChange);
       root.document.addEventListener('submit',dialogSubmit);
+      root.document.addEventListener('dragenter',documentDragOver);
+      root.document.addEventListener('dragover',documentDragOver);
+      root.document.addEventListener('dragleave',documentDragLeave);
+      root.document.addEventListener('drop',documentDrop);
+      root.document.addEventListener('dragend',resetDrop);
     }
     function syncChecks(){
       const scope=root.document?.querySelector('[data-product-v4]');if(!scope)return;
@@ -546,6 +577,7 @@
       return api;
     }
     function deactivate(){
+      resetDrop();
       local.active=false;closeDialog();local.filter='all';local.missingThickness=false;local.moreOpen=false;local.pageNumber=1;local.selected.clear();local.page=null;
     }
     function refreshContext(context={},settings={}){
@@ -563,8 +595,10 @@
     function isBusy(){return local.busy||!!local.jobId;}
     function canQuit(){return !isBusy()&&!local.dialog&&!local.candidate;}
     function destroy(){
+      resetDrop();
       clearPoll();local.destroyed=true;local.active=false;
       if(local.listeners&&root.document){root.document.removeEventListener('click',documentClick);root.document.removeEventListener('change',documentChange);root.document.removeEventListener('submit',dialogSubmit);}
+      if(local.listeners&&root.document){root.document.removeEventListener('dragenter',documentDragOver);root.document.removeEventListener('dragover',documentDragOver);root.document.removeEventListener('dragleave',documentDragLeave);root.document.removeEventListener('drop',documentDrop);root.document.removeEventListener('dragend',resetDrop);}
       local.dialog=null;root.document?.getElementById('product-v4-dialog')?.remove();
     }
     function inspect(){return {session:local.session&&{...local.session},candidate:local.candidate&&{...local.candidate},filter:local.filter,missingThickness:local.missingThickness,pageNumber:local.pageNumber,selected:[...local.selected],busy:isBusy()};}

@@ -4,7 +4,7 @@
   const Excel = typeof module === 'object' ? require('./assets/exceljs.min.js') : root.ExcelJS;
   const Recognition = typeof module === 'object' ? require('./product-recognition.js') : root.ProductRecognition;
 
-  const HEADERS = ['序号','平台','店铺','平台商品名称','平台规格名称','品牌','商品标签','尺寸','平米数','宽','长','重量','成本价','商家编码旧','主条码','平台商品编码','平台商家编码','平台商品ID','平台规格ID','平台售价','售卖状态','平台库存','规格类型','货品名称','货品编码','货品简称','规格名称','商家编码（新）','规格简称'];
+  const HEADERS = Recognition.OUTPUT_HEADERS.slice();
   const FIELD_ALIASES = {
     seq:['序号','编号','行号'], platform:['平台'], shop:['店铺','店铺名称'], productName:['平台商品名称','商品名称'], specName:['平台规格名称','规格名称','商品规格名称'],
     productCode:['平台商品编码','商品编码'], merchantCode:['平台商家编码','商家编码'], productId:['平台商品ID','商品ID'], specId:['平台规格ID','规格ID'], price:['平台售价','售价','价格'], status:['售卖状态','销售状态'], inventory:['平台库存','库存'],
@@ -186,7 +186,7 @@
       const out=Array(29).fill('');
       const put=(i,v)=>{out[i]=v===undefined||v===null?'':v;};
       put(0,number(get('seq')) ?? (rows.length+1));put(1,text(get('platform')));put(2,text(get('shop')));put(3,productName);put(4,specName);put(5,material.name);put(6,material.name);put(7,dimensions.ok?dimensions.label:'');put(8,area??'');put(9,dimensions.ok?dimensions.width:'');put(10,dimensions.ok?dimensions.length:'');put(11,weight);put(12,cost);
-      put(13,'');put(14,'');put(15,text(get('productCode')));put(16,text(get('merchantCode')));put(17,text(get('productId')));put(18,text(get('specId')));put(19,number(get('price'))??text(get('price')));put(20,text(get('status')));put(21,number(get('inventory'))??text(get('inventory')));put(22,text(get('specType')));put(23,specName);put(24,text(get('goodsCode')));put(25,text(get('goodsShort')));put(26,specName);put(27,text(get('specId')));put(28,text(get('specShort')));
+      put(13,'');put(14,'');put(17,text(get('productId')));put(18,text(get('specId')));put(19,number(get('price'))??text(get('price')));put(20,text(get('status')));put(21,number(get('inventory'))??text(get('inventory')));put(22,text(get('specType')));put(23,specName);put(24,text(get('goodsCode')));put(25,text(get('goodsShort')));put(26,specName);put(27,text(get('specId')));put(28,text(get('specShort')));
       const ids=[17,18,27];ids.forEach(i=>{if(out[i]!==''&&out[i]!==null)out[i]=String(out[i]);});
       rowExceptions.push(...numericIssues(out));
       if(rowExceptions.length)exceptions.push({rowNumber,source:raw.slice(),output:out.slice(),issues:rowExceptions,reviewed:false});
@@ -312,6 +312,8 @@
       const source=sheet.getRow(2+((r-2)%originalRows)), target=sheet.getRow(r);target.height=source.height;
       for(let c=1;c<=HEADERS.length;c++)copyStyle(target.getCell(c),source.getCell(c));
       const vals=result.rows[r-2].values.map(staticize);
+      // ERP owns both barcode fields, including exports of older review results.
+      vals[15]=vals[16]='';
       for(let c=1;c<=HEADERS.length;c++)target.getCell(c).value=vals[c-1] ?? '';
       [18,19,28].forEach(c=>{if(target.getCell(c).value!=='')target.getCell(c).value=String(target.getCell(c).value);});
     }
