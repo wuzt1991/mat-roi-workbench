@@ -21,6 +21,17 @@ test('exit code zero without a completion message remains a failure',t=>{
  const {child,broker,job}=fixture(t);child.exitCode=0;child.emit('exit',0,null);child.emit('close',0,null);
  assert.equal(broker.get(job.jobId).state,'failed');assert.equal(broker.get(job.jobId).error.code,'CHILD_EXIT');
 });
+test('completion is published only when the worker releases the next job',t=>{
+ const {child,broker,job}=fixture(t),completed=[];
+ broker.onChange=value=>{if(value.state==='succeeded')completed.push({state:value.state,idle:broker.canQuit()});};
+ child.emit('message',{jobId:job.jobId,type:'result',result:{sheets:[]}});
+ assert.equal(broker.get(job.jobId).state,'running');assert.deepEqual(completed,[]);
+ assert.throws(()=>broker.start('import',{},{}),error=>error.code==='FILE_JOB_BUSY');
+ child.emit('exit',0,null);child.emit('close',0,null);
+ assert.deepEqual(completed,[{state:'succeeded',idle:true}]);
+ const next=broker.start('import',{},{});assert.equal(next.state,'running');
+ for(const timer of Object.values(broker.jobs.get(next.jobId).timers))clearTimeout(timer);
+});
 test('a queued worker error retains its cause instead of becoming a generic exit error',t=>{
  const {child,broker,job}=fixture(t);child.exitCode=1;child.emit('exit',1,null);
  child.emit('message',{jobId:job.jobId,type:'error',error:{code:'ROW_LIMIT',message:'too many rows'}});child.emit('close',1,null);

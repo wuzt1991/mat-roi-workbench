@@ -39,7 +39,7 @@ async function main() {
   await runProcess(path.join(path.resolve(artifact), '地垫工作台.exe'), args, {
     env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', MAT_VERIFY_ROOT: path.join(path.resolve(artifact), 'resources', 'app.asar'), ...(mode === 'lifecycle' ? { MAT_DIAGNOSTIC_OUTPUT: evidence } : {}) }
   });
-  if (mode === 'locks') { fs.mkdirSync(out, { recursive: true }); fs.writeFileSync(evidence, JSON.stringify({ passed: true, platform: process.platform, root: path.join(path.resolve(artifact), 'resources', 'app.asar'), tests: 7 })); }
+  if (mode === 'locks') { fs.mkdirSync(out, { recursive: true }); fs.writeFileSync(evidence, JSON.stringify({ passed: true, platform: process.platform, root: path.join(path.resolve(artifact), 'resources', 'app.asar'), tests: 8 })); }
   assert.ok(fs.statSync(evidence).size > 0, 'Validation produced no evidence');
   if (!evidence.endsWith('.xlsx')) {
     const report = JSON.parse(fs.readFileSync(evidence, 'utf8'));
@@ -48,7 +48,7 @@ async function main() {
     if (mode === 'fixtures') assert.deepEqual(report.checks.map(check => check.businessRows), [1, 60, 99, 100, 139]);
     else if (mode === 'scroll') { assert.equal(report.installedWindow, true); assert.equal(report.paginationReached, true); }
     else if (mode === 'lifecycle') { assert.equal(report.runs, 100); assert.equal(report.failed, 0); }
-    else if (mode === 'locks') assert.equal(report.tests, 7);
+    else if (mode === 'locks') assert.equal(report.tests, 8);
     else assert.equal(report.count, Number(count));
   }
   console.log(JSON.stringify({ installedValidation: 'passed', mode, operation, count, evidence }));
