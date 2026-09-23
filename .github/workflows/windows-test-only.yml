@@ -315,3 +315,36 @@ jobs:
           name: installed-lifecycle-${{ github.run_id }}
           path: ${{ runner.temp }}/mat-stress-evidence/*.json
           if-no-files-found: error
+
+  internal-upgrade-rollback:
+    runs-on: windows-2022
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Upgrade 1.2.10 to exact 1.2.13 and roll back with latest data
+        shell: pwsh
+        run: |
+          $previous = Join-Path $env:RUNNER_TEMP 'previous-internal.exe'
+          Invoke-WebRequest 'https://raw.githubusercontent.com/wuzt1991/mat-roi-workbench/6beda281f9f5e2f041c48cc3f76b39915fbc5065/validation/candidate/mat-roi-workbench-setup-1.2.10.exe' -OutFile $previous
+          $tools = Join-Path $env:RUNNER_TEMP 'mat-browser-tools'
+          npm install --prefix $tools --no-save --ignore-scripts playwright@1.56.1
+          if ($LASTEXITCODE -ne 0) { throw 'Browser driver setup failed' }
+          $env:MAT_PLAYWRIGHT_MODULE = Join-Path $tools 'node_modules/playwright'
+          $env:MAT_VERIFY_OUTPUT = Join-Path $env:RUNNER_TEMP 'mat-internal-upgrade-evidence'
+          node scripts/release-validation/verify-windows-rollback.cjs $previous validation/candidate/mat-roi-workbench-setup-1.2.13.exe
+          if ($LASTEXITCODE -ne 0) { throw 'Internal upgrade or rollback failed' }
+      - name: Emit complete internal upgrade evidence
+        if: always()
+        shell: pwsh
+        run: python scripts/release-validation/emit-ci-evidence.py (Join-Path $env:RUNNER_TEMP 'mat-internal-upgrade-evidence') rollback
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-internal-upgrade-${{ github.run_id }}
+          path: ${{ runner.temp }}/mat-internal-upgrade-evidence/*
+          if-no-files-found: error
