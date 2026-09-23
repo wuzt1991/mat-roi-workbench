@@ -5,8 +5,8 @@ const rules={materials:[{id:'m',name:'硅藻泥',weightRules:[{id:'3',thickness:
 const mapping=R.mapFields(['平台','店铺','平台商品名称','平台规格名称','平台商品ID','平台规格ID','平台售价','售卖状态','平台库存']);
 const raw=(id,spec='40*60cm 3mm')=>({rowId:id,sourceRow:id+1,sheetId:'s',mapping,values:['抖音','店','硅藻泥',spec,'0001',String(id),10,'在售',0]});
 test('自动补填在整份文件查找异常，并跨页只补同商品同材质缺失厚度',t=>{
- const dir=fs.mkdtempSync(path.join(os.tmpdir(),'mat-auto-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
- const store=new ImportSessionStore(dir,{create:true,meta:{ownerToken:'o',rules,mapping}});t.after(()=>store.close());
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'mat-auto-'));
+ const store=new ImportSessionStore(dir,{create:true,meta:{ownerToken:'o',rules,mapping}});t.after(()=>{store.close();fs.rmSync(dir,{recursive:true,force:true});});
  const records=Array.from({length:103},(_,i)=>{const r=raw(i+1,i>=100?'40*60cm':'40*60cm 5mm'),d=R.deriveTransferRow(r,{},{rules});return {...r,...Object.fromEntries(['platform','shop','productId','skuId','groupId','originalMissingThickness'].map(k=>[k,d[k]])),sourceHash:String(i)};});
  store.insertRawBatch(records);store.rebuildDerived(rules);
  const page=store.page({attention:true});assert.equal(page.rows.length,1);assert.equal(page.rows[0].rowId,101);assert.equal(page.rows[0].missingPeers,3);assert.equal(page.counts.total,103);assert.equal(page.ready,false);
