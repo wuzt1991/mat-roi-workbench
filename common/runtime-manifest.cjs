@@ -3,7 +3,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-const APP_VERSION = '1.2.0';
+const APP_VERSION = '1.2.10';
 
 // This is the only application-file allowlist used by both supported packagers.
 // Keep entries explicit: a newly added runtime module must be reviewed here before
@@ -16,11 +16,13 @@ const RUNTIME_FILES = Object.freeze([
   'update-service.cjs',
   'update-ipc.cjs',
   'common/runtime-manifest.cjs',
+  'common/update-config.cjs',
 
   'server/index.cjs',
   'server/store.cjs',
   'server/file-service.cjs',
   'server/auxiliary-file-jobs.cjs',
+  'server/sales-size-import.cjs',
   'server/file-job-broker.cjs',
   'server/file-job-child.cjs',
   'server/import-session-store.cjs',
@@ -39,6 +41,8 @@ const RUNTIME_FILES = Object.freeze([
   'public/sales-import-ui.js',
   'public/sales-import-ui.css',
   'public/trends.js',
+  'public/operating-records.js',
+  'public/operating-records.css',
   'public/trends-v3.js',
   'public/transfer.js',
   'public/transfer-v3.js',
@@ -46,6 +50,9 @@ const RUNTIME_FILES = Object.freeze([
   'public/product-transfer.js',
   'public/product-transfer-ui.js',
   'public/product-transfer-ui.css',
+  'public/lattice-loader.js',
+  'public/lattice-loader.css',
+  'public/licenses/react-bits-lattice-loader.txt',
   'public/workbook.js',
   'public/workbook-v3.js',
   'public/persistence.js',

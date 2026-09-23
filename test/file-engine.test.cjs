@@ -44,20 +44,22 @@ test('完整 ERP 表优先平台字段，真正同名重复仍要求确认',()=>
   assert.deepEqual(Recognition.mapFields(['商品名称','商品名称']).productName,{ambiguous:[0,1]});
 });
 
-test('转表保留旧版字段别名，并优先平台编码而不是空白内部编码',()=>{
+test('转表保留旧版字段别名，平台编码不写入新版条码列',()=>{
   const headers=['编号','平台','店铺','商品名称','商品规格名称','商品ID','规格ID','价格','销售状态','库存','平台商品编码','商品编码','平台商家编码','商家编码'];
   const mapping=Recognition.mapFields(headers);
   const values=[7,'抖音','测试店','硅藻泥地垫','40*60cm 3mm','001','002',20,'在售',10,'0000123','','0000456',''];
   const result=Recognition.deriveTransferRow({rowId:1,values,mapping},{},{rules:rules()});
   assert.equal(result.status,'confirmed');
   assert.equal(result.values[0],7);
-  assert.equal(result.values[15],'0000123');
-  assert.equal(result.values[16],'0000456');
+  assert.equal(mapping.productCode,10);assert.equal(mapping.merchantCode,12);
+  assert.equal(result.values[15],null);
+  assert.equal(result.values[16],null);
+  assert.equal(result.values[27],'002');
   assert.deepEqual(Recognition.mapFields(['平台商家编码','平台商家编码','商家编码']).merchantCode,{ambiguous:[0,1]});
   assert.equal(Recognition.mapFields(['商品编码','商家编码']).merchantCode,1);
 });
 
-test('平台商家编码经过 XLSX 导入和流式导出保持文本与前导零',async(t)=>{
+test('新版流式导出统一表头，旧会话条码列留空且规格 ID 保留前导零',async(t)=>{
   const directory=fs.mkdtempSync(path.join(os.tmpdir(),'mat-platform-codes-'));t.after(()=>fs.rmSync(directory,{recursive:true,force:true}));
   const filename=path.join(directory,'source.xlsx'),session=path.join(directory,'session'),output=path.join(directory,'out.xlsx');fs.mkdirSync(session);
   const source=new Excel.Workbook(),sheet=source.addWorksheet('商品');
@@ -67,9 +69,16 @@ test('平台商家编码经过 XLSX 导入和流式导出保持文本与前导�
   new ImportSessionStore(session,{create:true,meta:{sessionId:'codes',ownerToken:'test',rules:rules()}}).close();
   const inspection=await Reader.inspectWorkbook(filename,session);
   const imported=await Reader.importSheet(filename,session,{sheetId:inspection.sheets[0].sheetId,rules:rules()});assert.equal(imported.ready,true);
+  // Simulate a persisted session derived under the previous export standard.
+  const saved=new ImportSessionStore(session),record=saved.db.prepare('SELECT generation,row_id,derived_json FROM derived_rows').get();
+  const legacy=JSON.parse(record.derived_json);legacy.values[15]='0000123';legacy.values[16]='0000456';
+  saved.db.prepare('UPDATE derived_rows SET derived_json=? WHERE generation=? AND row_id=?').run(JSON.stringify(legacy),record.generation,record.row_id);saved.close();
   await exportProduct({sessionDirectory:session,templatePath:path.join(__dirname,'../public/assets/product-template.xlsx'),outputPath:output});
   const exported=new Excel.Workbook();await exported.xlsx.load(fs.readFileSync(output));
-  assert.equal(exported.worksheets[0].getCell('P2').value,'0000123');assert.equal(exported.worksheets[0].getCell('Q2').value,'0000456');
+  const result=exported.worksheets[0];
+  assert.deepEqual(result.getRow(1).values.slice(1),Recognition.OUTPUT_HEADERS);
+  assert.equal(result.getCell('P2').value,null);assert.equal(result.getCell('Q2').value,null);
+  assert.equal(result.getCell('R2').value,'001');assert.equal(result.getCell('S2').value,'002');assert.equal(result.getCell('AB2').value,'002');
 });
 
 test('分页先筛选当前代的行号，再加载整行，跨页顺序与缺厚度交叉筛选一致',t=>{

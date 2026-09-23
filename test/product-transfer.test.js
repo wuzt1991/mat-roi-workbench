@@ -6,6 +6,8 @@ const P=require('../public/product-transfer.js');
 const Excel=require('../public/assets/exceljs.min.js');
 
 const template=fs.readFileSync(path.join(__dirname,'../public/assets/product-template.xlsx'));
+// Header order from 商品转表(1).xlsx, supplied on 2026-09-20.
+const latestHeaders=['序号','平台','店铺','平台商品名称','平台规格名称','品牌','商品标签','尺寸','面积','宽','长','重量','成本','广告费','成交金额','主条码','规格辅助码','平台商品ID','平台规格ID','平台售价','售卖状态','平台库存','规格类型','规格名称','货品编码','货品简称','货品名称','商家编码','规格简称'];
 async function sourceWorkbook(count=139){
   const book=new Excel.Workbook(),sheet=book.addWorksheet('商品');sheet.addRow(P.HEADERS);
   for(let i=1;i<=count;i++){
@@ -36,8 +38,15 @@ test('商品转表识别表头、材质和尺寸，并生成 139 条静态数据
 
 test('商品转表导出复制模板样式并清除公式，输出 29 列和 139 条数据',async()=>{
   const result=await P.analyze(template,await sourceWorkbook());
+  // Results saved before the new standard may still contain platform codes here.
+  result.rows[0].values[15]='old-product-code';result.rows[0].values[16]='old-merchant-code';
   const bytes=await P.exportWorkbook(template,result);
   const book=new Excel.Workbook();await book.xlsx.load(bytes);const sheet=book.worksheets[0];
+  assert.deepEqual(P.HEADERS,latestHeaders);
+  assert.deepEqual(sheet.getRow(1).values.slice(1),latestHeaders);
+  assert.equal(sheet.getCell('P2').value,'');assert.equal(sheet.getCell('Q2').value,'');
+  assert.equal(sheet.getCell('AB2').value,'sku-1');
+  assert.equal(result.rows[0].values[15],'old-product-code');
   assert.equal(sheet.columnCount,29);assert.equal(sheet.rowCount,140);
   assert.equal(sheet.getCell('R2').formula,undefined);assert.equal(sheet.getCell('S2').formula,undefined);
   assert.equal(sheet.getCell('R2').type,Excel.ValueType.String);assert.equal(sheet.getCell('S2').type,Excel.ValueType.String);assert.equal(sheet.getCell('AC140').value,'');

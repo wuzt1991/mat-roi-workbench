@@ -4,6 +4,16 @@
   --primary:#2468d8; --primary-hover:#1958bf; --primary-soft:#eaf2ff;
   --ui-ease:cubic-bezier(.2,.8,.2,1);
 }
+/* Startup and recovery render before the workspace shell, in either theme. */
+html[data-ui-refine="true"] #app:has(>.startup-error) {
+  min-height:100vh; display:flow-root; padding:clamp(24px,8vh,80px) 20px;
+}
+html[data-ui-refine="true"] .startup-error {
+  margin:0 auto; padding:clamp(24px,4vw,40px);
+  background:var(--mat-control); color:var(--ink); border:1px solid var(--line);
+}
+html[data-ui-refine="true"] .startup-error p { color:var(--muted); }
+html[data-ui-refine="true"] .startup-error .btn { margin:16px 8px 0 0; }
 :root[data-ui-refine="true"][data-ui-material="glass"] {
   --mat-panel:rgba(255,255,255,.43);
   --mat-inner:rgba(255,255,255,.42);
@@ -151,3 +161,24 @@ html[data-ui-refine="true"][data-ui-material="ceramic"] :is(#dialog,.sidebar-pic
 @keyframes ui-menu-above { from { opacity:0; transform:translateY(5px) scale(.975); } to { opacity:1; transform:none; } }
 @keyframes ui-dialog-in { from { opacity:0; transform:translateY(8px) scale(.985); } to { opacity:1; transform:none; } }
 @keyframes ui-backdrop-in { from { opacity:0; } to { opacity:1; } }
+
+/* Classic plan list: independent selection, pin and delete controls. */
+.sidebar .plan-nav-section{display:flex;flex-direction:column;flex:1 1 auto;min-height:100px;overflow:hidden}
+.sidebar .plan-nav-section .nav-title{display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.sidebar .plan-list-scroll{display:block;overflow-y:auto;overflow-x:hidden;max-height:none;min-height:0;scrollbar-gutter:stable}
+.sidebar .plan-nav-row{display:flex;align-items:center;border-radius:6px;margin-bottom:5px;min-width:0}
+.sidebar .plan-nav-row.active{background:var(--primary-soft);box-shadow:inset 2px 0 var(--primary)}
+.sidebar .plan-nav{flex:1 1 auto;min-width:0;gap:7px;padding:10px 4px 10px 8px;margin:0;text-align:left;overflow:hidden}
+.sidebar .plan-nav:hover{background:transparent}
+.sidebar .plan-nav .grow{min-width:0;overflow:hidden}
+.sidebar .plan-name,.sidebar .plan-roi{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:none}
+.sidebar .plan-symbol{width:24px;height:26px;flex:0 0 24px}
+.sidebar .plan-nav-tools{display:flex;flex-direction:column;gap:0;flex:0 0 26px;padding-right:2px}
+.sidebar .plan-nav-tools .icon-btn{width:24px;height:24px;min-width:24px;color:var(--muted);opacity:.72;border-radius:5px;background:transparent;transition:opacity .15s,background-color .15s}
+.sidebar .plan-nav-tools .icon{width:11px;height:11px;stroke-width:1.6}
+.sidebar .plan-nav-tools [aria-pressed="true"]{color:var(--primary);background:transparent}
+.sidebar .plan-nav-tools .icon-btn:is(:hover,:focus-visible){opacity:1;background:var(--soft)}
+.sidebar .plan-nav-tools [data-action="delete-plan"]:hover{color:var(--red)}
+.sidebar .plan-nav-row:has(.plan-nav:hover){background:var(--soft)}
+.sidebar .plan-nav:focus-visible,.sidebar .plan-nav-tools .icon-btn:focus-visible{outline:2px solid var(--primary);outline-offset:-2px}
+@media(max-width:640px){.sidebar .plan-nav-section{flex:none;max-height:260px}.sidebar .plan-list-scroll{max-height:200px}.sidebar .plan-list-scroll .plan-nav{flex:1 1 auto}}

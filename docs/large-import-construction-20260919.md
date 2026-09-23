@@ -1,5 +1,7 @@
 # 正式施工附件：大表处理（F17 / C13）
 
+实施修订（2026-09-21）：大表引擎已进入正式运行文件清单，随 1.2.2 本地内测构建。现行入口为 `test/file-engine.test.cjs`、`scripts/release-validation/verify-large.cjs`、`verify-fixtures.cjs`、`scripts/audit-release-package.cjs`、`audit-packaged-child.cjs`；下文早期“计划新增”的名称不再作为实际命令。销售尺寸模式使用流读原始行与 SQLite 汇总组，来源选择后全量统计；复核最多 10000 组，超过需按商品拆分，源文件上限仍 500000 业务行。商品转表 P/Q 条码为空，29 列表头以《商品转表(1).xlsx》为准。验证状态见 [交付记录](release-1.2.2-internal.md)，macOS 数据不得冒充 Windows 性能结果。
+
 日期：2026-09-19。已按用户要求并入[正式施工方案](construction-20260918.md)及[施工合同C13](construction-contracts-20260918.md)。来源为用户提供的 `/Users/wuzt/.claude/plans/2026-09-19-mat-workbench-large-import-rebuilt.md`，原文件保留不改。本附件保留原四问结构及探针证据，按最新C07修正交互与状态冲突；文档合并已完成，正式实现已在隔离工作树按本附件施工，最终发布仍受S6/S7关卡约束。
 
 ## 0. 来源、目标与施工状态

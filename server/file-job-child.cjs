@@ -30,12 +30,20 @@ async function run(jobType,payload,context){
   if(context.sessionDirectory){const store=new ImportSessionStore(context.sessionDirectory);try{const meta=store.metadata();if(meta.workspaceId!==context.workspaceId||Number(meta.storageEpoch)!==Number(context.storageEpoch)||Number(meta.revision)!==Number(context.revision)||Number(meta.generation)!==Number(context.generation))throw new SessionError(409,'文件会话已变更，请刷新后重试。','SESSION_CONTEXT_CHANGED');}finally{store.close();}}
   if(jobType==='inspect')return Reader.inspectWorkbook(context.sourcePath,context.sessionDirectory,common);
   if(jobType==='import')return Reader.importSheets(context.sourcePath,context.sessionDirectory,{...payload,...common,selections:payload.selections||[{sheetId:payload.sheetId,mapping:payload.mapping}]});
-  if(jobType==='aggregate-sales'){const imported=await Reader.importSheet(context.sourcePath,context.sessionDirectory,{...payload,derive:false,...common});return {...imported,sales:aggregateSales(context.sessionDirectory,payload.mapping||imported.header.mapping)};}
+  if(jobType==='aggregate-sales'){
+    const imported=await Reader.importSheet(context.sourcePath,context.sessionDirectory,{...payload,derive:false,...common});
+    if(payload.matchBy==='size'){
+      const store=new ImportSessionStore(context.sessionDirectory);
+      try{return {...imported,sales:require('./sales-size-import.cjs').aggregate(store,payload.mapping||imported.header.mapping,{basis:payload.basis,progress,canceled})};}
+      finally{store.close();}
+    }
+    return {...imported,sales:aggregateSales(context.sessionDirectory,payload.mapping||imported.header.mapping)};
+  }
   if(jobType==='apply-review'){
     const store=new ImportSessionStore(context.sessionDirectory);try{return store.applyReview(payload.command||payload,payload.rules||store.getMeta('rules',{}));}finally{store.close();}
   }
   if(jobType==='recompute'){
-    const store=new ImportSessionStore(context.sessionDirectory);try{const rules=payload.rules,old=store.metadata();if(!rules)throw new SessionError(400,'缺少重算规则。','RULES_REQUIRED');const result=store.rebuildDerived(rules,{...common});store.updateMeta({artifact:null,lastOperation:null,rulesFingerprint:digest(rules)});return {...result,revision:old.revision,recomputed:true};}finally{store.close();}
+    const store=new ImportSessionStore(context.sessionDirectory);try{const rules=payload.rules,old=store.metadata();if(!rules)throw new SessionError(400,'缺少重算规则。','RULES_REQUIRED');const result=store.rebuildDerived(rules,{...common,applyUniformThickness:payload.applyUniformThickness===true,materialAssignments:payload.materialAssignments||{},fallbackMaterialId:payload.fallbackMaterialId||'',...(Object.hasOwn(payload,'thicknessDefaults')?{thicknessDefaults:payload.thicknessDefaults}:{})});store.updateMeta({artifact:null,lastOperation:null,rulesFingerprint:digest(rules)});return {...result,revision:store.getMeta('revision',old.revision),recomputed:true};}finally{store.close();}
   }
   if(jobType==='export-product')return exportProduct({sessionDirectory:context.sessionDirectory,templatePath:context.templatePath,outputPath:context.outputPath,...common});
   if(jobType==='export-rescue')return rescue({sessionDirectory:context.sessionDirectory,outputPath:context.outputPath});
@@ -47,5 +55,11 @@ async function run(jobType,payload,context){
 
 process.on('message',async message=>{
   if(message?.type==='cancel'&&active?.jobId===message.jobId){active.canceled=true;return;}
-  if(message?.type!=='run'||active)return;active={jobId:message.jobId,canceled:false};try{const result=await run(message.jobType,message.payload||{},message.context||{});if(canceled())throw Object.assign(Error('任务已取消'),{code:'CANCELED'});process.send?.({type:'result',jobId:active.jobId,result});}catch(error){process.send?.({type:'error',jobId:active.jobId,error:safeError(error)});}finally{setTimeout(()=>process.exit(0),10);}
+  if(message?.type!=='run'||active)return;active={jobId:message.jobId,canceled:false};let reply;
+  try{const result=await run(message.jobType,message.payload||{},message.context||{});if(canceled())throw Object.assign(Error('任务已取消'),{code:'CANCELED'});reply={type:'result',jobId:active.jobId,result};}
+  catch(error){reply={type:'error',jobId:active.jobId,error:safeError(error)};}
+  // A fixed exit delay can truncate buffered IPC. Flush the result, then close naturally.
+  try{if(process.connected)await new Promise((resolve,reject)=>process.send(reply,error=>error?reject(error):resolve()));}
+  catch{process.exitCode=1;}
+  finally{if(process.connected)process.disconnect();}
 });

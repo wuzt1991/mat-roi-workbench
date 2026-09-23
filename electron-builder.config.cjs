@@ -5,8 +5,7 @@ const { APP_VERSION, assertSource, builderFilePatterns } = require('./common/run
 const { auditArtifact } = require('./scripts/audit-release-package.cjs');
 
 const root = __dirname;
-const owner = String(process.env.MAT_UPDATE_OWNER || process.env.GH_REPO_OWNER || '').trim();
-const repo = String(process.env.MAT_UPDATE_REPO || process.env.GH_REPO_NAME || '').trim();
+const { updateConfig } = require('./common/update-config.cjs');
 
 assertSource(root);
 
@@ -35,7 +34,7 @@ module.exports = {
     deleteAppDataOnUninstall: false,
     runAfterFinish: true
   },
-  publish: owner && repo ? [{ provider: 'github', owner, repo, private: false, releaseType: 'release' }] : [],
+  publish: [updateConfig()],
   afterPack: async context => {
     auditArtifact(context.appOutDir, { sourceRoot: root });
   }

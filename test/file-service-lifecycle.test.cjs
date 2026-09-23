@@ -6,14 +6,16 @@ const os=require('node:os');
 const path=require('node:path');
 const {Readable,Writable}=require('node:stream');
 const {EventEmitter}=require('node:events');
-const {createFileService,ruleSnapshot}=require('../server/file-service.cjs');
-const {ImportSessionStore,digest}=require('../server/import-session-store.cjs');
-const Domain=require('../public/domain.js');
-const Recognition=require('../public/product-recognition.js');
+const root=process.env.MAT_VERIFY_ROOT||path.resolve(__dirname,'..');
+const {createFileService,ruleSnapshot}=require(path.join(root,'server/file-service.cjs'));
+const {ImportSessionStore,digest}=require(path.join(root,'server/import-session-store.cjs'));
+const Domain=require(path.join(root,'public/domain.js'));
+const Recognition=require(path.join(root,'public/product-recognition.js'));
 
 async function fixture(t,{kind='product'}={}){
   const dataDir=fs.mkdtempSync(path.join(os.tmpdir(),'mat-lifecycle-')),state=Domain.initialState();
   const workspace={workspaceId:'workspace',storageEpoch:0},store={metadata:()=>({...workspace}),read:()=>({state})},service=createFileService({store,dataDir});
+  service.broker.entry=path.join(__dirname,'fixtures','diagnostic-file-job.cjs');
   t.after(async()=>{await service.close();fs.rmSync(dataDir,{recursive:true,force:true});});
   async function request(method,url,body){const stream=Readable.from(body===undefined?[]:[Buffer.from(JSON.stringify(body))]);stream.method=method;stream.headers={'content-type':'application/json'};const chunks=[],response=new Writable({write(chunk,encoding,done){chunks.push(chunk);done();}});response.writeHead=status=>{response.statusCode=status;};const done=new Promise(resolve=>response.on('finish',resolve));await service.handle(stream,response,new URL(url,'http://localhost'));await done;const value=Buffer.concat(chunks).toString();return {status:response.statusCode,value:value?JSON.parse(value):null};}
   const created=(await request('POST','/api/file-sessions',{kind})).value,id=created.sessionId,directory=path.join(dataDir,'import-sessions',id),open=()=>new ImportSessionStore(directory);
@@ -29,3 +31,15 @@ test('rules change blocks undo and previously generated downloads',async t=>{con
 test('discard waits for child exit before removing session files',async t=>{const f=await fixture(t),child=new EventEmitter(),job={jobId:'active',sessionId:f.id,child};child.exitCode=null;child.signalCode=null;let exitObserved=false;f.service.broker.active=job;f.service.broker.jobs.set(job.jobId,job);f.service.broker.cancel=()=>{setTimeout(()=>{assert.ok(fs.existsSync(f.directory));exitObserved=true;child.exitCode=0;child.emit('exit',0,null);f.service.broker.active=null;},40);return job;};const result=await f.request('POST',`/api/file-sessions/${f.id}/discard`,{ownerToken:f.created.ownerToken});assert.equal(result.value.discarded,true);assert.equal(exitObserved,true);assert.equal(fs.existsSync(f.directory),false);});
 test('sales candidate and binding reject partial aggregate state while a file job is active',async t=>{const f=await fixture(t,{kind:'sales'});f.service.broker.active={jobId:'aggregate',sessionId:f.id};await assert.rejects(f.request('POST',`/api/file-sessions/${f.id}/sales-candidate`,{ownerToken:f.created.ownerToken,planItems:[]}),rejectedCode('FILE_JOB_BUSY'));await assert.rejects(f.request('POST',`/api/file-sessions/${f.id}/sales-reviews`,{ownerToken:f.created.ownerToken,mutationId:'sales-1',rowIds:[1],patch:{itemId:'item'}}),rejectedCode('FILE_JOB_BUSY'));f.service.broker.active=null;});
 test('explicit recompute preserves reviews, refreshes generation and stops before export',async t=>{const f=await fixture(t);await f.request('POST',`/api/file-sessions/${f.id}/reviews`,f.command);f.state.materials[0].name+=' changed';const stale=await f.request('GET',`/api/file-sessions/${f.id}/rows`);assert.equal(stale.value.rulesStale,true);assert.equal(stale.value.ready,false);const started=await f.request('POST',`/api/file-sessions/${f.id}/recompute`,{ownerToken:f.created.ownerToken,expectedSessionRevision:1});assert.equal(started.status,202);const job=await completed(f.service,started.value.jobId);assert.equal(job.state,'succeeded',JSON.stringify(job.error));const session=f.open();assert.equal(session.getMeta('generation'),2);assert.equal(session.review(1).size.status,'blank');assert.equal(session.getMeta('rulesFingerprint'),digest(ruleSnapshot(f.state)));assert.equal(session.getMeta('artifact'),null);session.close();const page=await f.request('GET',`/api/file-sessions/${f.id}/rows`);assert.equal(page.value.rulesStale,false);});
+
+
+test('旧识别版本缓存必须重新校验，不能直接导出看似完整的文件',async t=>{const f=await fixture(t),store=f.open();store.setMeta('derivationVersion',0);store.close();const page=await f.request('GET',`/api/file-sessions/${f.id}/rows?attention=1`);assert.equal(page.value.counts.ready,true);assert.equal(page.value.ready,false);assert.equal(page.value.rulesStale,true);await assert.rejects(f.request('POST',`/api/file-sessions/${f.id}/export`,{ownerToken:f.created.ownerToken,expectedSessionRevision:0}),rejectedCode('RULES_CHANGED'));});
+
+test('新流程必须先确认材质厚度，再允许导出；确认后发布完整结果',async t=>{
+ const f=await fixture(t),store=f.open();store.setMeta('requireThicknessSetup',true);store.close();
+ const before=await f.request('GET',`/api/file-sessions/${f.id}/rows`);assert.equal(before.value.counts.ready,true);assert.equal(before.value.ready,false);
+ await assert.rejects(f.request('POST',`/api/file-sessions/${f.id}/export`,{ownerToken:f.created.ownerToken,expectedSessionRevision:0}),rejectedCode('THICKNESS_SETUP_REQUIRED'));
+ const material=f.rules.materials.find(m=>m.name==='硅藻泥'),rule=material.weightRules.find(r=>Number(r.thickness)===5);
+ const started=await f.request('POST',`/api/file-sessions/${f.id}/recompute`,{ownerToken:f.created.ownerToken,expectedSessionRevision:0,applyUniformThickness:true,thicknessDefaults:{[material.id]:rule.id}});const job=await completed(f.service,started.value.jobId);assert.equal(job.state,'succeeded',JSON.stringify(job.error));
+ const after=await f.request('GET',`/api/file-sessions/${f.id}/rows`);assert.equal(after.value.ready,true);assert.equal(after.value.thicknessConfigured,true);assert.equal(after.value.revision,1);assert.equal(after.value.rows[0].derived.thickness.ruleId,rule.id);
+});

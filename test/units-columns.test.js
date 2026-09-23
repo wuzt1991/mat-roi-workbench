@@ -24,7 +24,7 @@ test('规格列顺序独立保存，全部隐藏也不会改变当前或历史�
 });
 test('新版 Excel 规格、入账规格和全部运费重量都显示 g，恢复不改冻结数据',async()=>{
   const s=sample();s.prefs.skuColumns=['cost','roi','shipping','weight'];const original=M.clone(s),before=JSON.parse(JSON.stringify(s)),bytes=await W.exportWorkbook(s),book=new Excel.Workbook();await book.xlsx.load(bytes);
-  assert.equal(book.getWorksheet('商品规格').getCell('I1').value,'发货重量（g）');assert.equal(book.getWorksheet('商品规格').getCell('I2').value,500);
+  assert.equal(book.getWorksheet('商品规格').getCell('F1').value,'发货重量（g）');assert.equal(book.getWorksheet('商品规格').getCell('F2').value,500);
   assert.equal(book.getWorksheet('入账规格').getCell('K1').value,'发货重量（g）');assert.equal(book.getWorksheet('入账规格').getCell('K2').value,500);
   const freight=book.getWorksheet('运费模板');assert.equal(freight.getCell('D3').value,500);assert.equal(freight.getCell('E3').value,1.35);assert.equal(freight.getCell('F6').value,1000);assert.equal(freight.getCell('H6').value,500);
   const visible=book.worksheets.filter(s=>s.name!=='恢复数据').flatMap(s=>s.getSheetValues()).flat(2).filter(v=>typeof v==='string');assert.ok(visible.every(v=>!v.includes('kg')));

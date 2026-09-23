@@ -1,4 +1,5 @@
 'use strict';
+const { updateConfig } = require('./common/update-config.cjs');
 
 const UPDATE_STATES = Object.freeze([
   'idle',
@@ -11,6 +12,10 @@ const UPDATE_STATES = Object.freeze([
 ]);
 
 function errorMessage(error) {
+  const detail=String(error?.code||'')+' '+String(error?.message||'');
+  if(/checksum|sha512|sha256|ERR_UPDATER_INVALID_SIGNATURE|ERR_UPDATER_CHECKSUM_MISMATCH/i.test(detail))return '更新文件校验失败，请重新下载；当前版本可继续使用。';
+  if(/404|ERR_UPDATER_LATEST_VERSION_NOT_FOUND|ERR_UPDATER_NO_PUBLISHED_VERSIONS/i.test(detail))return '更新文件暂未就绪，请稍后重试；当前版本可继续使用。';
+  if(/ECONNRESET|ETIMEDOUT|ENOTFOUND|EAI_AGAIN|ERR_INTERNET_DISCONNECTED|ERR_CONNECTION|ERR_NAME_NOT_RESOLVED/i.test(detail))return '更新连接中断或网络不可用，请检查网络后重试；当前版本可继续使用。';
   return '更新失败，请检查网络后重试；可继续使用当前版本。';
 }
 
@@ -30,11 +35,8 @@ function normalizeStatus(state, patch = {}) {
   });
 }
 
-function resolveUpdateConfig(env = process.env) {
-  const owner = String(env.MAT_UPDATE_OWNER || env.GH_REPO_OWNER || '').trim();
-  const repo = String(env.MAT_UPDATE_REPO || env.GH_REPO_NAME || '').trim();
-  if (!owner || !repo) return null;
-  return { provider: 'github', owner, repo, private: false };
+function resolveUpdateConfig() {
+  return updateConfig();
 }
 
 class UpdateService {
@@ -81,6 +83,7 @@ class UpdateService {
     try {
       this.updater.autoDownload = false;
       this.updater.autoInstallOnAppQuit = false;
+      this.updater.allowDowngrade = false;
       if (this.enabled && this.config) this.updater.setFeedURL(this.config);
     } catch (error) {
       this.logger.warn?.('update provider configuration failed', error);

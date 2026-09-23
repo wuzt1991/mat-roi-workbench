@@ -25,6 +25,7 @@ async function validateOutput(filename,expectedRows,expectedValues){
   for(let r=2;r<=sheet.rowCount;r++){
     const values=Array.from({length:29},(_,i)=>sheet.getCell(r,i+1).value??null);
     for(let c=1;c<=29;c++)if(sheet.getCell(r,c).formula)formulaCount++;
+    for(const c of [16,17])assert.equal(values[c-1],null,'Barcode columns remain blank');
     for(const c of [18,19,28])if(values[c-1]!==null)assert.equal(typeof values[c-1],'string');
     if(expectedValues)assert.deepEqual(values,expectedValues[r-2]);
     hash.update(JSON.stringify(values)+'\n');
@@ -57,7 +58,7 @@ async function realSource(filename){
   const sourceBook=new Excel.Workbook();await sourceBook.xlsx.load(fs.readFileSync(filename));
   const sourceSheet=sourceBook.worksheets[0],mapping=store.getMeta('mapping');
   const sourceFidelity=[];
-  for(const [column,sourceColumn,label] of [[15,6,'平台商品编码'],[16,7,'平台商家编码']]){
+  for(const [column,sourceColumn,label] of [[17,mapping.productId+1,'平台商品ID'],[18,mapping.specId+1,'平台规格ID']]){
     let sourceNonblank=0,lostOrChanged=0;
     for(let n=0;n<60;n++){const value=sourceSheet.getCell(n+2,sourceColumn).value;if(value!==null&&value!==undefined&&value!==''){sourceNonblank++;if(String(expected[n][column]??'')!==String(value))lostOrChanged++;}}
     sourceFidelity.push({field:label,sourceNonblank,lostOrChanged});
@@ -66,11 +67,7 @@ async function realSource(filename){
     const source=sourceSheet.getCell(n+2,mapping[sourceKey]+1).value;
     assert.equal(String(expected[n][outputIndex]),String(source));
   }
-  const sourceHeaders=sourceSheet.getRow(1).values.slice(1);
-  for(const [outputIndex,label] of [[15,'平台商品编码'],[16,'平台商家编码']]){
-    const sourceIndex=sourceHeaders.indexOf(label)+1;assert.ok(sourceIndex>0);
-    for(let n=0;n<60;n++)assert.equal(expected[n][outputIndex],(sourceSheet.getCell(n+2,sourceIndex).value===''?null:sourceSheet.getCell(n+2,sourceIndex).value??null));
-  }
+  for(const values of expected){assert.equal(values[15],null);assert.equal(values[16],null);}
   store.close();const output=path.join(out,'huazhu-g62-converted.xlsx');await exportProduct({sessionDirectory:session,templatePath:template,outputPath:output});
   report.checks.push({name:'real-named-60-row-input',sourceFile:path.basename(filename),sourceSha256:before,sourceUnchanged:before===sha(fs.readFileSync(filename)),initialCounts:initial.counts,issues,fixtureSelections,sourceFidelity,blockedUntilReviewed:true,...await validateOutput(output,60,expected)});
   if(sourceFidelity.some(x=>x.lostOrChanged))report.sourceFidelityPassed=false;

@@ -42,14 +42,14 @@
       if(!validId(meta.sessionId)||meta.sessionId!==this.sessionId)throw Error('文件会话标识无效。');
       if(!validId(meta.ownerToken))throw Error('文件会话所有者标识无效。');
       if(!validRevision(meta.revision))throw Error('文件会话版本无效。');
-      if(meta.filename!==undefined&&!safeFilename(meta.filename))throw Error('文件会话文件名无效。');
+      if(meta.filename!==undefined&&meta.filename!==''&&!safeFilename(meta.filename))throw Error('文件会话文件名无效。');
       if(!allowOwnerChange&&meta.ownerToken!==this.ownerToken)throw Object.assign(Error('文件会话已由其他窗口占用，请明确接管。'),{code:'SESSION_OWNER_ACTIVE'});
       return meta;
     }
     sessionRecord(meta={}){
       const source={sessionId:this.sessionId,ownerToken:this.ownerToken,revision:this.baseRevision,workspaceId:this.workspaceId,storageEpoch:this.storageEpoch,...meta};
       this.validateSession(source,{allowOwnerChange:true});
-      return {key:this.sessionKey(),kind:'file-session',fileKind:source.fileKind||source.kind||'',version:1,sessionId:source.sessionId,ownerToken:source.ownerToken,revision:source.revision,workspaceId:source.workspaceId,storageEpoch:source.storageEpoch,filename:source.filename||'',updated:Date.now(),leaseUntil:Number.isFinite(source.leaseUntil)?source.leaseUntil:Date.now()+this.leaseMs};
+      return {key:this.sessionKey(),kind:'file-session',fileKind:source.fileKind||source.kind||'',accepted:source.accepted!==false,version:1,sessionId:source.sessionId,ownerToken:source.ownerToken,revision:source.revision,workspaceId:source.workspaceId,storageEpoch:source.storageEpoch,filename:source.filename||'',updated:Date.now(),leaseUntil:Number.isFinite(source.leaseUntil)?source.leaseUntil:Date.now()+this.leaseMs};
     }
     /** Save the bounded identity needed to explicitly reopen a disk session. */
     async saveSession(meta={}){

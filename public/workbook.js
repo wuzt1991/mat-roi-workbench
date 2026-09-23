@@ -9,7 +9,7 @@
   const Excel=typeof module==='object'?require('./assets/exceljs.min.js'):root.ExcelJS;
   const clean=v=>v===undefined||v===null||typeof v==='number'&&!Number.isFinite(v)?'':v;
   const status=h=>h.kind==='snapshot'?'旧版试算':({confirmed:'已入账',superseded:'已更正',void:'已作废'}[h.status]);
-  function tables(s,format=5){
+  function tables(s,format=6){
     if(format<5)return Old.tables(s,format);
     const shop=id=>s.shops.find(x=>x.id===id)?.name||'',material=id=>s.materials.find(x=>x.id===id),shipping=id=>s.shippingTemplates.find(x=>x.id===id);
     const splitPlans=format>=3;
@@ -29,6 +29,14 @@
       ['入账规格',[['记录编号','日期','店铺','计划','状态','规格','生产面积（㎡）','售价（元）','订单占比（%）','材料成本（元）','发货重量（kg）','运费（元）','每单总成本（未含广告）'],...s.records.flatMap(h=>h.frame?M.calculate(h.frame,h.frame.plan).rows.map(i=>[h.id,h.date,h.shopName,h.planName,status(h),M.sizeLabel(i.size),i.area,i.price,i.share,i.material,i.weight,i.shipping,i.cost]):(h.legacy?.items||[]).map(i=>[h.id,h.date,h.shopName,h.planName,status(h),i.name||`${i.w} × ${i.h}`,i.billingArea??i.area,i.price,i.share,i.material,'',h.legacy.params.shipping,'']))]],
       ['显示设置',[['顺序','指标'],...s.prefs.ids.map((id,i)=>[i+1,M.metricList.find(x=>x.id===id).label])]]
     ];
+    // Format 5 keeps its exact visible sheets for verification of existing backups.
+    // New exports expose only the one actual-production pair; recovery JSON stays lossless.
+    if(format>=6){
+      const label=M.productionSizeLabel;
+      sheets.find(([name])=>name==='商品规格')[1]=[['店铺','计划','商品规格','生产长（cm）','生产宽（cm）','发货重量（kg）','售价（元）','订单占比（%）','材料成本（元）','运费（元）','每单总成本（未含广告）'],...s.plans.flatMap(p=>M.calculate(s,p).rows.map(i=>{const d=M.productionDimensions(i.size);return [shop(p.shopId),p.name,label(i.size),d.width,d.height,i.weight,i.price,i.share,i.material,i.shipping,i.cost];}))];
+      sheets.find(([name])=>name==='尺寸库')[1]=[['规格名称','生产长（cm）','生产宽（cm）','生产面积（㎡）','状态'],...s.sizes.map(x=>{const d=M.productionDimensions(x);return [label(x),d.width,d.height,M.productionArea(x),x.needsReview?'待补生产尺寸':x.active?'启用':'停用'];})];
+      let ledgerIndex=1;const ledgerRows=sheets.find(([name])=>name==='入账规格')[1];for(const h of s.records)if(h.frame)for(const row of M.calculate(h.frame,h.frame.plan).rows)ledgerRows[ledgerIndex++][5]=label(row.size);else ledgerIndex+=(h.legacy?.items||[]).length;
+    }
     if(format>=2){
       const scope=s.exportScope,selection=M.ledger(s,{from:scope?.from||'',to:scope?.to||''});
       const instructions=sheets[0][1];instructions[1][1]='运营查看与工作台恢复；整份或按范围导出均可在其他电脑导入。';instructions[5][1]=scope?'仅包含所选店铺、计划、日期内账目、关联更正版本及所需公共资料。':'全部店铺、计划、公共资料、冻结账目及显示设置。';
@@ -46,7 +54,7 @@
       rows.splice(1,rows.length-1,...s.shippingTemplates.flatMap(t=>t.type==='regional'?regionalRows(t):legacyShippingRows(t)));
     }
     if(format>=3){
-      for(const [name,columns] of [['商品规格',[8]],['入账规格',[10]],['运费模板',[2,3,5,7]]]){
+      for(const [name,columns] of [['商品规格',[format>=6?5:8]],['入账规格',[10]],['运费模板',[2,3,5,7]]]){
         const rows=sheets.find(([title])=>title===name)[1];
         for(const col of columns){rows[0][col]=rows[0][col].replaceAll('kg','g');for(const row of rows.slice(1))row[col]=M.toGrams(row[col]);}
       }
@@ -72,7 +80,7 @@
       sheet.eachRow((row,index)=>{if(index===1)return;row.height=27;row.eachCell(c=>{c.alignment={vertical:'middle',wrapText:true};c.font={name:'Microsoft YaHei',size:10};if(typeof c.value==='number')c.numFmt='#,##0.00####;[Red]-#,##0.00####';if(index%2===0)c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFF3F7F4'}};});});
       sheet.pageSetup={orientation:'landscape',fitToPage:true,fitToWidth:1,fitToHeight:0};
     }
-    const data=book.addWorksheet('恢复数据');data.state='veryHidden';data.addRow(['MAT-ROI-XLSX',5]);
+    const data=book.addWorksheet('恢复数据');data.state='veryHidden';data.addRow(['MAT-ROI-XLSX',6]);
     const json=JSON.stringify(s);let offset=0,index=0;
     while(offset<json.length){let end=Math.min(json.length,offset+24000);if(end<json.length&&/[\uD800-\uDBFF]/.test(json[end-1]))end--;data.addRow([index++,json.slice(offset,end)]);offset=end;}
     return book.xlsx.writeBuffer();
@@ -80,10 +88,10 @@
   async function importWorkbook(bytes){
     const book=new Excel.Workbook();await book.xlsx.load(bytes);
     const sheet=book.getWorksheet('恢复数据');
-    if(!sheet||sheet.getCell('A1').value!=='MAT-ROI-XLSX'||![1,2,3,4,5].includes(sheet.getCell('B1').value))throw Error('请选择由工作台导出的完整或按范围 Excel 备份');
+    if(!sheet||sheet.getCell('A1').value!=='MAT-ROI-XLSX'||![1,2,3,4,5,6].includes(sheet.getCell('B1').value))throw Error('请选择由工作台导出的完整或按范围 Excel 备份');
     if(sheet.rowCount>2000)throw Error('备份过大，请按店铺或日期分批导出后导入');
     let json='';for(let r=2;r<=sheet.rowCount;r++){if(sheet.getCell(r,1).value!==r-2||typeof sheet.getCell(r,2).value!=='string')throw Error('恢复数据不完整');json+=sheet.getCell(r,2).value;}
-    const state=JSON.parse(json),format=sheet.getCell('B1').value,model=format<5?((state.version===4)?M:OldM):M,transfer=format<5?((state.version===4)?T:OldT):T;if(format===5&&state.version!==4||format<5&&![3,4].includes(state.version)||!model.validateBackup(state)||!transfer.validScope(state))throw Error('账目、范围或成本校验未通过，当前工作区保留');
+    const state=JSON.parse(json),format=sheet.getCell('B1').value,model=format<5?((state.version===4)?M:OldM):M,transfer=format<5?((state.version===4)?T:OldT):T;if(format>=5&&state.version!==4||format<5&&![3,4].includes(state.version)||!model.validateBackup(state)||!transfer.validScope(state))throw Error('账目、范围或成本校验未通过，当前工作区保留');
     for(const [name,rows] of tables(state,sheet.getCell('B1').value)){
       const ws=book.getWorksheet(name);if(!ws||ws.rowCount!==rows.length)throw Error('工作表已被改动，请使用未修改的原始备份恢复');
       rows.forEach((row,r)=>row.forEach((v,c)=>{const actual=clean(ws.getCell(r+1,c+1).value);if(typeof v==='number'&&typeof actual==='number'?Math.abs(v-actual)>1e-9*Math.max(1,Math.abs(v)):v!==actual)throw Error(`“${name}”已被改动，请使用未修改的原始备份恢复`);}));

@@ -1,4 +1,4 @@
-/* Preview appearance only; independent of business data and rendering. */
+/* Appearance preferences; independent of business data and rendering. */
 (() => {
   'use strict';
   const root = document.documentElement;
@@ -21,6 +21,18 @@
       button.className = 'ui-mode-toggle';
       host.append(button);
     }
+    let motionButton = host.querySelector('#ui-motion-toggle');
+    if (!motionButton) {
+      motionButton = document.createElement('button');
+      motionButton.id = 'ui-motion-toggle';
+      motionButton.type = 'button';
+      motionButton.className = 'ui-mode-toggle';
+      host.append(motionButton);
+    }
+    motionButton.setAttribute('aria-pressed', String(motion));
+    motionButton.setAttribute('aria-label', motion ? '关闭界面动效' : '开启界面动效');
+    motionButton.title = '界面动效' + (motion ? '已开启' : '已关闭') + '；同时遵循系统减少动态设置';
+    motionButton.textContent = motion ? '动效：开' : '动效：关';
     const day = mode === 'day';
     const label = day ? '侧光模式' : '日间模式';
     button.setAttribute('aria-label', `切换为${label}`);
@@ -54,6 +66,7 @@
     // Business rendering replaces #app's direct child. No full-subtree observer or polling.
     if (app) new MutationObserver(updateButton).observe(app, { childList: true });
     document.addEventListener('click', event => {
+      if (event.target.closest('#ui-motion-toggle')) window.UiAppearance.setMotion(!motion);
       if (event.target.closest('#ui-mode-toggle')) window.UiAppearance.setMode(mode === 'day' ? 'rays' : 'day');
     });
   }, { once: true });
