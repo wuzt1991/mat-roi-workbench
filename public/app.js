@@ -109,8 +109,8 @@
   async function rememberFileSession(meta={}){
     if(!meta?.sessionId)return meta;
     const draft=fileDraftFor(meta);if(!draft)return meta;
-    try{await draft.saveSession({sessionId:String(meta.sessionId),ownerToken:String(meta.ownerToken||draft.ownerToken),revision:Number(meta.revision)||0,workspaceId,storageEpoch,filename:String(meta.filename||''),fileKind:String(meta.fileKind||meta.kind||'')});}
-    catch(error){console.error('[workbench] file session draft save',error);toast('文件复核会话未能写入恢复草稿，请保持窗口打开。');}
+    try{await draft.saveSession({sessionId:String(meta.sessionId),ownerToken:String(meta.ownerToken||draft.ownerToken),revision:Number(meta.revision)||0,workspaceId,storageEpoch,filename:String(meta.filename||''),fileKind:String(meta.fileKind||meta.kind||''),accepted:meta.accepted!==false});}
+    catch(error){console.error('[workbench] file session draft save',error);toast('文件复核会话未能写入恢复草稿，请保持窗口打开。');if(meta.accepted===true&&meta.fileKind==='product')throw error;}
     return meta;
   }
   async function touchFileSession(sessionId,result={},extra={}){
@@ -126,20 +126,20 @@
   function trackedFileJobs(){
     const F=window.FileJobs||{};
     const jobs={...F};
-    jobs.create=async(kind,target,rules)=>{const result=await F.create(kind,target,rules);await rememberFileSession({...result,fileKind:kind});return result;};
+    jobs.create=async(kind,target,rules)=>{const result=await F.create(kind,target,rules);await rememberFileSession({...result,fileKind:kind,accepted:kind!=='product'});return result;};
     jobs.upload=async(id,file,options={})=>{const result=await F.upload(id,file,options);await touchFileSession(id,result,{filename:file?.name||''});return result;};
     for(const name of ['status','selectSheet','rows','salesCandidate','salesReview','salesReviews','review','undo','startExport'])if(typeof F[name]==='function')jobs[name]=async(...args)=>{const result=await F[name](...args);const id=typeof args[0]==='string'?args[0]:args[0]?.sessionId;await touchFileSession(id,result);return result;};
     jobs.discard=async(id,options={})=>{const result=await F.discard(id,options);await discardFileSession(id);return result;};
     return jobs;
   }
   function setupFileUI(){
-    if(!productUI&&window.ProductTransferUI&&window.FileJobs){const jobs=trackedFileJobs();productUI=window.ProductTransferUI.create({getState:()=>state,render:()=>{if(view==='product')render();},toast,request:(action,p={})=>{switch(action){case 'create':return jobs.create(p.kind,p.target,p.rules);case 'upload':return jobs.upload(p.sessionId,p.file,{ownerToken:p.ownerToken});case 'status':return jobs.status(p.sessionId);case 'selectSheet':return jobs.selectSheet(p.sessionId,p.options);case 'rows':return jobs.rows(p.sessionId,p.query);case 'review':return jobs.review(p.sessionId,p.command);case 'undo':return jobs.undo(p.sessionId,p.command);case 'startExport':return jobs.startExport(p.sessionId,p.options);case 'downloadUrl':return window.FileJobs.downloadUrl(p.sessionId,p.artifactId);case 'cancel':return jobs.cancel(p.jobId);case 'discard':return jobs.discard(p.sessionId,{ownerToken:p.ownerToken});default:throw Error('文件操作不存在');}}});}
+    if(!productUI&&window.ProductTransferUI&&window.FileJobs){const jobs=trackedFileJobs();productUI=window.ProductTransferUI.create({getState:()=>state,render:()=>{if(view==='product')render();},toast,request:(action,p={})=>{switch(action){case 'create':return jobs.create(p.kind,p.target,p.rules);case 'upload':return jobs.upload(p.sessionId,p.file,{ownerToken:p.ownerToken});case 'status':return jobs.status(p.sessionId);case 'selectSheet':return jobs.selectSheet(p.sessionId,p.options);case 'rows':return jobs.rows(p.sessionId,p.query);case 'review':return jobs.review(p.sessionId,p.command);case 'accept':return rememberFileSession({...p,accepted:true});case 'recompute':return jobs.recompute(p.sessionId,p.options);case 'undo':return jobs.undo(p.sessionId,p.command);case 'startExport':return jobs.startExport(p.sessionId,p.options);case 'downloadUrl':return window.FileJobs.downloadUrl(p.sessionId,p.artifactId);case 'cancel':return jobs.cancel(p.jobId);case 'discard':return jobs.discard(p.sessionId,{ownerToken:p.ownerToken});default:throw Error('文件操作不存在');}}});}
     if(!salesUI&&window.SalesImportUI&&window.FileJobs){const jobs=trackedFileJobs();salesUI=window.SalesImportUI.create({getState:()=>state,getContext:fileContext,toast,fileJobs:jobs,flush:()=>queue.flush(),commit:commitSales,undo:async token=>{const next=S.undo(state,token);commit(next);if(!await queue.flush())throw Error('撤销尚未保存，请保留页面并重试保存');return true;}});}
   }
   function setView(next){if(view==='product'&&next!=='product')productUI?.deactivate?.();view=next;}
   async function restorePendingProductSession(){
     if(!productUI||productUI.inspect?.().session)return;
-    const saved=pendingFileSessions.filter(x=>x.fileKind==='product').sort((a,b)=>Number(b.updated||0)-Number(a.updated||0))[0];
+    const saved=pendingFileSessions.filter(x=>x.fileKind==='product'&&x.accepted!==false).sort((a,b)=>Number(b.updated||0)-Number(a.updated||0))[0];
     if(!saved)return;
     try{
       const draft=fileDraftFor(saved),restored=await draft?.restoreSession(saved.sessionId,{workspaceId,storageEpoch,ownerToken:saved.ownerToken});

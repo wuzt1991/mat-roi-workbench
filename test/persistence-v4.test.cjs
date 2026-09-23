@@ -92,3 +92,12 @@ test('文件名尚未取得时先登记会话，上传后仍可恢复同一商�
   assert.equal(restored.filename,'新商品.xlsx');assert.equal(restored.revision,3);assert.equal(restored.ownerToken,'owner-a');
   await assert.rejects(drafts.saveSession({filename:'../坏文件.xlsx'}),/文件名无效/);
 });
+
+
+test('商品候选登记不抢占已接纳会话的恢复状态，接纳状态在进度触碰后保留',async()=>{
+ const {SessionDrafts}=require('../public/session-draft.js');
+ const draft=new SessionDrafts({workspaceId:'w',storageEpoch:0,sessionId:'candidate',ownerToken:'o',baseRevision:0,indexedDB:null});
+ await draft.saveSession({fileKind:'product',accepted:false});assert.equal((await draft.getSession()).accepted,false);
+ await draft.touchSession({revision:0,filename:'候选.xlsx'});assert.equal((await draft.getSession()).accepted,false);
+ await draft.saveSession({fileKind:'product',filename:'候选.xlsx',accepted:true});await draft.touchSession({revision:1});assert.equal((await draft.getSession()).accepted,true);await draft.close();
+});

@@ -87,25 +87,29 @@
   function deriveTransferRow(rawRecord,review={},context={}){
     const raw=rawRecord.values||rawRecord.raw||[],mapping=rawRecord.mapping||context.mapping||{},rules=context.rules||{};
     const rowId=rawRecord.rowId,productName=text(field(raw,mapping,'productName')),specName=text(field(raw,mapping,'specName'));
-    const autoMaterial=identifyMaterial(productName,rules,`${productName} ${specName}`),material=stateValue(review,'material',autoMaterial);
+    const autoMaterial=identifyMaterial(productName,rules,`${productName} ${specName}`);let material=stateValue(review,'material',autoMaterial);
+    if(material.status==='value'&&!(rules.materials||[]).some(m=>m.id===material.materialId&&!m.deleted))material={status:'pending',source:'manual',reason:'missing-material'};
     const autoSize=parseDimensions(specName),size=stateValue(review,'size',autoSize);
     const evidence=rawRecord.thicknessEvidence||thicknessEvidence([productName,specName]);
     let thickness=stateValue(review,'thickness',resolveThickness(material,evidence,rules));
+    if(thickness.status==='value'&&(material.status!=='value'||thickness.materialId!==material.materialId||!(rules.materials||[]).find(m=>m.id===material.materialId)?.weightRules?.some(r=>r.id===thickness.ruleId&&!r.deleted)))thickness={status:'pending',source:'manual',reason:'invalid-rule'};
     if(size.status==='blank')thickness={status:'not-required',source:'manual',reason:'size-blank'};
     const platform=sourceId(raw,mapping,'platform'),shop=sourceId(raw,mapping,'shop'),productId=sourceId(raw,mapping,'productId'),skuId=sourceId(raw,mapping,'specId');
     const issues=[];
     if(material.status==='pending'||material.status==='blocked')issues.push({field:'material',code:'MATERIAL_PENDING',message:material.reason==='pseudo-linen'?'“伪亚麻”需人工选择材质':'材质需人工确认'});
     if(size.status==='pending'||size.status==='blocked')issues.push({field:'size',code:'SIZE_PENDING',message:'尺寸需人工确认'});
     if(thickness.status==='pending'||thickness.status==='blocked')issues.push({field:'thickness',code:'THICKNESS_PENDING',message:'厚度需人工确认'});
-    for(const [name,label] of [['shop','店铺'],['productName','商品名称'],['specName','规格名称'],['productId','商品 ID'],['specId','SKU ID'],['price','售价'],['status','售卖状态'],['inventory','库存']])if(text(field(raw,mapping,name))==='')issues.push({field:name,code:'MISSING_FIELD',message:`缺少${label}`});
+    for(const [name,label] of [['platform','平台'],['shop','店铺'],['productName','商品名称'],['specName','规格名称'],['productId','商品 ID'],['specId','SKU ID'],['price','售价'],['status','售卖状态'],['inventory','库存']])if(text(field(raw,mapping,name))==='')issues.push({field:name,code:'MISSING_FIELD',message:`缺少${label}`});
     const materialEntity=material.status==='value'?(rules.materials||[]).find(x=>x.id===material.materialId):null;
     const rule=thickness.status==='value'?materialEntity?.weightRules?.find(x=>x.id===thickness.ruleId):null;
-    const area=size.status==='value'?size.area:null,weight=area!=null&&rule?area*number(rule.coefficient):null,cost=area!=null&&rule?area*number(rule.costPerSqm):null;
+    const area=size.status==='value'?size.area:null,weight=area!=null&&rule&&number(rule.coefficient)!==null?area*number(rule.coefficient):null,cost=area!=null&&rule&&number(rule.costPerSqm)!==null?area*number(rule.costPerSqm):null;
     if(rule&&(number(rule.coefficient)===null||number(rule.costPerSqm)===null))issues.push({field:'thickness',code:'INVALID_RULE',message:'厚度规则缺少重量或成本'});
     const values=Array(29).fill(null),put=(i,v)=>{values[i]=v===''||v==null?null:v;};
     put(0,number(field(raw,mapping,'seq'))??rowId);put(1,platform);put(2,shop);put(3,productName);put(4,specName);put(5,materialEntity?.name||null);put(6,materialEntity?.name||null);put(7,size.status==='value'?size.label:null);put(8,area);put(9,size.status==='value'?size.width:null);put(10,size.status==='value'?size.length:null);put(11,weight);put(12,cost);put(17,productId);put(18,skuId);put(19,number(field(raw,mapping,'price'))??text(field(raw,mapping,'price')));put(20,text(field(raw,mapping,'status')));put(21,number(field(raw,mapping,'inventory'))??text(field(raw,mapping,'inventory')));put(22,text(field(raw,mapping,'specType')));put(23,specName);put(24,sourceId(raw,mapping,'goodsCode'));put(25,text(field(raw,mapping,'goodsShort')));put(26,specName);put(27,skuId);put(28,text(field(raw,mapping,'specShort')));
     return {rowId,sourceRow:rawRecord.sourceRow,groupId:groupKey(platform,shop,productId,rowId),platform,shop,productId,skuId,productName,specName,material,size,thickness,originalMissingThickness:evidence.originalMissingThickness,area,weight,cost,values,issues,status:issues.length?'pending':'confirmed'};
   }
+
+  function attentionField(row){if(row?.issues?.some(i=>i.code==='MISSING_FIELD'||i.code==='INVALID_RULE'))return null;return ['material','size','thickness'].find(key=>['pending','blocked'].includes(row?.[key]?.status))||null;}
 
   function normalizePatchPart(value,key,rules){
     if(!value||value==='keep')return {status:'keep'};
@@ -124,9 +128,9 @@
     return {status:'value',...value};
   }
   function previewTransferRowPatch(raw,review,patch={},action={type:'row-edit'},rules={}){
-    const next=JSON.parse(JSON.stringify(review||{}));const protectedFields=[];
-    for(const key of ['material','size']){const part=normalizePatchPart(patch[key],key,rules);if(part.status==='keep')continue;const current=deriveTransferRow(raw,next,{rules})[key];if(action.type==='selected-batch'&&!action.overwrite&&!['pending','blocked'].includes(current.status)){protectedFields.push(key);continue;}next[key]=part;}
-    const materialChanged=patch.material&&normalizePatchPart(patch.material,'material',rules).status!=='keep';if(materialChanged)delete next.thickness;
+    const next=JSON.parse(JSON.stringify(review||{}));const protectedFields=[];let materialChanged=false;
+    for(const key of ['material','size']){const part=normalizePatchPart(patch[key],key,rules);if(part.status==='keep')continue;const current=deriveTransferRow(raw,next,{rules})[key];if(action.type==='selected-batch'&&!action.overwrite&&!['pending','blocked'].includes(current.status)){protectedFields.push(key);continue;}next[key]=part;if(key==='material')materialChanged=true;}
+    if(materialChanged)delete next.thickness;
     const thicknessPart=normalizePatchPart(patch.thickness,'thickness',rules);if(thicknessPart.status!=='keep'){
       const interim=deriveTransferRow(raw,next,{rules});
       if(interim.size.status==='blank'||interim.material.status!=='value')protectedFields.push('thickness');
@@ -137,5 +141,5 @@
     return {review:next,derived:deriveTransferRow(raw,next,{rules}),protectedFields};
   }
 
-  return {OUTPUT_HEADERS,FIELD_ALIASES,REQUIRED_PRODUCT_FIELDS,productMappingIssues,text,compact,number,validDimension,parseDimensions,identifyMaterial,thicknessEvidence,resolveThickness,mapFields,detectHeader,deriveTransferRow,previewTransferRowPatch,groupKey};
+  return {DERIVATION_VERSION:2,attentionField,OUTPUT_HEADERS,FIELD_ALIASES,REQUIRED_PRODUCT_FIELDS,productMappingIssues,text,compact,number,validDimension,parseDimensions,identifyMaterial,thicknessEvidence,resolveThickness,mapFields,detectHeader,deriveTransferRow,previewTransferRowPatch,groupKey};
 });

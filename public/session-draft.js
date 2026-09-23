@@ -49,7 +49,7 @@
     sessionRecord(meta={}){
       const source={sessionId:this.sessionId,ownerToken:this.ownerToken,revision:this.baseRevision,workspaceId:this.workspaceId,storageEpoch:this.storageEpoch,...meta};
       this.validateSession(source,{allowOwnerChange:true});
-      return {key:this.sessionKey(),kind:'file-session',fileKind:source.fileKind||source.kind||'',version:1,sessionId:source.sessionId,ownerToken:source.ownerToken,revision:source.revision,workspaceId:source.workspaceId,storageEpoch:source.storageEpoch,filename:source.filename||'',updated:Date.now(),leaseUntil:Number.isFinite(source.leaseUntil)?source.leaseUntil:Date.now()+this.leaseMs};
+      return {key:this.sessionKey(),kind:'file-session',fileKind:source.fileKind||source.kind||'',accepted:source.accepted!==false,version:1,sessionId:source.sessionId,ownerToken:source.ownerToken,revision:source.revision,workspaceId:source.workspaceId,storageEpoch:source.storageEpoch,filename:source.filename||'',updated:Date.now(),leaseUntil:Number.isFinite(source.leaseUntil)?source.leaseUntil:Date.now()+this.leaseMs};
     }
     /** Save the bounded identity needed to explicitly reopen a disk session. */
     async saveSession(meta={}){

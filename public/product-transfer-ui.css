@@ -25,3 +25,6 @@ html[data-ui-refine=true][data-ui-material=rays] .pv4-picker-results button:hove
 .product-v4 .pv4-lattice-wait .btn{margin-left:auto;flex:none}
 :root[data-ui-material="rays"] .product-v4 .pv4-lattice-wait .lattice-loader{color:#f5f5f5}
 @media(max-width:480px){.product-v4 .pv4-lattice-wait{flex-wrap:wrap;gap:12px}.product-v4 .pv4-lattice-wait .lattice-loader{--ll-font:14px}}
+
+.pv4-auto-result{padding:48px 24px;text-align:center;border:1px solid var(--line);border-radius:16px;background:var(--soft)}
+.pv4-auto-result h2{margin:14px 0 8px}.pv4-auto-result p{color:var(--muted)}.pv4-auto-icon .icon{width:38px;height:38px}.pv4-auto-actions{display:flex;justify-content:center;gap:12px;margin-top:24px;flex-wrap:wrap}.pv4-attention-source{padding:14px;margin:12px 0 20px;border:1px solid var(--line);border-radius:10px}.pv4-dialog-body>label{display:grid;gap:8px}.pv4-dialog-body>label select{max-width:100%;min-height:40px}.pv4-dialog-body .pv4-overwrite{display:flex;align-items:flex-start}.pv4-auto-result .btn:disabled{opacity:.5}

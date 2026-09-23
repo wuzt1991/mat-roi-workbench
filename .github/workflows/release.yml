@@ -60,3 +60,11 @@ jobs:
             if (assets.length !== 3 || names.some(f => !assets.some(a => a.name === f && a.size === fs.statSync('candidate/' + f).size))) throw new Error('Uploads incomplete; draft preserved');
             await github.rest.repos.updateRelease({...context.repo, release_id: release.id, draft: false, prerelease: false, make_latest: 'true'});
             core.notice('Published verified bytes: ' + release.html_url);
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Publish verified installer to domestic update feed
+        env:
+          OSS_ACCESS_KEY_ID: ${{ secrets.OSS_UPDATE_ACCESS_KEY_ID }}
+          OSS_ACCESS_KEY_SECRET: ${{ secrets.OSS_UPDATE_ACCESS_KEY_SECRET }}
+        run: node scripts/publish-oss-update.cjs candidate --publish

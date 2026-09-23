@@ -73,7 +73,7 @@ class ImportSessionStore{
     const select=this.db.prepare('SELECT row_id FROM raw_rows ORDER BY row_id'),rows=select.all(),batch=500;let done=0;
     this.transaction(()=>{this.db.prepare('DELETE FROM derived_rows WHERE generation=?').run(generation);});
     for(let start=0;start<rows.length;start+=batch){if(canceled?.())throw Object.assign(Error('任务已取消'),{code:'CANCELED'});this.transaction(()=>{for(const item of rows.slice(start,start+batch)){const raw=this.raw(item.row_id),review=this.review(item.row_id),derived=Recognition.deriveTransferRow(raw,review,{rules,mapping:raw.mapping});this.putDerived(derived,generation);}});done=Math.min(rows.length,start+batch);progress?.({phase:'deriving',rowsRead:done,rowsTotal:rows.length});}
-    this.rebuildGroups(generation);this.transaction(()=>{this.setMeta('generation',generation);this.setMeta('rules',rules);this.setMeta('rulesFingerprint',digest(rules));this.setMeta('phase','reviewing');});return {generation,...this.counts(generation)};
+    this.rebuildGroups(generation);this.transaction(()=>{this.setMeta('generation',generation);this.setMeta('rules',rules);this.setMeta('rulesFingerprint',digest(rules));this.setMeta('derivationVersion',Recognition.DERIVATION_VERSION);this.setMeta('phase','reviewing');});return {generation,...this.counts(generation)};
   }
   rebuildGroups(generation){this.transaction(()=>this.rebuildGroupsOutsideTransaction(generation));}
   rebuildGroupsOutsideTransaction(generation){
@@ -120,7 +120,8 @@ class ImportSessionStore{
     const total=cached||this.db.prepare("SELECT count(*) n,sum(status<>'confirmed') pending,sum(status='confirmed') confirmed,sum(original_missing_thickness) missing FROM derived_rows WHERE generation=?").get(generation);
     return {total:Number(total?.n||0),pending:Number(total?.pending||0),confirmed:Number(total?.confirmed||0),missingThickness:Number(total?.missing||0),ready:Number(total?.n||0)>0&&Number(total?.pending||0)===0};
   }
-  page({status='all',missingThickness=false,page=1,pageSize=100}={}){
+  page({status='all',missingThickness=false,page=1,pageSize=100,attention=false}={}){
+    if(attention){status='pending';missingThickness=false;page=1;pageSize=1;}
     pageSize=Math.max(1,Math.min(100,Number(pageSize)||100));page=Math.max(1,Number(page)||1);const generation=this.getMeta('generation',0),where=['d.generation=?'],params=[generation];
     if(status==='pending'){where.push("d.status<>'confirmed'");}else if(status==='confirmed'){where.push("d.status='confirmed'");}else if(status!=='all')throw new SessionError(400,'筛选条件无效。','INVALID_FILTER');
     if(missingThickness){where.push('d.original_missing_thickness=1');}
@@ -128,6 +129,7 @@ class ImportSessionStore{
     // Limit the covering index to a page before loading or sorting any full row JSON.
     const sheetNames=new Map(this.getMeta('selectedSheets',[]).map(sheet=>[sheet.sheetId,sheet.name]));
     const rows=this.db.prepare(`WITH visible AS MATERIALIZED (SELECT d.row_id,d.generation FROM derived_rows d INDEXED BY derived_page WHERE ${clause} ORDER BY d.row_id LIMIT ? OFFSET ?) SELECT r.row_id,r.sheet_id,r.source_row,r.raw_json,rv.review_json,d.derived_json,d.group_id FROM visible v JOIN derived_rows d ON d.row_id=v.row_id AND d.generation=v.generation JOIN raw_rows r ON r.row_id=v.row_id LEFT JOIN reviews rv ON rv.row_id=v.row_id ORDER BY v.row_id`).all(...params,pageSize,offset).map(row=>{const review=parse(row.review_json,{}),derived=parse(row.derived_json,{});return {rowId:row.row_id,sourceRow:row.source_row,sheetId:row.sheet_id,sheetName:sheetNames.get(row.sheet_id)||'',groupId:row.group_id,raw:parse(row.raw_json,[]),review:{...review,materialId:review.material?.materialId||'',sizeId:review.size?.sizeId||'',materialRuleId:review.thickness?.ruleId||''},derived};});
+    if(attention&&rows[0]){const row=rows[0],field=Recognition.attentionField(row.derived);row.missingPeers=field?Number(this.db.prepare(`SELECT count(*) n FROM derived_rows WHERE generation=? AND group_id=? AND json_extract(derived_json,'$.${field}.status')='pending' AND json_extract(derived_json,'$.${field}.reason')='missing' AND coalesce(json_extract(derived_json,'$.${field}.source'),'auto')<>'manual' ${field==='thickness'?"AND json_extract(derived_json,'$.material.materialId')=?":''}`).get(generation,row.groupId,...(field==='thickness'?[row.derived.material.materialId||'']:[])).n):0;}
     const ids=[...new Set(rows.map(x=>x.groupId))],groups=ids.map(id=>{const g=this.db.prepare('SELECT * FROM groups WHERE generation=? AND group_id=?').get(generation,id),visible=rows.filter(x=>x.groupId===id).length;return {groupId:id,platform:g.platform,shop:g.shop,productId:g.product_id,total:g.total,visible,hidden:g.total-visible,pending:g.pending,confirmed:g.confirmed,missingThickness:g.missing_thickness,materialState:g.material_state,thicknessState:g.thickness_state,specExamples:parse(g.spec_examples,[])};});
     const counts=this.counts(generation);
     return {rows,groups,page,pageSize,total,totalPages,duplicateRows:this.getMeta('duplicateRows',0),counts,revision:this.getMeta('revision',0),generation,ready:counts.ready};
@@ -159,6 +161,7 @@ class ImportSessionStore{
       // preview is retained in JS, even for a whole 500,000-row group.
       for(const rowId of this.iterateTargets(command)){
         const raw=this.raw(rowId);if(!raw)throw new SessionError(422,'包含已失效的规格，请刷新后重试。','ROW_NOT_FOUND');
+        if(command.action?.type==='group-fill-missing'){const derived=parse(previous.get(rowId,generation)?.derived_json),keys=Object.keys(command.patch||{});if(keys.length!==1||!['material','thickness'].includes(keys[0]))throw new SessionError(422,'仅支持补齐同商品缺失的材质或厚度。','INVALID_FILL');const field=keys[0],value=derived[field];if(value?.status!=='pending'||value.reason!=='missing'||value.source==='manual'||(field==='thickness'&&derived.material?.materialId!==command.patch.thickness.materialId)){protectedCount++;continue;}}
         const review=this.review(rowId),preview=Recognition.previewTransferRowPatch(raw,review,command.patch,command.action,rules),oldJson=JSON.stringify(review),newJson=JSON.stringify(preview.review);protectedCount+=preview.protectedFields.length;
         if(oldJson===newJson)continue;
         const oldDerived=parse(previous.get(rowId,generation)?.derived_json);

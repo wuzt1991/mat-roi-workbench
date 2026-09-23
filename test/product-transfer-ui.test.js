@@ -50,42 +50,45 @@ test('正式界面暴露恢复上下文和退出保护接口',()=>{
 test('正式界面按真实分页响应读取派生字段与字符串分组状态',async()=>{
   const state={materials:[{id:'mat-a',name:'硅藻泥',active:true,deleted:false,weightRules:[{id:'3.0',thickness:3,coefficient:.9,costPerSqm:9.8,active:true,deleted:false}]}],sizes:[]};
   const page={page:1,pageSize:100,total:1,totalPages:1,revision:2,generation:1,ready:false,counts:{total:1,pending:1,confirmed:0,missingThickness:0},groups:[{groupId:'group-a',platform:'抖音',shop:'测试店铺',productId:'12345678901234',total:1,visible:1,hidden:0,materialState:'mat-a',thicknessState:'mat-a:3.0'}],rows:[{rowId:1,sourceRow:2,groupId:'group-a',raw:['原始数组不用于展示'],review:{materialId:'',sizeId:'',materialRuleId:''},derived:{productName:'吸水地垫',specName:'灰色 40×60cm 3mm',skuId:'SKU-00000001',material:{status:'value',source:'auto',materialId:'mat-a',name:'硅藻泥'},size:{status:'value',source:'auto',width:40,length:60,label:'40*60',area:.24},thickness:{status:'value',source:'auto',materialId:'mat-a',ruleId:'3.0'},weight:.216,cost:2.352,values:Array.from({length:29},(_,i)=>i===19?19.9:i===21?100:null),status:'pending',issues:[{field:'price'}]}}]};
-  const controller=UI.create({getState:()=>state,render:()=>{},request:async(action)=>{assert.equal(action,'rows');return page;}});
+  const h=dragHarness(async(action)=>{assert.equal(action,'rows');return page;},state),controller=h.controller;
   await controller.restoreSession({sessionId:'session-a',ownerToken:'owner-a',revision:1});
-  const html=controller.html();
+  assert.doesNotMatch(controller.html(),/pv4-table/);
+  await h.listeners.get('click')({target:{closest:()=>({matches:s=>s==='[data-pv4-manual]'})}});
+  const html=controller.html();controller.destroy();
   assert.match(html,/吸水地垫/);assert.match(html,/灰色 40×60cm 3mm/);assert.match(html,/123456…1234/);assert.match(html,/¥19\.90/);assert.match(html,/40\*60/);assert.match(html,/value="mat-a" selected/);assert.match(html,/value="3\.0" selected/);
 });
 
-function dragHarness(request){
+function dragHarness(request,state={}){
   const listeners=new Map(),bindings=new Map(),attributes=new Map(),calls=[],messages=[];
   const outside={closest:()=>null};
   const zone={closest:()=>zone,contains:node=>node===zone||node===child,setAttribute:(key,value)=>attributes.set(key,value),removeAttribute:key=>attributes.delete(key)};
-  const child={closest:()=>zone},dialog={open:false,remove(){}};
+  const child={closest:()=>zone},dialog={open:false,remove(){},showModal(){this.open=true;},close(){this.open=false;},querySelector(){return null;}};
   const document={getElementById:()=>dialog,querySelector:selector=>selector==='[data-pv4-dropzone]'?zone:null,addEventListener:(type,handler)=>{bindings.set(type,(bindings.get(type)||0)+1);listeners.set(type,handler);},removeEventListener:(type,handler)=>{if(listeners.get(type)===handler)listeners.delete(type);}};
   const context=vm.createContext({document,ProductRecognition:require('../public/product-recognition.js'),LatticeLoader:require('../public/lattice-loader.js'),setTimeout,clearTimeout});
   vm.runInContext(fs.readFileSync(path.join(__dirname,'../public/product-transfer-ui.js'),'utf8'),context);
-  const controller=context.ProductTransferUI.create({toast:message=>messages.push(message),request:async(action,payload)=>{calls.push({action,payload});if(request)return request(action,payload);if(action==='create')return {sessionId:'candidate',ownerToken:'owner'};if(action==='upload')return {phase:'ready',counts:{total:1}};if(action==='rows')return {rows:[],total:0};return {};}});
+  const controller=context.ProductTransferUI.create({getState:()=>state,toast:message=>messages.push(message),request:async(action,payload)=>{calls.push({action,payload});if(request)return request(action,payload);if(action==='create')return {sessionId:'candidate',ownerToken:'owner'};if(action==='upload')return {phase:'ready',counts:{total:1}};if(action==='rows')return {rows:[],total:1,ready:true,counts:{total:1,confirmed:1,pending:0}};return {};}});
   controller.activate();
   function event({target=child,files=[],types=['Files'],items=[],relatedTarget=null}={}){return {target,relatedTarget,dataTransfer:{files,types,items,dropEffect:'none'},defaultPrevented:false,preventDefault(){this.defaultPrevented=true;}};}
   return {controller,listeners,bindings,attributes,calls,messages,zone,child,outside,dialog,event};
 }
 
-test('拖入一个 Excel 复用会话上传并保留当前复核，点击选择仍可使用',async t=>{
+test('拖入完整 Excel 后自动接纳，点击选择仍可使用',async t=>{
   const h=dragHarness();t.after(()=>h.controller.destroy());
   await h.controller.restoreSession({sessionId:'existing',ownerToken:'existing-owner'});
   h.calls.length=0;
   const file={name:'商品.XLSX'},drop=h.event({files:[file]});
   await h.listeners.get('drop')(drop);
   assert.equal(drop.defaultPrevented,true);
-  assert.deepEqual(h.calls.map(x=>x.action),['create','upload']);
+  assert.deepEqual(h.calls.map(x=>x.action),['create','upload','rows','accept','discard']);
   assert.equal(h.calls[1].payload.file,file);
-  assert.equal(h.controller.inspect().session.sessionId,'existing');
-  assert.equal(h.controller.inspect().candidate.filename,'商品.XLSX');
-  assert.match(h.controller.html(),/使用这次导入/);
+  assert.equal(h.controller.inspect().session.sessionId,'candidate');
+  assert.equal(h.controller.inspect().session.filename,'商品.XLSX');
+  assert.equal(h.controller.inspect().candidate,null);
+  assert.doesNotMatch(h.controller.html(),/使用这次导入|pv4-table/);
   h.calls.length=0;
   const input={closest:()=>h.zone,matches:selector=>selector==='[data-pv4-file]',files:[file],value:'selected'};
   await h.listeners.get('change')({target:input});
-  assert.deepEqual(h.calls.map(x=>x.action),['discard','create','upload']);
+  assert.deepEqual(h.calls.map(x=>x.action),['create','upload','rows','accept','discard']);
   assert.equal(input.value,'');
 });
 
@@ -128,4 +131,15 @@ test('上传期间拒绝重复拖放，上传失败后可重试',async t=>{
   while(h.calls.filter(x=>x.action==='upload').length<2)await Promise.resolve();
   rejectUpload(Error('测试结束'));await retry;
   assert.equal(h.calls.filter(x=>x.action==='create').length,2);
+});
+
+
+test('失败的新导入不删除当前会话或改变当前文件名',async t=>{
+ const h=dragHarness(async action=>{if(action==='rows')return {rows:[],counts:{total:1,confirmed:1,pending:0},ready:true};if(action==='create')return {sessionId:'new',ownerToken:'new-o'};if(action==='upload')throw Error('损坏的文件');return {};});t.after(()=>h.controller.destroy());
+ await h.controller.restoreSession({sessionId:'old',ownerToken:'old-o',filename:'原表.xlsx'});await h.listeners.get('drop')(h.event({files:[{name:'坏表.xlsx'}]}));
+ assert.equal(h.controller.inspect().session.sessionId,'old');assert.equal(h.controller.inspect().candidate,null);assert.ok(!h.calls.some(c=>c.action==='discard'&&c.payload.sessionId==='old'));assert.match(h.controller.html(),/一键导出 Excel/);
+});
+test('切换工作区后迟到的分页响应不得回填',async t=>{
+ let resolve;const h=dragHarness(async action=>{if(action==='rows')return new Promise(r=>resolve=r);return {};});t.after(()=>h.controller.destroy());
+ h.controller.refreshContext({workspaceId:'a',storageEpoch:0});const restoring=h.controller.restoreSession({sessionId:'old',ownerToken:'o'});h.controller.refreshContext({workspaceId:'b',storageEpoch:0});resolve({ready:true,rows:[],counts:{total:1}});await restoring;assert.equal(h.controller.inspect().session,null);assert.doesNotMatch(h.controller.html(),/已自动识别完成/);
 });

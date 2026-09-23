@@ -77,7 +77,7 @@ async function scanSheet(info,sheet,store,{collectRows=false,recognize=true,head
 }
 
 async function inspectWorkbook(filename,sessionDirectory,options={}){
-  const info=await workbookInfo(filename),store=new ImportSessionStore(sessionDirectory);try{await loadSharedStrings(info,store,options);const candidates=[];for(const sheet of info.sheets){checkCanceled(options.canceled);const scan=await scanSheet(info,sheet,store,{headerLimit:40,progress:options.progress,canceled:options.canceled});candidates.push({...sheet,header:scan.header,physicalRows:scan.physicalRows,maxColumn:scan.maxColumn});}return {sourceBytes:info.sourceBytes,totalUncompressed:info.total,date1904:info.date1904,sheets:candidates};}finally{store.close();info.zip.close();}
+  const info=await workbookInfo(filename),store=new ImportSessionStore(sessionDirectory);try{await loadSharedStrings(info,store,options);const candidates=[];for(const sheet of info.sheets){checkCanceled(options.canceled);const scan=await scanSheet(info,sheet,store,{headerLimit:40,progress:options.progress,canceled:options.canceled});candidates.push({...sheet,header:scan.header?{...scan.header,samples:scan.header.headers.map((_,i)=>scan.headerRows.slice(scan.header.rowIndex+1).map(row=>String(row[i]??'').slice(0,180)).filter(Boolean).slice(0,3))}:null,physicalRows:scan.physicalRows,maxColumn:scan.maxColumn});}return {sourceBytes:info.sourceBytes,totalUncompressed:info.total,date1904:info.date1904,sheets:candidates};}finally{store.close();info.zip.close();}
 }
 async function importSheets(filename,sessionDirectory,{selections,rules,derive=true,progress,canceled}={}){
   const info=await workbookInfo(filename),store=new ImportSessionStore(sessionDirectory);

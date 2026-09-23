@@ -20,7 +20,7 @@
   const FAILED_PHASES=new Set(['failed','error','interrupted','cancelled','canceled']);
   const htmlEscape=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
   const text=value=>value===undefined||value===null?'':String(value);
-  const number=value=>Number.isFinite(Number(value))?Number(value):null;
+  const number=Recognition.number;
   const array=value=>Array.isArray(value)?value:[];
   const active=list=>array(list).filter(item=>item&&!item.deleted&&item.active!==false);
   const mutationId=()=>root.crypto?.randomUUID?.()||`mutation-${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -77,7 +77,7 @@
     const notify=typeof options.toast==='function'?options.toast:()=>{};
     const waitingLoader=Loader.create();
     const local={
-      context:{},session:null,candidate:null,candidateStatus:null,page:null,pageNumber:1,
+      manual:false,offerAttention:false,contextSerial:0,context:{},session:null,candidate:null,candidateStatus:null,page:null,pageNumber:1,
       filter:'all',missingThickness:false,moreOpen:false,selected:new Set(),
       busy:false,waitStartedAt:0,waitLabel:'',waitStatus:null,jobId:'',jobKind:'',error:'',requestSerial:0,pollTimer:0,dialog:null,lastFocus:null,
       sheetSelection:new Set(),sheetMappings:{},selectionInitialized:false,undo:null,active:false,destroyed:false,listeners:false
@@ -93,6 +93,8 @@
       if(action==='selectSheet')return jobs.selectSheet(payload.sessionId,payload.options);
       if(action==='rows')return jobs.rows(payload.sessionId,payload.query);
       if(action==='review')return jobs.review(payload.sessionId,payload.command);
+      if(action==='accept')return payload;
+      if(action==='recompute')return jobs.recompute(payload.sessionId,payload.options);
       if(action==='undo')return jobs.undo(payload.sessionId,payload.command);
       if(action==='startExport')return jobs.startExport(payload.sessionId,payload.options);
       if(action==='downloadUrl')return jobs.downloadUrl(payload.sessionId,payload.artifactId);
@@ -130,11 +132,11 @@
 
     async function refreshPage({silent=false}={}){
       if(!local.session||local.busy&&!silent)return;
-      const serial=++local.requestSerial;
+      const serial=++local.requestSerial,sessionId=local.session.sessionId;
       if(!silent){beginWaiting('正在读取复核列表');local.error='';scheduleRender();}
       try{
-        const page=await call('rows',{sessionId:local.session.sessionId,query:{status:local.filter,missingThickness:local.missingThickness,page:local.pageNumber,pageSize:PAGE_SIZE}});
-        if(serial!==local.requestSerial||!local.session)return;
+        const page=await call('rows',{sessionId:local.session.sessionId,query:{attention:!local.manual,status:local.filter,missingThickness:local.missingThickness,page:local.pageNumber,pageSize:PAGE_SIZE}});
+        if(serial!==local.requestSerial||local.session?.sessionId!==sessionId)return;
         const totalPages=Math.max(1,Number(page?.totalPages)||Math.ceil((Number(page?.total)||0)/PAGE_SIZE)||1);
         if(local.pageNumber>totalPages){local.pageNumber=totalPages;return refreshPage({silent:true});}
         local.page={...page,page:Number(page?.page)||local.pageNumber,pageSize:PAGE_SIZE,totalPages};
@@ -148,38 +150,42 @@
     function candidateFailed(status){return FAILED_PHASES.has(text(status?.phase).toLowerCase())||FAILED_PHASES.has(text(status?.job?.state).toLowerCase())||!!status?.error||!!status?.job?.error;}
     function needsSheet(status){return WAITING_SHEET_PHASES.has(text(status?.phase).toLowerCase())||status?.requiresSheetSelection===true;}
     async function pollCandidate(){
-      if(!local.candidate)return;
+      if(!local.candidate)return;const candidate=local.candidate;
       try{
         const status=await call('status',{sessionId:local.candidate.sessionId});
-        local.candidateStatus=status||{};
+        if(local.candidate!==candidate)return;local.candidateStatus=status||{};
         if(status?.phase==='inspecting')local.waitLabel='正在识别工作表';
         if(Number.isFinite(Number(status?.revision)))local.candidate.revision=Number(status.revision);
-        if(candidateFailed(status)){local.busy=false;local.jobId='';local.jobKind='';local.error=safeMessage(status?.error||status?.job?.error,'文件处理失败。');scheduleRender();return;}
+        if(candidateFailed(status)){local.busy=false;local.jobId='';local.jobKind='';local.error=safeMessage(status?.error||status?.job?.error,'文件处理失败。');await discardCandidate();scheduleRender();return;}
         if(candidateReady(status)||needsSheet(status)){local.busy=false;local.jobId='';local.jobKind='';await prepareSheetSelection();scheduleRender();return;}
         scheduleRender();queuePoll(pollCandidate);
-      }catch(error){local.busy=false;local.jobId='';setError(error,'无法读取文件处理进度。');}
+      }catch(error){if(local.candidate!==candidate)return;local.busy=false;local.jobId='';setError(error,'无法读取文件处理进度。');}
     }
-    async function startImport(file){
+    async function startImport(file,replaceConfirmed=false){
       if(!file||local.busy)return;
       if(!/\.xlsx$/i.test(file.name)){notify('请选择 .xlsx 文件');return;}
+      if(!replaceConfirmed&&local.session&&countValue(local.page,'pending')>0){local.dialog={type:'replace',file,revision:local.session.revision};const dialog=ensureDialog();dialog.innerHTML=dialogShell('替换当前文件？',`<p>当前 ${htmlEscape(local.session.filename||'文件')} 还有 ${countValue(local.page,'pending')} 条待处理。新文件读取成功后将替换当前会话；失败或取消会保留当前文件。</p>`,'继续导入');dialog.showModal();return;}
+      const contextSerial=local.contextSerial;
       clearPoll();local.error='';beginWaiting('正在上传 Excel');local.selected.clear();scheduleRender();
       try{
         if(local.candidate)await call('discard',{sessionId:local.candidate.sessionId,ownerToken:local.candidate.ownerToken}).catch(()=>{});
         const created=await call('create',{kind:'product',target:target(),rules:stateRules()});
-        local.candidate={...created,filename:file.name};local.sheetSelection.clear();local.sheetMappings={};local.selectionInitialized=false;
+        if(contextSerial!==local.contextSerial){await call('discard',{sessionId:created.sessionId,ownerToken:created.ownerToken}).catch(()=>{});return;}
+        local.candidate={...created,filename:file.name};const candidate=local.candidate;local.sheetSelection.clear();local.sheetMappings={};local.selectionInitialized=false;
         const status=await call('upload',{sessionId:created.sessionId,file,ownerToken:created.ownerToken});
-        local.candidateStatus=status||{};if(Number.isFinite(Number(status?.revision)))local.candidate.revision=Number(status.revision);local.jobId=text(status?.jobId||status?.job?.jobId);local.jobKind='import';
+        if(local.candidate!==candidate)return;local.candidateStatus=status||{};if(Number.isFinite(Number(status?.revision)))local.candidate.revision=Number(status.revision);local.jobId=text(status?.jobId||status?.job?.jobId);local.jobKind='import';
         if(candidateReady(status)||needsSheet(status)){local.busy=false;await prepareSheetSelection();scheduleRender();}
         else queuePoll(pollCandidate,300);
-      }catch(error){local.busy=false;local.jobId='';setError(error,'Excel 上传失败，请检查文件后重试。');}
+      }catch(error){if(contextSerial!==local.contextSerial)return;await discardCandidate();local.busy=false;local.jobId='';setError(error,'Excel 上传失败，请检查文件后重试。');}
     }
     function candidateSheets(){return array(local.candidateStatus?.candidateSheets||local.candidateStatus?.sheets);}
     function sheetMapping(sheet){return local.sheetMappings[text(sheet.sheetId||sheet.id)]||sheet.header?.mapping||sheet.mapping||{};}
     function sheetIssues(sheet){return Recognition.productMappingIssues(array(sheet.header?.headers),sheetMapping(sheet));}
     async function prepareSheetSelection(){
+      if(candidateReady(local.candidateStatus)){await useCandidate();return;}
       if(!needsSheet(local.candidateStatus)||local.selectionInitialized)return;
       local.selectionInitialized=true;
-      const sheets=candidateSheets();
+      const sheets=candidateSheets().filter(sheet=>array(sheet.header?.headers).length);
       if(sheets.length===1){local.sheetSelection.add(text(sheets[0].sheetId||sheets[0].id));await chooseSheet();}
     }
     async function chooseSheet(){
@@ -191,28 +197,37 @@
       await startSheetImport(selected.map(sheet=>({sheetId:text(sheet.sheetId||sheet.id),mapping:sheetMapping(sheet)})));
     }
     async function startSheetImport(selections){
+      const candidate=local.candidate;
       beginWaiting('正在读取商品规格');local.error='';scheduleRender();
       try{
         const options={selections,rules:stateRules(),ownerToken:local.candidate.ownerToken,expectedSessionRevision:Number(local.candidateStatus?.revision??local.candidate.revision)};
         const result=await call('selectSheet',{sessionId:local.candidate.sessionId,options});
-        local.candidateStatus={...local.candidateStatus,phase:'importing'};
+        if(local.candidate!==candidate)return;local.candidateStatus={...local.candidateStatus,phase:'importing'};
         local.jobId=text(result?.jobId);local.jobKind='import';scheduleRender();queuePoll(pollCandidate,300);
-      }catch(error){local.busy=false;setError(error,'工作表读取失败。');}
+      }catch(error){if(local.candidate!==candidate)return;local.busy=false;setError(error,'工作表读取失败。');}
     }
     async function useCandidate(){
       if(!local.candidate||!candidateReady(local.candidateStatus))return;
-      const previous=local.session;
-      local.session={...local.candidate,revision:Number(local.candidateStatus?.revision??local.candidate.revision)};
-      local.candidate=null;local.candidateStatus=null;local.page=null;local.pageNumber=1;local.filter='all';local.missingThickness=false;local.moreOpen=false;local.selected.clear();local.undo=null;
-      if(previous)call('discard',{sessionId:previous.sessionId,ownerToken:previous.ownerToken}).catch(()=>{});
-      await refreshPage();
-      notify('商品规格已载入，可以开始复核');
+      const candidate=local.candidate,previous=local.session,contextSerial=local.contextSerial;
+      beginWaiting('正在校验商品表');scheduleRender();
+      try{
+        const page=await call('rows',{sessionId:candidate.sessionId,query:{attention:true,pageSize:1}});
+        if(local.candidate!==candidate)return;
+        if(Number(page.counts?.total??page.total)===0)throw Error('没有读取到商品规格，当前文件已保留。');
+        await call('accept',{...candidate,revision:page.revision,fileKind:'product'});
+        if(local.candidate!==candidate)return;
+        local.session={...candidate,revision:Number(page.revision??candidate.revision)};
+        local.candidate=null;local.candidateStatus=null;local.page=page;local.pageNumber=1;local.filter='all';local.missingThickness=false;local.moreOpen=false;local.selected.clear();local.undo=null;local.manual=false;local.offerAttention=true;local.requestSerial++;
+        if(previous)call('discard',{sessionId:previous.sessionId,ownerToken:previous.ownerToken}).catch(()=>{});
+      }catch(error){if(contextSerial!==local.contextSerial)return;local.error=safeMessage(error,'校验失败，当前文件已保留。');}
+      finally{if(contextSerial===local.contextSerial){local.busy=false;local.jobId='';local.jobKind='';scheduleRender();}}
     }
     async function discardCandidate(){
       if(!local.candidate)return;
       clearPoll();
-      const candidate=local.candidate;local.candidate=null;local.candidateStatus=null;local.busy=false;local.jobId='';local.jobKind='';scheduleRender();
+      const candidate=local.candidate,contextSerial=local.contextSerial;local.candidate=null;local.candidateStatus=null;local.jobId='';local.jobKind='';beginWaiting('正在取消导入');scheduleRender();
       await call('discard',{sessionId:candidate.sessionId,ownerToken:candidate.ownerToken}).catch(()=>{});
+      if(contextSerial===local.contextSerial){local.busy=false;scheduleRender();}
     }
     async function cancelJob(){
       if(!local.jobId)return;
@@ -222,26 +237,29 @@
 
     async function applyReview({type,rowIds,groupId,patch,overwrite=false}){
       if(!local.session||local.busy)return null;
+      const session=local.session;
       const command={mutationId:mutationId(),expectedSessionRevision:local.session.revision,ownerToken:local.session.ownerToken,action:{type,...(type==='selected-batch'?{overwrite:!!overwrite}:{})},patch};
       if(rowIds)command.rowIds=rowIds;
       if(groupId)command.groupId=groupId;
       beginWaiting('正在保存复核结果');local.error='';scheduleRender();
       try{
         let result=await call('review',{sessionId:local.session.sessionId,command});
-        if(result?.jobId){local.jobId=text(result.jobId);local.jobKind='review';result=await waitForMutation(result.jobId);}
-        updateSessionRevision(result);
+        if(local.session!==session)return null;
+        if(result?.jobId){local.jobId=text(result.jobId);local.jobKind='review';result=await waitForMutation(result.jobId,session);}
+        if(local.session!==session)return null;updateSessionRevision(result);
         local.undo=type==='group-unify'&&result?.undoable!==false?{revision:local.session.revision,label:'撤销上次同链接修改'}:null;
         await refreshPage({silent:true});
         const changed=Number(result?.changedRows??result?.changed??0);
         notify(changed?`已保留 ${changed} 条复核修改`:'复核修改已保留');
         return result;
-      }catch(error){local.error=safeMessage(error,'复核修改未保存，输入仍保留。');scheduleRender();return null;}
-      finally{local.busy=false;local.jobId='';local.jobKind='';scheduleRender();}
+      }catch(error){if(local.session!==session)return null;local.error=safeMessage(error,'复核修改未保存，输入仍保留。');scheduleRender();return null;}
+      finally{if(local.session===session){local.busy=false;local.jobId='';local.jobKind='';scheduleRender();}}
     }
-    async function waitForMutation(jobId){
+    async function waitForMutation(jobId,session=local.session){
       const deadline=Date.now()+15*60*1000;
       for(;;){
-        const status=await call('status',{sessionId:local.session.sessionId});
+        const status=await call('status',{sessionId:session.sessionId});
+        if(local.session!==session)throw Error('当前文件会话已切换。');
         if(candidateFailed(status))throw Error(safeMessage(status.error||status?.job?.error,'批量处理失败。'));
         const job=status?.job;
         if(job&&text(job.jobId)===text(jobId)&&job.state==='succeeded')return job.result||status.receipt||status;
@@ -263,27 +281,29 @@
 
     async function exportFile(){
       if(!local.session||local.busy||!local.page?.ready)return;
+      const session=local.session;
       beginWaiting('正在生成商品表');local.error='';scheduleRender();
       try{
         const result=await call('startExport',{sessionId:local.session.sessionId,options:{ownerToken:local.session.ownerToken,expectedSessionRevision:local.session.revision}});
-        local.jobId=text(result?.jobId);local.jobKind='export';
+        if(local.session!==session)return;local.jobId=text(result?.jobId);local.jobKind='export';
         if(result?.artifactId)await download(result.artifactId);
         else queuePoll(pollExport,350);
-      }catch(error){local.busy=false;local.jobId='';setError(error,'商品表生成失败。');}
+      }catch(error){if(local.session!==session)return;local.busy=false;local.jobId='';setError(error,'商品表生成失败。');}
     }
     async function pollExport(){
-      if(!local.session)return;
+      if(!local.session)return;const session=local.session;
       try{
-        const status=await call('status',{sessionId:local.session.sessionId});
+        const status=await call('status',{sessionId:session.sessionId});
+        if(local.session!==session)return;
         if(candidateFailed(status)){local.busy=false;local.jobId='';local.jobKind='';setError(status.error||status?.job?.error,'商品表生成失败。');return;}
         local.waitStatus=status;
         const artifactId=text(status?.artifactId||status?.exportArtifactId||status?.artifact?.id||status?.job?.artifactId);
         if(artifactId){await download(artifactId);return;}
         scheduleRender();queuePoll(pollExport);
-      }catch(error){local.busy=false;local.jobId='';setError(error,'无法读取导出进度。');}
+      }catch(error){if(local.session!==session)return;local.busy=false;local.jobId='';setError(error,'无法读取导出进度。');}
     }
     async function download(artifactId){
-      const result=await call('downloadUrl',{sessionId:local.session.sessionId,artifactId});
+      const session=local.session;const result=await call('downloadUrl',{sessionId:session.sessionId,artifactId});if(local.session!==session)return;
       const url=typeof result==='string'?result:result?.url;
       if(!url)throw Error('导出文件地址无效');
       const link=root.document.createElement('a');link.href=url;link.download='';link.rel='noopener';root.document.body.append(link);link.click();link.remove();
@@ -326,7 +346,7 @@
       if(value==='error'||array(row?.derived?.errors).length)return ['有错误','error'];
       return ['待复核','pending'];
     }
-    function reason(row,key){return text(fieldObject(row,key).reason||row?.derived?.[`${key}Reason`]||'');}
+    function reason(row,key){const code=text(fieldObject(row,key).reason||row?.derived?.[`${key}Reason`]||'');return ({missing:'未识别到',multiple:'发现多个尺寸',invalid:'尺寸无效',conflict:'发现多个厚度',unknown:'没有匹配的厚度规则',ambiguous:'存在多个匹配项','material-pending':'请先选择材质','pseudo-linen':'需人工确认材质','missing-material':'材质已不可用','invalid-rule':'厚度规则已不可用'})[code]||'';}
     function rawIdentity(row){return text(rawValue(row,'specId','skuId','platformSkuId'));}
     function sourceCell(row){
       const name=rawValue(row,'productName','name');const spec=rawValue(row,'specName','spec','skuName');
@@ -340,7 +360,7 @@
       return `<tr data-pv4-row="${htmlEscape(id)}">
         <td><input type="checkbox" name="product-row" aria-label="选择第 ${htmlEscape(row.sourceRow||id)} 行" data-pv4-select-row="${htmlEscape(id)}" ${local.selected.has(id)?'checked':''}></td>
         <td>${sourceCell(row)}</td>
-        <td class="num"><strong>${money(rawValue(row,'price','salePrice'))}</strong><small>库存 ${htmlEscape(rawValue(row,'inventory','stock')||'—')}</small></td>
+        <td class="num"><strong>${money(rawValue(row,'price','salePrice'))}</strong><small>库存 ${htmlEscape(rawValue(row,'inventory','stock')??'—')}</small></td>
         <td><select name="material-${htmlEscape(id)}" aria-label="第 ${htmlEscape(row.sourceRow||id)} 行材质" class="${selectClass(row,'material')}" data-pv4-row-field="material" data-row-id="${htmlEscape(id)}">${materialOptions(material)}</select>${reason(row,'material')?`<small class="pv4-cell-hint">${htmlEscape(reason(row,'material'))}</small>`:''}</td>
         <td><select name="thickness-${htmlEscape(id)}" aria-label="第 ${htmlEscape(row.sourceRow||id)} 行厚度" class="${selectClass(row,'thickness')}" data-pv4-row-field="thickness" data-row-id="${htmlEscape(id)}" ${!material||material===BLANK?'disabled':''}>${thicknessOptions(material,thickness)}</select>${reason(row,'thickness')?`<small class="pv4-cell-hint">${htmlEscape(reason(row,'thickness'))}</small>`:''}</td>
         <td><select name="size-${htmlEscape(id)}" aria-label="第 ${htmlEscape(row.sourceRow||id)} 行尺寸" class="${selectClass(row,'size')}" data-pv4-row-field="size" data-row-id="${htmlEscape(id)}">${sizeOptions(row)}</select>${sizeHint?`<small class="pv4-cell-hint">${htmlEscape(sizeHint)}</small>`:''}</td>
@@ -390,7 +410,7 @@
       if(needsSheet(status)){
         const sheets=candidateSheets();return `<section class="pv4-candidate pv4-sheet-picker"><div><strong>${htmlEscape(local.candidate.filename)}</strong><p>选择需要转表的工作表，可多选。字段默认自动识别。</p></div><div class="pv4-sheet-list">${sheets.map(sheet=>{const id=text(sheet.sheetId||sheet.id),issues=sheetIssues(sheet),available=array(sheet.header?.headers).length>0;return `<div class="pv4-sheet-option"><label><input type="checkbox" data-pv4-sheet="${htmlEscape(id)}" ${local.sheetSelection.has(id)?'checked':''} ${available&&!local.busy?'':'disabled'}><span>${htmlEscape(sheet.name||id)}<small>${!available?'未识别到表头':issues.length?'需确认 '+issues.map(key=>REQUIRED_PRODUCT_FIELDS[key]).join('、'):'已自动识别商品字段'}</small></span></label>${available?`<button type="button" class="btn ghost" data-pv4-map-sheet="${htmlEscape(id)}" ${local.busy?'disabled':''}>核对字段</button>`:''}</div>`;}).join('')}</div><div class="pv4-candidate-actions"><button type="button" class="btn" data-pv4-read-sheet ${local.busy||!local.sheetSelection.size?'disabled':''}>读取所选 ${local.sheetSelection.size} 张表</button><button type="button" class="btn ghost" data-pv4-discard ${local.busy?'disabled':''}>取消</button></div></section>`;
       }
-      if(candidateReady(status))return `<section class="pv4-candidate ready"><div><strong>${htmlEscape(local.candidate.filename)}</strong><p>已完成校验，共 ${htmlEscape(status.counts?.total??status.totalRows??status.total??'—')} 条规格，来自 ${array(status.selectedSheets).length||1} 张工作表。${status.duplicateRows?`发现 ${htmlEscape(status.duplicateRows)} 条重复商品内容，已全部保留，请核对来源。`:''}使用后将替换当前复核会话。</p></div><div class="pv4-candidate-actions"><button type="button" class="btn" data-pv4-use>使用这次导入</button><button type="button" class="btn ghost" data-pv4-discard>取消</button></div></section>`;
+      if(candidateReady(status)&&!local.busy)return `<section class="pv4-candidate ready"><div><strong>${htmlEscape(local.candidate.filename)}</strong><p>已完成校验，共 ${htmlEscape(status.counts?.total??status.totalRows??status.total??'—')} 条规格，来自 ${array(status.selectedSheets).length||1} 张工作表。${status.duplicateRows?`发现 ${htmlEscape(status.duplicateRows)} 条重复商品内容，已全部保留，请核对来源。`:''}校验通过后自动载入。</p></div><div class="pv4-candidate-actions"><button type="button" class="btn" data-pv4-use>重新校验</button><button type="button" class="btn ghost" data-pv4-discard>取消</button></div></section>`;
       return '';
     }
     function pagerHtml(){
@@ -400,22 +420,71 @@
     function html(){
       const selected=local.selected.size;const ready=!!local.page?.ready;
       return `<div class="product-v4" data-product-v4>
-        <div class="page-header"><div class="page-heading"><h1>商品转表</h1><p class="page-sub">上传 ERP 商品规格，复核材质、厚度和尺寸后生成固定 29 列商品表。</p></div><button type="button" class="btn primary" data-pv4-export ${!ready||local.busy?'disabled':''}>${icon('download')}导出商品表</button></div>
+        <div class="page-header"><div class="page-heading"><h1>商品转表</h1><p class="page-sub">拖入商品表，自动识别完成即可导出。</p></div>${local.manual?`<button type="button" class="btn primary" data-pv4-export ${!ready||local.busy?'disabled':''}>${icon('download')}一键导出 Excel</button>`:''}</div>
         <div class="wide-content pv4-content">
           <section class="pv4-upload" data-pv4-dropzone aria-label="商品 Excel 上传区域" aria-disabled="${local.busy}"><div><h2>ERP 商品规格</h2><p class="pv4-drop-hint"><span>拖入一个 .xlsx 文件，或点击选择 Excel。</span><strong>松开即可导入 Excel</strong></p>${local.session?`<p class="pv4-current-file">当前会话 ${htmlEscape(local.session.filename||local.session.sessionId)}</p>`:''}</div><label class="btn pv4-file-button">${icon('file-up')}选择 Excel<input type="file" name="product-file" accept=".xlsx" aria-label="选择商品 Excel 文件" data-pv4-file ${local.busy?'disabled':''}></label></section>
           ${local.busy?progressHtml(local.waitStatus||local.candidateStatus):''}${candidateHtml()}${local.error?`<div class="pv4-error" role="alert">${htmlEscape(local.error)}<button type="button" class="icon-btn" data-pv4-dismiss aria-label="关闭提示">${icon('x')}</button></div>`:''}
-          ${local.session?`<section class="pv4-review">${local.page?.duplicateRows?`<p class="pv4-dialog-note">发现 ${htmlEscape(local.page.duplicateRows)} 条重复商品内容，原行已全部保留。</p>`:''}<div class="pv4-toolbar">${filterHtml()}<div class="pv4-actions"><span>${selected?`已选 ${selected} 条`:`本页 ${array(local.page?.rows).length} 条`}</span><button type="button" class="btn" data-pv4-batch ${!selected||local.busy?'disabled':''}>${icon('layers')}批量处理所选</button>${local.undo?`<button type="button" class="btn ghost" data-pv4-undo ${local.busy?'disabled':''}>${icon('undo-2')}撤销</button>`:''}</div></div>${tableHtml()}${pagerHtml()}</section>`:`<div class="pv4-empty"><h2>等待商品规格文件</h2><p>选择 Excel 后，系统会自动识别并在这里集中复核。</p></div>`}
+          ${local.session&&!local.manual?autoHtml():local.session?`<section class="pv4-review"><button type="button" class="btn ghost" data-pv4-auto>返回自动处理</button>${local.page?.duplicateRows?`<p class="pv4-dialog-note">发现 ${htmlEscape(local.page.duplicateRows)} 条重复商品内容，原行已全部保留。</p>`:''}<div class="pv4-toolbar">${filterHtml()}<div class="pv4-actions"><span>${selected?`已选 ${selected} 条`:`本页 ${array(local.page?.rows).length} 条`}</span><button type="button" class="btn" data-pv4-batch ${!selected||local.busy?'disabled':''}>${icon('layers')}批量处理所选</button>${local.undo?`<button type="button" class="btn ghost" data-pv4-undo ${local.busy?'disabled':''}>${icon('undo-2')}撤销</button>`:''}</div></div>${tableHtml()}${pagerHtml()}</section>`:`<div class="pv4-empty"><h2>等待商品规格文件</h2><p>自动识别材质、厚度和尺寸，仅在需要时请你补充。</p></div>`}
         </div>
       </div>`;
+    }
+
+    function autoHtml(){
+      if(local.busy)return '';
+      const p=local.page;if(!p)return '';
+      const pending=countValue(p,'pending'),total=countValue(p,'total');
+      const message=p.rulesStale?'规则已变化，需要重新校验':p.ready?'已自动识别完成':total===0?'文件中没有可导出的商品规格':`还有 ${pending} 条规格需要补充`;
+      return `<section class="pv4-auto-result" data-pv4-auto-result><span class="pv4-auto-icon">${icon(p.ready?'circle-check':'file-search')}</span><h2>${message}</h2><p>共 ${total} 条规格 · 已确认 ${countValue(p,'confirmed')} 条</p>${p.duplicateRows?`<p>发现 ${p.duplicateRows} 条重复商品内容，已全部保留，可在手动调整中核对。</p>`:''}<div class="pv4-auto-actions">${p.rulesStale?'<button type="button" class="btn primary" data-pv4-recompute>按当前规则重新校验</button>':p.ready?'<button type="button" class="btn primary" data-pv4-export>一键导出 Excel</button>':pending?'<button type="button" class="btn primary" data-pv4-attention>补充未识别信息</button>':''}<button type="button" class="btn ghost" data-pv4-manual>手动调整</button></div></section>`;
+    }
+    function openAttention(){
+      if(local.busy||local.dialog||local.manual||!local.page||local.page.ready||local.page.rulesStale)return;
+      const row=array(local.page.rows)[0];if(!row)return;
+      const field=Recognition.attentionField(row.derived),labels={material:'材质',size:'尺寸',thickness:'厚度'};
+      local.lastFocus=root.document?.activeElement;local.dialog={type:'attention',row,field,revision:local.session.revision};
+      let input='';
+      if(field==='material')input=`<label>选择材质<select name="attention-value" required>${materialOptions('',{allowBlank:false,compact:false})}</select></label>`;
+      if(field==='thickness')input=`<label>选择厚度<select name="attention-value" required>${thicknessOptions(materialId(row),'')}</select></label>`;
+      if(field==='size'){
+        const candidates=array(row.derived.size.candidates).map(value=>Recognition.parseDimensions(value)).filter(value=>value.status==='value');
+        const unique=[...new Map(candidates.map(value=>[value.label,value])).values()];local.dialog.sizes=unique;
+        input=`${unique.length?`<label>选择原文中的尺寸<select name="attention-size"><option value="">手动输入长宽</option>${unique.map((value,index)=>`<option value="${index}">${htmlEscape(value.label)} cm</option>`).join('')}</select></label>`:''}<div class="pv4-custom-size"><label>宽 / cm<input name="attention-width" type="number" min="0" max="10000" step="any"></label><label>长 / cm<input name="attention-length" type="number" min="0" max="10000" step="any"></label></div>`;
+      }
+      const sameGroup=field&&['material','thickness'].includes(field)&&fieldObject(row,field).reason==='missing'&&fieldObject(row,field).source!=='manual'&&row.missingPeers>1;
+      const scope=sameGroup?`<label class="pv4-overwrite"><input type="checkbox" name="attention-group" checked>应用到同一商品${field==='thickness'?'、相同材质':''}的 ${row.missingPeers} 条缺失${labels[field]}规格</label><p class="pv4-dialog-note">已有${labels[field]}、冲突值和人工确认值会保留。</p>`:'';
+      const body=`<p class="pv4-dialog-note">只需补充${labels[field]||'原表信息'}，其他识别结果已保留。</p><div class="pv4-attention-source">${sourceCell(row)}</div>${field?input+scope:`<p>${htmlEscape(array(row.derived.issues).map(i=>i.message).join('；'))}。${array(row.derived.issues).some(i=>i.code==='INVALID_RULE')?'请在可复用规则中补齐重量和成本，再返回重新校验。':'请修正原 Excel 后重新导入。'}</p>`}`;
+      const dialog=ensureDialog();dialog.innerHTML=field?dialogShell(`确认${labels[field]}`,body,'确认并继续'):`<div class="pv4-dialog-head"><h2 id="pv4-dialog-title">原表信息不完整</h2></div><div class="pv4-dialog-body">${body}</div><div class="pv4-dialog-foot"><button type="button" class="btn" data-pv4-dialog-close>知道了</button></div>`;
+      dialog.showModal();root.lucide?.createIcons?.();dialog.querySelector('select,input')?.focus();
+    }
+    async function submitAttention(form,error){
+      const snapshot={...local.dialog},field=snapshot.field,row=snapshot.row;let part;
+      if(field==='size'){
+        const selected=form.elements['attention-size']?.value,choice=selected!==undefined&&selected!==''?snapshot.sizes[Number(selected)]:null;
+        const width=choice?.width??number(form.elements['attention-width'].value),length=choice?.length??number(form.elements['attention-length'].value);
+        if(!(width>0&&width<=10000&&length>0&&length<=10000)){error.textContent='请选择尺寸或输入有效长宽（0–10000 cm）。';return;}part={mode:'value',width,length};
+      }else{
+        const value=form.elements['attention-value']?.value;if(!value){error.textContent='请选择需要补充的值。';return;}
+        part=field==='material'?{mode:'value',id:value}:{mode:'value',materialId:materialId(row),ruleId:value};
+      }
+      const group=!!form.elements['attention-group']?.checked;
+      const result=await applyReview({type:group?'group-fill-missing':'row-edit',groupId:group?row.groupId:undefined,rowIds:group?undefined:[row.rowId],patch:{[field]:part}});
+      if(!result){error.textContent=local.error||'未能保存，请重试。';return;}
+      closeDialog();local.offerAttention=true;scheduleRender();
+    }
+    async function recompute(){
+      if(local.busy||!local.session)return;beginWaiting('正在按当前规则重新校验');scheduleRender();
+      const session=local.session,sessionId=session.sessionId;
+      try{const result=await call('recompute',{sessionId,options:{ownerToken:local.session.ownerToken,expectedSessionRevision:local.session.revision}});if(local.session!==session)return;local.jobId=result.jobId;local.jobKind='review';await waitForMutation(result.jobId,session);local.offerAttention=true;await refreshPage({silent:true});}
+      catch(error){if(local.session===session)local.error=safeMessage(error,'重新校验失败，请重试。');}
+      finally{if(local.session===session){local.busy=false;local.jobId='';local.jobKind='';scheduleRender();}}
     }
 
     function ensureDialog(){
       if(!root.document)return null;
       let dialog=root.document.getElementById('product-v4-dialog');
-      if(!dialog){dialog=root.document.createElement('dialog');dialog.id='product-v4-dialog';dialog.className='pv4-dialog';dialog.setAttribute('aria-labelledby','pv4-dialog-title');root.document.body.append(dialog);dialog.addEventListener('click',dialogClick);dialog.addEventListener('change',dialogChange);dialog.addEventListener('input',dialogInput);dialog.addEventListener('close',()=>{if(dialog.open)return;local.dialog=null;local.lastFocus?.focus?.({preventScroll:true});local.lastFocus=null;});}
+      if(!dialog){dialog=root.document.createElement('dialog');dialog.id='product-v4-dialog';dialog.className='pv4-dialog';dialog.setAttribute('aria-labelledby','pv4-dialog-title');root.document.body.append(dialog);dialog.addEventListener('cancel',event=>{if(local.busy)event.preventDefault();});dialog.addEventListener('click',dialogClick);dialog.addEventListener('change',dialogChange);dialog.addEventListener('input',dialogInput);dialog.addEventListener('close',()=>{if(dialog.open)return;local.dialog=null;local.lastFocus?.focus?.({preventScroll:true});local.lastFocus=null;});}
       return dialog;
     }
-    function closeDialog(){const dialog=ensureDialog();if(dialog?.open)dialog.close();}
+    function closeDialog(force=false){if(!force&&local.busy&&local.dialog?.type==='attention')return;const dialog=ensureDialog();local.dialog=null;if(dialog?.open)dialog.close();}
     function dialogShell(title,body,submitLabel='应用修改'){
       return `<form method="dialog" data-pv4-dialog-form><div class="pv4-dialog-head"><h2 id="pv4-dialog-title">${htmlEscape(title)}</h2><button type="button" class="icon-btn" data-pv4-dialog-close aria-label="关闭">${icon('x')}</button></div><div class="pv4-dialog-body">${body}<p class="pv4-dialog-error" role="alert" data-pv4-dialog-error></p></div><div class="pv4-dialog-foot"><button type="button" class="btn ghost" data-pv4-dialog-close>取消</button><button type="submit" class="btn primary">${htmlEscape(submitLabel)}</button></div></form>`;
     }
@@ -440,7 +509,8 @@
       const headers=array(sheet?.header?.headers),mapping=sheetMapping(sheet),issues=sheetIssues(sheet);
       if(!headers.length){notify('所选工作表没有可用表头');return;}
       local.lastFocus=root.document.activeElement;local.dialog={type:'mapping',continueImport,sheetId:text(sheet.sheetId||sheet.id),revision:local.candidate?.revision,baseMapping:Object.fromEntries(Object.entries(mapping).filter(([,value])=>Number.isInteger(value)))};
-      const fields=Object.entries(REQUIRED_PRODUCT_FIELDS).map(([key,label])=>`<label>${label}<select name="map-${htmlEscape(key)}"><option value="">未选择</option>${headers.map((header,index)=>`<option value="${index}" ${mapping[key]===index?'selected':''}>第 ${index+1} 列 · ${htmlEscape(header||'空表头')}</option>`).join('')}</select></label>`).join('');
+      local.dialog.fields=continueImport?issues:Object.keys(REQUIRED_PRODUCT_FIELDS);
+      const fields=local.dialog.fields.map(key=>[key,REQUIRED_PRODUCT_FIELDS[key]]).map(([key,label])=>`<label>${label}<select name="map-${htmlEscape(key)}"><option value="">未选择</option>${headers.map((header,index)=>`<option value="${index}" ${mapping[key]===index?'selected':''}>第 ${index+1} 列 · ${htmlEscape(header||'空表头')}${sheet.header?.samples?.[index]?.length?' · 例：'+htmlEscape(sheet.header.samples[index].join(' / ')):''}</option>`).join('')}</select></label>`).join('');
       const dialog=ensureDialog();dialog.innerHTML=dialogShell('确认商品字段',`<p class="pv4-dialog-note">${htmlEscape(sheet.name||'工作表')}：${issues.length?'请补充或确认 '+issues.map(key=>REQUIRED_PRODUCT_FIELDS[key]).join('、')+'；其余字段已自动识别。':'字段已自动识别，可在这里手动核对。'}</p><div class="pv4-mapping-grid">${fields}</div>`,continueImport?'确认并继续':'保存字段');dialog.showModal();root.lucide?.createIcons?.();dialog.querySelector('select')?.focus();
     }
     function openPicker({field,rowId='',groupId=''}){
@@ -475,12 +545,14 @@
     function dialogInput(event){if(event.target.name==='picker-search'&&local.dialog?.type==='picker'){local.dialog.query=event.target.value;renderPickerResults(event.currentTarget);}}
     async function dialogSubmit(event){
       const form=event.target;if(!form.matches('[data-pv4-dialog-form]')||!local.dialog)return;
-      event.preventDefault();const error=form.querySelector('[data-pv4-dialog-error]');error.textContent='';
+      event.preventDefault();if(local.busy)return;const error=form.querySelector('[data-pv4-dialog-error]');error.textContent='';
       const currentRevision=local.dialog.type==='mapping'?local.candidate?.revision:local.session?.revision;
       if(local.dialog.revision!==currentRevision){error.textContent='复核数据已更新，请关闭后重新选择。';return;}
       let patch,overwrite=false;
+      if(local.dialog.type==='replace'){const file=local.dialog.file;closeDialog();await startImport(file,true);return;}
+      if(local.dialog.type==='attention'){await submitAttention(form,error);return;}
       if(local.dialog.type==='mapping'){
-        const requiredMapping={};for(const key of Object.keys(REQUIRED_PRODUCT_FIELDS)){const value=form.elements[`map-${key}`]?.value;if(value===''){error.textContent=`请选择${REQUIRED_PRODUCT_FIELDS[key]}对应的列。`;return;}requiredMapping[key]=Number(value);}if(new Set(Object.values(requiredMapping)).size!==Object.keys(requiredMapping).length){error.textContent='同一列不能同时对应多个必需字段。';return;}const mapping={...local.dialog.baseMapping,...requiredMapping};
+        const requiredMapping=Object.fromEntries(Object.keys(REQUIRED_PRODUCT_FIELDS).filter(key=>Number.isInteger(local.dialog.baseMapping[key])).map(key=>[key,local.dialog.baseMapping[key]]));for(const key of local.dialog.fields){const value=form.elements[`map-${key}`]?.value;if(value==null||value===''){error.textContent=`请选择${REQUIRED_PRODUCT_FIELDS[key]}对应的列。`;return;}requiredMapping[key]=Number(value);}if(new Set(Object.values(requiredMapping)).size!==Object.keys(requiredMapping).length){error.textContent='同一列不能同时对应多个必需字段。';return;}const mapping={...local.dialog.baseMapping,...requiredMapping};
         const snapshot={...local.dialog};local.sheetMappings[snapshot.sheetId]=mapping;closeDialog();scheduleRender();if(snapshot.continueImport)await chooseSheet();return;
       }else if(local.dialog.type==='custom-size'){
         const width=number(form.elements['custom-width'].value),length=number(form.elements['custom-length'].value);
@@ -493,7 +565,7 @@
         if(material===BLANK&&thickness!==KEEP){error.textContent='材质保留为空时，厚度必须保持原值。';return;}
         if([material,thickness,size].every(value=>value===KEEP)){error.textContent='请选择至少一个需要修改的字段。';return;}
       }
-      const snapshot={...local.dialog};closeDialog();await applyReview({type:snapshot.type==='batch'?'selected-batch':'row-edit',rowIds:snapshot.rowIds,patch,overwrite});
+      const snapshot={...local.dialog};const result=await applyReview({type:snapshot.type==='batch'?'selected-batch':'row-edit',rowIds:snapshot.rowIds,patch,overwrite});if(result)closeDialog();else error.textContent=local.error;
     }
 
     async function rowFieldChange(select){
@@ -551,6 +623,10 @@
     }
     async function documentClick(event){
       const button=event.target.closest?.('[data-product-v4] button');if(!button)return;
+      if(button.matches('[data-pv4-manual]')){closeDialog();local.manual=true;local.offerAttention=false;local.page=null;local.pageNumber=1;await refreshPage();return;}
+      if(button.matches('[data-pv4-auto]')){local.manual=false;local.offerAttention=true;local.page=null;await refreshPage();return;}
+      if(button.matches('[data-pv4-attention]')){openAttention();return;}
+      if(button.matches('[data-pv4-recompute]')){await recompute();return;}
       if(button.matches('[data-pv4-filter]')){local.filter=button.dataset.pv4Filter;local.pageNumber=1;local.selected.clear();await refreshPage();return;}
       if(button.matches('[data-pv4-more]')){local.moreOpen=!local.moreOpen;scheduleRender();return;}
       if(button.matches('[data-pv4-missing]')){local.missingThickness=!local.missingThickness;local.pageNumber=1;local.selected.clear();await refreshPage();return;}
@@ -585,6 +661,7 @@
     function activate(context={}){
       local.active=true;refreshContext(context,{render:false});bind();ensureDialog();syncChecks();waitingLoader.activate(root.document?.querySelector('[data-product-v4]'));root.lucide?.createIcons?.();
       if(local.session&&!local.page&&!local.busy)refreshPage();
+      else if(local.offerAttention&&!local.manual&&!local.busy&&!local.dialog&&!local.candidate){local.offerAttention=false;openAttention();}
       return api;
     }
     function deactivate(){
@@ -594,13 +671,13 @@
     function refreshContext(context={},settings={}){
       const previousWorkspace=text(local.context.workspaceId),previousEpoch=text(local.context.storageEpoch);local.context={...local.context,...context};
       if((previousWorkspace&&text(local.context.workspaceId)!==previousWorkspace)||(previousEpoch&&text(local.context.storageEpoch)!==previousEpoch)){
-        clearPoll();local.session=null;local.candidate=null;local.candidateStatus=null;local.page=null;local.selected.clear();local.busy=false;local.jobId='';local.jobKind='';local.undo=null;local.error='工作区已切换，请重新选择商品规格文件。';
+        clearPoll();local.contextSerial++;local.requestSerial++;closeDialog(true);local.session=null;local.candidate=null;local.candidateStatus=null;local.page=null;local.selected.clear();local.busy=false;local.jobId='';local.jobKind='';local.undo=null;local.error='工作区已切换，请重新选择商品规格文件。';
       }
       if(settings.render!==false)scheduleRender();return api;
     }
     async function restoreSession(session){
       if(!session?.sessionId||!session?.ownerToken)throw Error('文件会话信息不完整');
-      clearPoll();local.session={...session};local.candidate=null;local.candidateStatus=null;local.page=null;local.pageNumber=1;local.filter='all';local.missingThickness=false;local.moreOpen=false;local.selected.clear();local.undo=null;local.error='';
+      clearPoll();local.contextSerial++;local.requestSerial++;local.manual=false;local.offerAttention=true;local.busy=false;local.jobId='';local.session={...session};local.candidate=null;local.candidateStatus=null;local.page=null;local.pageNumber=1;local.filter='all';local.missingThickness=false;local.moreOpen=false;local.selected.clear();local.undo=null;local.error='';
       await refreshPage();return api;
     }
     function isBusy(){return local.busy||!!local.jobId;}
@@ -612,7 +689,7 @@
       if(local.listeners&&root.document){root.document.removeEventListener('dragenter',documentDragOver);root.document.removeEventListener('dragover',documentDragOver);root.document.removeEventListener('dragleave',documentDragLeave);root.document.removeEventListener('drop',documentDrop);root.document.removeEventListener('dragend',resetDrop);}
       local.dialog=null;root.document?.getElementById('product-v4-dialog')?.remove();
     }
-    function inspect(){return {session:local.session&&{...local.session},candidate:local.candidate&&{...local.candidate},filter:local.filter,missingThickness:local.missingThickness,pageNumber:local.pageNumber,selected:[...local.selected],busy:isBusy()};}
+    function inspect(){return {manual:local.manual,session:local.session&&{...local.session},candidate:local.candidate&&{...local.candidate},filter:local.filter,missingThickness:local.missingThickness,pageNumber:local.pageNumber,selected:[...local.selected],busy:isBusy()};}
 
     const api={html,activate,deactivate,refreshContext,restoreSession,refresh:refreshPage,isBusy,canQuit,destroy,inspect};
     return api;
