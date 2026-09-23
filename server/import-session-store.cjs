@@ -232,8 +232,7 @@ class ImportSessionStore{
       if(!changed)throw new SessionError(422,'没有可保存的变更。','NO_CHANGES');
       this.finishMutationGroups(generation);this.setMeta('revision',revision);this.setMeta('lastOperation',{operationId,revision,rulesFingerprint:meta.rulesFingerprint});
       const summary={mutationId:command.mutationId,operationId,revision,changed,protected:protectedCount,counts:this.counts(generation)};
-      this.db.prepare('INSERT INTO receipts VALUES(?,?,?,?)').run(command.mutationId,digest(command),JSON.stringify(summary),now());
-      this.db.prepare('DELETE FROM receipts WHERE mutation_id IN (SELECT mutation_id FROM receipts ORDER BY created DESC LIMIT -1 OFFSET 1000)').run();
+      this.saveReceipt(command,summary);
       this.db.prepare('DELETE FROM operation_changes WHERE operation_id<>?').run(operationId);
       return summary;
     });

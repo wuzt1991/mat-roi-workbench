@@ -23,6 +23,13 @@ async function fixture(t,{kind='product'}={}){
   return {dataDir,state,workspace,service,request,created,id,directory,open,rules,command:{ownerToken:created.ownerToken,expectedSessionRevision:0,mutationId:'review-1',rowIds:[1],action:{type:'row-edit'},patch:{size:{mode:'blank'}}}};
 }
 const rejectedCode=(code)=>error=>error?.code===code;
+test('failed recompute receipt rolls back the published generation, decisions and revision together',async t=>{
+ const f=await fixture(t),s=f.open(),before=s.page(),reviews=s.db.prepare('SELECT * FROM reviews').all();
+ const material=f.rules.materials.find(m=>m.name==='硅藻泥'),rule=material.weightRules.find(r=>Number(r.thickness)===5);
+ s.saveReceipt=()=>{throw Error('injected receipt failure');};
+ assert.throws(()=>s.rebuildDerived(f.rules,{applyUniformThickness:true,thicknessDefaults:{[material.id]:rule.id},command:{ownerToken:f.created.ownerToken,expectedSessionRevision:0,mutationId:'failed-receipt'}}),/injected receipt failure/);
+ assert.deepEqual(s.page(),before);assert.deepEqual(s.db.prepare('SELECT * FROM reviews').all(),reviews);assert.equal(s.db.prepare('SELECT count(*) n FROM receipts').get().n,0);s.close();
+});
 test('mutation outcome lookup is read-only, owner-bound and rejects changed request content',async t=>{
  const f=await fixture(t),url=`/api/file-sessions/${f.id}/mutation-status`;
  assert.equal((await f.request('POST',url,{kind:'review',command:f.command})).value.state,'not-committed');

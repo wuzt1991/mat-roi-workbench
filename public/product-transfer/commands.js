@@ -55,7 +55,15 @@
       const token=serial,promise=execute(pending,token);inFlight=promise;
       return promise.finally(()=>{if(inFlight===promise)inFlight=null;});
     }
-    return {run,reset,uncertain,inspect:()=>pending&&copy({kind:pending.kind,phase:pending.phase,command:pending.command})};
+    async function reconcile(){
+      const record=pending,token=serial;if(!record)return null;
+      const status=await probe(record);if(token!==serial)throw failure('STALE_CONTEXT','当前操作上下文已切换。');
+      if(status.state==='committed'){pending=null;return {committed:true,result:status.result};}
+      if(status.state==='not-committed'){record.phase='retryable';return {committed:false};}
+      if(status.state==='conflict'){pending=null;throw failure('SESSION_CONFLICT','数据已变化，请保留输入并重新核对。');}
+      throw failure('OUTCOME_UNKNOWN',status.state==='running'?'操作仍在处理，请稍后再次核对。':'操作结果暂时无法确认，请稍后再次核对。');
+    }
+    return {run,reconcile,reset,uncertain,inspect:()=>pending&&copy({kind:pending.kind,phase:pending.phase,command:pending.command})};
   }
   return {create};
 });

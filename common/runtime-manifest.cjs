@@ -3,7 +3,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-const APP_VERSION = '1.2.10';
+const APP_VERSION = '1.2.11';
 
 // This is the only application-file allowlist used by both supported packagers.
 // Keep entries explicit: a newly added runtime module must be reviewed here before
@@ -49,6 +49,9 @@ const RUNTIME_FILES = Object.freeze([
   'public/product-recognition.js',
   'public/product-transfer.js',
   'public/product-transfer/commands.js',
+  'public/product-transfer/model.js',
+  'public/product-transfer/controller.js',
+  'public/product-transfer/views.js',
   'public/product-transfer-ui.js',
   'public/product-transfer-ui.css',
   'public/lattice-loader.js',

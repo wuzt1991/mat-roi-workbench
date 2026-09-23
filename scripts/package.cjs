@@ -25,6 +25,7 @@ function npmExecutable() {
 
 async function main() {
   const args=process.argv.slice(2),value=name=>{const i=args.indexOf(name);return i<0?undefined:args[i+1];};
+  for(let i=0;i<args.length;i+=2)if(!['--platform','--output'].includes(args[i])||!args[i+1]||args[i+1].startsWith('--'))throw new Error('Expected --platform darwin|win32 and/or --output DIRECTORY');
   const selected=value('--platform');
   if(selected&&!['darwin','win32'].includes(selected))throw new Error('--platform must be darwin or win32');
   const output=path.resolve(value('--output')||path.join(root,'dist',version));
