@@ -7,14 +7,17 @@ const M=require('../public/domain.js');
 const appSource=fs.readFileSync(path.join(__dirname,'../public/app.js'),'utf8');
 
 test('区域运费编辑器显示并锁定内置区域计费方式',()=>{
-  assert.ok(appSource.includes("const shippingTypeLabels={regional:'区域重量分档（内置）'"));
-  assert.ok(appSource.includes("const shippingTypeOptions=type=>type==='regional'?[['regional',shippingTypeLabels.regional]]"));
-  assert.ok(appSource.includes("shippingTypeLabels[t.type]||'未知计费方式'"));
-  assert.ok(appSource.includes("aria-label=\"计费方式\" ${d.type==='regional'?'disabled':''}"));
+  const views=require('../public/rules-views.js'),state=M.initialState();
+  const form=views.create({state,modal:{type:'shipping',draft:state.shippingTemplates[0]}}).shippingForm();
+  assert.match(form[1],/aria-label="计费方式" disabled/);
+  assert.deepEqual(views.shippingTypeOptions('regional'),[['regional','区域重量分档（内置）']]);
+  assert.match(views.create({state}).shippingList(),/区域重量分档（内置）/);
 });
 
 test('保存区域模板时保留区域费率和计费类型',()=>{
-  assert.ok(appSource.includes("if(existing?.type==='regional')Object.assign(t,{type:'regional',provider:existing.provider,rates:M.clone(existing.rates),ignoreWaybillFee:existing.ignoreWaybillFee})"));
+  const state=M.initialState(),original=state.shippingTemplates[0];
+  const next=require('../public/rules-editor.js').save(state,{type:'shipping',id:original.id,draft:{...M.clone(original),type:'fixed',fee:0,rates:{}}}).state.shippingTemplates[0];
+  for(const key of ['type','provider','rates','ignoreWaybillFee'])assert.deepEqual(next[key],original[key]);
 });
 
 test('当前默认值使用区域重量分档运费',()=>{

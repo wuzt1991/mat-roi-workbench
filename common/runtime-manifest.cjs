@@ -3,7 +3,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-const APP_VERSION = '1.2.11';
+const APP_VERSION = '1.2.12';
 
 // This is the only application-file allowlist used by both supported packagers.
 // Keep entries explicit: a newly added runtime module must be reviewed here before
@@ -31,16 +31,30 @@ const RUNTIME_FILES = Object.freeze([
 
   'public/index.html',
   'public/app.js',
+  'public/compatibility.js',
   'public/domain.js',
   'public/domain-v3.js',
   'public/legacy-domain.js',
   'public/pricing-rules.js',
   'public/reusable-rules.js',
+  'public/ui-format.js',
+  'public/rules-views.js',
+  'public/shell-views.js',
+  'public/rules-editor.js',
+  'public/workbench-shell.js',
   'public/promotion-rules.js',
   'public/sales-import.js',
+  'public/sales-import/model.js',
+  'public/sales-import/controller.js',
+  'public/sales-import/views.js',
   'public/sales-import-ui.js',
   'public/sales-import-ui.css',
   'public/trends.js',
+  'public/operating-records/queries.js',
+  'public/operating-records/views.js',
+  'public/operating-records/entry-views.js',
+  'public/operating-records/entries.js',
+  'public/operating-records/controller.js',
   'public/operating-records.js',
   'public/operating-records.css',
   'public/trends-v3.js',

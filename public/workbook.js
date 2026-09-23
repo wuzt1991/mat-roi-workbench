@@ -1,5 +1,6 @@
 (function(root){
   'use strict';
+  const Compatibility=typeof module==='object'?require('./compatibility.js'):root.WorkbenchCompatibility;
   const M=typeof module==='object'?require('./domain.js'):root.MatModel;
   const T=typeof module==='object'?require('./transfer.js'):root.MatTransfer;
   const Trends=typeof module==='object'?require('./trends.js'):root.MatTrends;
@@ -10,7 +11,7 @@
   const clean=v=>v===undefined||v===null||typeof v==='number'&&!Number.isFinite(v)?'':v;
   const status=h=>h.kind==='snapshot'?'旧版试算':({confirmed:'已入账',superseded:'已更正',void:'已作废'}[h.status]);
   function tables(s,format=6){
-    if(format<5)return Old.tables(s,format);
+    if(Compatibility.workbookTables(format)==='v3')return Old.tables(s,format);
     const shop=id=>s.shops.find(x=>x.id===id)?.name||'',material=id=>s.materials.find(x=>x.id===id),shipping=id=>s.shippingTemplates.find(x=>x.id===id);
     const splitPlans=format>=3;
     const legacyShippingRows=t=>t.type==='tiers'?t.tiers.map((v,i)=>[t.name,'重量分档',i?t.tiers[i-1].upTo:0,v.upTo,v.fee,'','','','','按重量所在档收取整单运费',t.active?'启用':'停用']):[[t.name,t.type==='fixed'?'固定运费':'首重续重',t.type==='step'?0:'',t.maxWeight,t.fee,t.firstWeight,t.firstFee,t.stepWeight,t.stepFee,t.type==='step'?'不足一个续重按一个计费':'每单固定收取',t.active?'启用':'停用']];
@@ -91,7 +92,7 @@
     if(!sheet||sheet.getCell('A1').value!=='MAT-ROI-XLSX'||![1,2,3,4,5,6].includes(sheet.getCell('B1').value))throw Error('请选择由工作台导出的完整或按范围 Excel 备份');
     if(sheet.rowCount>2000)throw Error('备份过大，请按店铺或日期分批导出后导入');
     let json='';for(let r=2;r<=sheet.rowCount;r++){if(sheet.getCell(r,1).value!==r-2||typeof sheet.getCell(r,2).value!=='string')throw Error('恢复数据不完整');json+=sheet.getCell(r,2).value;}
-    const state=JSON.parse(json),format=sheet.getCell('B1').value,model=format<5?((state.version===4)?M:OldM):M,transfer=format<5?((state.version===4)?T:OldT):T;if(format>=5&&state.version!==4||format<5&&![3,4].includes(state.version)||!model.validateBackup(state)||!transfer.validScope(state))throw Error('账目、范围或成本校验未通过，当前工作区保留');
+    const state=JSON.parse(json),format=sheet.getCell('B1').value,model=Compatibility.workbookData(format,state)==='v3'?OldM:M,transfer=Compatibility.workbookData(format,state)==='v3'?OldT:T;if(!Compatibility.workbookVersionValid(format,state)||!model.validateBackup(state)||!transfer.validScope(state))throw Error('账目、范围或成本校验未通过，当前工作区保留');
     for(const [name,rows] of tables(state,sheet.getCell('B1').value)){
       const ws=book.getWorksheet(name);if(!ws||ws.rowCount!==rows.length)throw Error('工作表已被改动，请使用未修改的原始备份恢复');
       rows.forEach((row,r)=>row.forEach((v,c)=>{const actual=clean(ws.getCell(r+1,c+1).value);if(typeof v==='number'&&typeof actual==='number'?Math.abs(v-actual)>1e-9*Math.max(1,Math.abs(v)):v!==actual)throw Error(`“${name}”已被改动，请使用未修改的原始备份恢复`);}));

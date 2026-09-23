@@ -8,7 +8,8 @@ async function verifyProductGroups({page,out,label,record,upload,setup,choose,co
  assert.equal(await page.locator('.pv6-product').count(),3);assert.equal(await page.locator('[data-pv4-row]').count(),0);assert.match(await first().innerText(),/120 条 SKU/);assert.match(await first().innerText(),/LINK-001/);
  await page.screenshot({path:path.join(out,`groups-collapsed-${label}.png`)});
  await first().locator('[data-pv6-expand]').click();await idle();assert.equal(await page.locator('[data-pv4-row]').count(),100);await page.locator('[data-pv6-sku-page="2"]').click();await idle();assert.equal(await page.locator('[data-pv4-row]').count(),20);
- let lostRowWrites=0;await page.route('**/api/file-sessions/*/reviews',async route=>{lostRowWrites++;await route.fetch();await route.abort('failed');},{times:1});
+ // Keep CDP interception active while the receipt request reconciles a lost response.
+ let lostRowWrites=0;await page.route('**/api/file-sessions/*/reviews',async route=>{lostRowWrites++;await route.fetch();await route.abort('failed');});
  await page.locator('[data-pv5-edit="120"]').click();await dialog.locator('[name=edit-thickness]').selectOption(r5.id);await dialog.locator('button[type=submit]').click();await page.waitForFunction(()=>!document.querySelector('#product-v4-dialog').open);assert.match(await first().locator('.pv6-product-summary').innerText(),/多种厚度/);
  assert.equal(lostRowWrites,1);await page.unroute('**/api/file-sessions/*/reviews');
  await page.screenshot({path:path.join(out,`groups-expanded-${label}.png`)});

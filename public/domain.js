@@ -1,5 +1,6 @@
 'use strict';
 (function(root) {
+  const Compatibility=typeof module==='object'?require('./compatibility.js'):root.WorkbenchCompatibility;
   const Legacy=typeof module==='object'?require('./legacy-domain.js'):root.LegacyMatModel;
   const V3=typeof module==='object'?require('./domain-v3.js'):root.MatModelV3;
   const Pricing=typeof module==='object'?require('./pricing-rules.js'):root.PricingRules;
@@ -143,7 +144,7 @@
   }
 
   function calculate(state,plan,overrides={}) {
-    if(state.calculationVersion!==4&&state.version!==4)return V3.calculate(state,plan,overrides);
+    if(Compatibility.calculation(state)==='v3')return V3.calculate(state,plan,overrides);
     const p=normalizeParams({...plan.params,...overrides}),mat=state.materials.find(m=>m.id===plan.materialId),rule=materialRule(mat,plan),template=state.shippingTemplates.find(t=>t.id===plan.shippingId),errors=[];
     if(!mat||!nonnegative(mat.price))errors.push('请选择材料并填写单价');
     if(rule&&!nonnegative(rule.costPerSqm))errors.push('请填写非负且有效的材料规则成本');
@@ -188,7 +189,7 @@
     return {valid,errors:[...new Set(errors)],rows,total,price,cost,margin,netMargin,refundTotal:summary.refundTotal,shippedRefund:summary.shippedRefund,refundRates:{unshipped:summary.unshipped,shippedOnly:summary.shippedOnly,returnRefund:summary.returnRefund,firstHour:summary.firstHour},otherFeeScope:p.otherFeeScope,roi:valid&&margin>0?price/margin:null,netRoi:valid&&netMargin>0?price/netMargin:null,rate:valid&&price>0?margin/price:null,gmv,receivedSales:valid&&gmv!==null?gmv*summary.paidRatio:null,profit:valid?profit:null,orders,investment:valid?investment:null,revenue:sum('revenue'),netRevenue:sum('netRevenue'),goods:sum('goods'),shipping:sum('shipping'),fees:sum('fees'),tax:sum('tax'),other:sum('other')};
   }
   function makeFrame(state,plan) {
-    if(state.version!==4)return V3.makeFrame(state,plan);
+    if(Compatibility.frame(state)==='v3')return V3.makeFrame(state,plan);
     const {history,...values}=plan,result=calculate(state,plan),items=plan.items.map((item,i)=>({...item,price:result.rows[i].price,materialId:item.materialId||plan.materialId,materialRuleId:item.materialRuleId||plan.materialRuleId||''})),ids=new Set([plan.materialId,...items.map(i=>i.materialId)]);
     const materials=state.materials.filter(m=>ids.has(m.id)).map(m=>{const copy=clone(m),used=new Set(items.filter(i=>i.materialId===m.id).map(i=>i.materialRuleId).filter(Boolean));if(m.id===plan.materialId&&plan.materialRuleId)used.add(plan.materialRuleId);for(const rule of copy.weightRules||[])if(used.has(rule.id)&&Number.isFinite(Number(rule.costPerSqm))){copy.price=Number(rule.costPerSqm);break;}return copy;});
     return clone({calculationVersion:4,plan:{...values,params:normalizeParams(values.params),items},materials,sizes:state.sizes.filter(s=>items.some(i=>i.sizeId===s.id)),shippingTemplates:state.shippingTemplates.filter(t=>t.id===plan.shippingId),pricingStrategies:state.pricingStrategies.filter(x=>x.id===plan.strategyId),promotionSchemes:state.promotionSchemes.filter(x=>x.id===plan.promotionSchemeId)});
@@ -239,9 +240,9 @@
     });return s;
   }
   function migrate(input){
-    if(!input||![1,2,3,4].includes(input.version))throw Error('不支持此工作区版本');
-    if(input.version===4&&validateBackup(input))return clone(input);
-    const source=input.version===3?clone(input):input.version===4?(()=>{const v=clone(input);v.version=3;for(const p of v.plans||[]){p.params=normalizeParams(p.params);delete p.strategyId;delete p.promotionSchemeId;delete p.salesSource;}return v;})():legacyToV3(input);
+    const route=Compatibility.workspace(input);
+    if(route==='current'&&validateBackup(input))return clone(input);
+    const source=route==='v3'?clone(input):route==='current'?(()=>{const v=clone(input);v.version=3;for(const p of v.plans||[]){p.params=normalizeParams(p.params);delete p.strategyId;delete p.promotionSchemeId;delete p.salesSource;}return v;})():legacyToV3(input);
     if(!V3.validateBackup(source)||!validRecordResults(source))throw Error('旧备份未通过检查，原数据保留');
     const s=clone(source),maps=new Map();s.version=4;s.pricingStrategies=[];s.sizeSchemes=[];s.promotionSchemes=[];
     for(const key of ['materials','sizes','shippingTemplates'])for(const value of s[key])value.deleted=false;
