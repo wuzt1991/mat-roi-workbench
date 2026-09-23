@@ -9,7 +9,7 @@
   const status=id=>request('GET',`/api/file-sessions/${encodeURIComponent(id)}`);
   const sessions=()=>request('GET','/api/file-sessions');
   const selectSheet=(id,input)=>request('POST',`/api/file-sessions/${encodeURIComponent(id)}/select-sheet`,{...input,ownerToken:input.ownerToken||owner(id)});
-  function rows(id,{status='all',missingThickness=false,page=1,pageSize=100,attention=false}={}){const query=new URLSearchParams({attention:attention?'1':'0',status,missingThickness:missingThickness?'1':'0',page:String(page),pageSize:String(pageSize)});return request('GET',`/api/file-sessions/${encodeURIComponent(id)}/rows?${query}`);}
+  function rows(id,{status='all',missingThickness=false,page=1,pageSize=100,attention=false,search='',materialPage=1,view='rows',groupId=''}={}){const query=new URLSearchParams({view,groupId,materialPage:String(materialPage),search,attention:attention?'1':'0',status,missingThickness:missingThickness?'1':'0',page:String(page),pageSize:String(pageSize)});return request('GET',`/api/file-sessions/${encodeURIComponent(id)}/rows?${query}`);}
   function salesAggregates(id,{page=1,pageSize=100}={}){const query=new URLSearchParams({page:String(page),pageSize:String(pageSize)});return request('GET',`/api/file-sessions/${encodeURIComponent(id)}/sales-aggregates?${query}`);}
   const salesCandidate=(id,input)=>request('POST',`/api/file-sessions/${encodeURIComponent(id)}/sales-candidate`,{...input,ownerToken:input.ownerToken||owner(id)});
   const salesReview=(id,input)=>request('POST',`/api/file-sessions/${encodeURIComponent(id)}/sales-reviews`,{...input,ownerToken:input.ownerToken||owner(id)});

@@ -43,7 +43,7 @@ async function run(jobType,payload,context){
     const store=new ImportSessionStore(context.sessionDirectory);try{return store.applyReview(payload.command||payload,payload.rules||store.getMeta('rules',{}));}finally{store.close();}
   }
   if(jobType==='recompute'){
-    const store=new ImportSessionStore(context.sessionDirectory);try{const rules=payload.rules,old=store.metadata();if(!rules)throw new SessionError(400,'缺少重算规则。','RULES_REQUIRED');const result=store.rebuildDerived(rules,{...common});store.updateMeta({artifact:null,lastOperation:null,rulesFingerprint:digest(rules)});return {...result,revision:old.revision,recomputed:true};}finally{store.close();}
+    const store=new ImportSessionStore(context.sessionDirectory);try{const rules=payload.rules,old=store.metadata();if(!rules)throw new SessionError(400,'缺少重算规则。','RULES_REQUIRED');const result=store.rebuildDerived(rules,{...common,applyUniformThickness:payload.applyUniformThickness===true,materialAssignments:payload.materialAssignments||{},fallbackMaterialId:payload.fallbackMaterialId||'',...(Object.hasOwn(payload,'thicknessDefaults')?{thicknessDefaults:payload.thicknessDefaults}:{})});store.updateMeta({artifact:null,lastOperation:null,rulesFingerprint:digest(rules)});return {...result,revision:store.getMeta('revision',old.revision),recomputed:true};}finally{store.close();}
   }
   if(jobType==='export-product')return exportProduct({sessionDirectory:context.sessionDirectory,templatePath:context.templatePath,outputPath:context.outputPath,...common});
   if(jobType==='export-rescue')return rescue({sessionDirectory:context.sessionDirectory,outputPath:context.outputPath});

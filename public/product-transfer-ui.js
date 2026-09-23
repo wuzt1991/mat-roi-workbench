@@ -42,6 +42,7 @@
   const money=value=>number(value)===null?'—':`¥${Number(value).toFixed(2)}`;
   const countValue=(page,key)=>{
     const counts=page?.counts||{};
+    if(key==='all'&&Number.isFinite(Number(counts.total)))return Number(counts.total);
     if(Number.isFinite(Number(counts[key])))return Number(counts[key]);
     if(counts.status&&Number.isFinite(Number(counts.status[key])))return Number(counts.status[key]);
     return key==='all'?Number(page?.total||0):0;
@@ -77,8 +78,8 @@
     const notify=typeof options.toast==='function'?options.toast:()=>{};
     const waitingLoader=Loader.create();
     const local={
-      manual:false,offerAttention:false,contextSerial:0,context:{},session:null,candidate:null,candidateStatus:null,page:null,pageNumber:1,
-      filter:'all',missingThickness:false,moreOpen:false,selected:new Set(),
+      setup:false,setupDirty:false,setupSession:'',uniformChoices:{},materialAssignments:{},assignmentCounts:{},unknownMaterial:'',materialPage:1,manual:false,offerAttention:false,contextSerial:0,context:{},session:null,candidate:null,candidateStatus:null,page:null,pageNumber:1,
+      expandedGroupId:'',groupPage:1,groupRows:null,search:'',preferencesKey:'',thicknessDefaults:{},filter:'all',missingThickness:false,moreOpen:false,selected:new Set(),
       busy:false,waitStartedAt:0,waitLabel:'',waitStatus:null,jobId:'',jobKind:'',error:'',requestSerial:0,pollTimer:0,dialog:null,lastFocus:null,
       sheetSelection:new Set(),sheetMappings:{},selectionInitialized:false,undo:null,active:false,destroyed:false,listeners:false
     };
@@ -135,16 +136,30 @@
       const serial=++local.requestSerial,sessionId=local.session.sessionId;
       if(!silent){beginWaiting('正在读取复核列表');local.error='';scheduleRender();}
       try{
-        const page=await call('rows',{sessionId:local.session.sessionId,query:{attention:!local.manual,status:local.filter,missingThickness:local.missingThickness,page:local.pageNumber,pageSize:PAGE_SIZE}});
+        const page=await call('rows',{sessionId:local.session.sessionId,query:{view:local.manual?'products':'rows',materialPage:local.materialPage,search:local.search,attention:!local.manual,status:local.filter,missingThickness:local.missingThickness,page:local.pageNumber,pageSize:PAGE_SIZE}});
         if(serial!==local.requestSerial||local.session?.sessionId!==sessionId)return;
         const totalPages=Math.max(1,Number(page?.totalPages)||Math.ceil((Number(page?.total)||0)/PAGE_SIZE)||1);
         if(local.pageNumber>totalPages){local.pageNumber=totalPages;return refreshPage({silent:true});}
+        local.pageNumber=Number(page?.page)||local.pageNumber;
         local.page={...page,page:Number(page?.page)||local.pageNumber,pageSize:PAGE_SIZE,totalPages};
         local.session.revision=Number(page?.revision??local.session.revision);
+        if(local.manual){
+          if(local.expandedGroupId&&!array(page.groups).some(g=>g.groupId===local.expandedGroupId))resetGroup();
+          if(!local.expandedGroupId&&local.search&&array(page.groups).length===1)local.expandedGroupId=page.groups[0].groupId;
+          local.groupRows=null;
+          if(local.expandedGroupId){
+            const groupId=local.expandedGroupId,detail=await call('rows',{sessionId,query:{groupId,search:local.search,status:local.filter,page:local.groupPage,pageSize:PAGE_SIZE}});
+            if(serial!==local.requestSerial||local.session?.sessionId!==sessionId||local.expandedGroupId!==groupId)return;
+            if(detail.revision!==page.revision)throw Error('商品数据已更新，请重新展开。');
+            local.groupRows=detail;local.groupPage=detail.page;
+          }
+        }
         reconcileSelection(page?.rows);
       }catch(error){if(serial===local.requestSerial)local.error=safeMessage(error,'复核列表读取失败。');}
       finally{if(serial===local.requestSerial){local.busy=false;scheduleRender();}}
     }
+
+    function resetGroup(){local.expandedGroupId='';local.groupPage=1;local.groupRows=null;}
 
     function candidateReady(status){return TERMINAL_PHASES.has(text(status?.phase).toLowerCase())||status?.ready===true;}
     function candidateFailed(status){return FAILED_PHASES.has(text(status?.phase).toLowerCase())||FAILED_PHASES.has(text(status?.job?.state).toLowerCase())||!!status?.error||!!status?.job?.error;}
@@ -200,7 +215,7 @@
       const candidate=local.candidate;
       beginWaiting('正在读取商品规格');local.error='';scheduleRender();
       try{
-        const options={selections,rules:stateRules(),ownerToken:local.candidate.ownerToken,expectedSessionRevision:Number(local.candidateStatus?.revision??local.candidate.revision)};
+        const options={selections,rules:stateRules(),requireThicknessSetup:true,ownerToken:local.candidate.ownerToken,expectedSessionRevision:Number(local.candidateStatus?.revision??local.candidate.revision)};
         const result=await call('selectSheet',{sessionId:local.candidate.sessionId,options});
         if(local.candidate!==candidate)return;local.candidateStatus={...local.candidateStatus,phase:'importing'};
         local.jobId=text(result?.jobId);local.jobKind='import';scheduleRender();queuePoll(pollCandidate,300);
@@ -217,7 +232,7 @@
         await call('accept',{...candidate,revision:page.revision,fileKind:'product'});
         if(local.candidate!==candidate)return;
         local.session={...candidate,revision:Number(page.revision??candidate.revision)};
-        local.candidate=null;local.candidateStatus=null;local.page=page;local.pageNumber=1;local.filter='all';local.missingThickness=false;local.moreOpen=false;local.selected.clear();local.undo=null;local.manual=false;local.offerAttention=true;local.requestSerial++;
+        local.candidate=null;local.candidateStatus=null;local.page=page;local.pageNumber=1;local.filter='all';local.missingThickness=false;local.moreOpen=false;local.selected.clear();local.undo=null;local.setup=true;local.setupSession='';local.setupDirty=false;local.manual=false;local.search='';resetGroup();local.offerAttention=false;local.requestSerial++;
         if(previous)call('discard',{sessionId:previous.sessionId,ownerToken:previous.ownerToken}).catch(()=>{});
       }catch(error){if(contextSerial!==local.contextSerial)return;local.error=safeMessage(error,'校验失败，当前文件已保留。');}
       finally{if(contextSerial===local.contextSerial){local.busy=false;local.jobId='';local.jobKind='';scheduleRender();}}
@@ -352,48 +367,6 @@
       const name=rawValue(row,'productName','name');const spec=rawValue(row,'specName','spec','skuName');
       return `<p class="pv4-product-name">${htmlEscape(name||'未命名商品')}</p><p class="pv4-product-spec">${htmlEscape(spec||'未提供规格')}</p><p class="pv4-source-id" title="${htmlEscape(rawIdentity(row))}">SKU ${htmlEscape(truncateId(rawIdentity(row)))}</p><p class="pv4-source-id">${htmlEscape(row.sheetName||'原表')} · 第 ${htmlEscape(row.sourceRow||row.rowId)} 行</p>`;
     }
-    function rowHtml(row){
-      const id=text(row.rowId),material=rowMaterialValue(row),thickness=thicknessId(row),status=statusLabel(row);
-      const weight=row?.derived?.weight, cost=row?.derived?.cost??row?.derived?.materialCost;
-      const width=row?.derived?.width??fieldObject(row,'size').width, length=row?.derived?.length??fieldObject(row,'size').length;
-      const sizeHint=reason(row,'size')||(width&&length?`${width} × ${length} cm`:'');
-      return `<tr data-pv4-row="${htmlEscape(id)}">
-        <td><input type="checkbox" name="product-row" aria-label="选择第 ${htmlEscape(row.sourceRow||id)} 行" data-pv4-select-row="${htmlEscape(id)}" ${local.selected.has(id)?'checked':''}></td>
-        <td>${sourceCell(row)}</td>
-        <td class="num"><strong>${money(rawValue(row,'price','salePrice'))}</strong><small>库存 ${htmlEscape(rawValue(row,'inventory','stock')??'—')}</small></td>
-        <td><select name="material-${htmlEscape(id)}" aria-label="第 ${htmlEscape(row.sourceRow||id)} 行材质" class="${selectClass(row,'material')}" data-pv4-row-field="material" data-row-id="${htmlEscape(id)}">${materialOptions(material)}</select>${reason(row,'material')?`<small class="pv4-cell-hint">${htmlEscape(reason(row,'material'))}</small>`:''}</td>
-        <td><select name="thickness-${htmlEscape(id)}" aria-label="第 ${htmlEscape(row.sourceRow||id)} 行厚度" class="${selectClass(row,'thickness')}" data-pv4-row-field="thickness" data-row-id="${htmlEscape(id)}" ${!material||material===BLANK?'disabled':''}>${thicknessOptions(material,thickness)}</select>${reason(row,'thickness')?`<small class="pv4-cell-hint">${htmlEscape(reason(row,'thickness'))}</small>`:''}</td>
-        <td><select name="size-${htmlEscape(id)}" aria-label="第 ${htmlEscape(row.sourceRow||id)} 行尺寸" class="${selectClass(row,'size')}" data-pv4-row-field="size" data-row-id="${htmlEscape(id)}">${sizeOptions(row)}</select>${sizeHint?`<small class="pv4-cell-hint">${htmlEscape(sizeHint)}</small>`:''}</td>
-        <td class="num"><strong>${number(weight)===null?'—':Number(weight).toFixed(3)+' kg'}</strong><small>${money(cost)}</small></td>
-        <td><span class="pv4-status ${status[1]}">${status[0]}</span></td>
-      </tr>`;
-    }
-    function groupHtml(group,rows){
-      const id=text(group?.groupId||rows[0]?.groupId),productId=text(group?.productId||rawValue(rows[0],'productId','platformProductId'));
-      const platform=text(group?.platform||rawValue(rows[0],'platform'));const shop=text(group?.shop||rawValue(rows[0],'shop','shopName'));
-      const visible=rows.length,total=Number.isFinite(Number(group?.total))?Number(group.total):visible,hidden=Math.max(0,Number.isFinite(Number(group?.hidden))?Number(group.hidden):total-visible);
-      const ids=rows.map(row=>text(row.rowId)),selectedCount=ids.filter(rowId=>local.selected.has(rowId)).length;
-      const material=currentMaterial(group,rows),mixed=group?.materialState==='mixed'||group?.materialState==='pending'||typeof group?.materialState==='object'&&['mixed','pending'].includes(group.materialState.status);
-      const thicknessState=group?.thicknessState,rule=text(group?.materialRuleId||group?.thicknessRuleId||thicknessState?.ruleId||(typeof thicknessState==='string'&&thicknessState.includes(':')?thicknessState.slice(thicknessState.indexOf(':')+1):''));
-      return `<tr class="pv4-group-row" data-group-id="${htmlEscape(id)}">
-        <td><input type="checkbox" name="product-group" aria-label="选择本页该商品的 ${visible} 个规格" data-pv4-select-group="${htmlEscape(id)}" data-group-rows="${htmlEscape(ids.join(','))}" ${selectedCount===ids.length&&ids.length?'checked':''}></td>
-        <td colspan="2"><div class="pv4-group-title"><strong title="${htmlEscape(productId)}">${htmlEscape(truncateId(productId))}</strong><span>同链接批量处理</span></div><small>${htmlEscape(platform||'平台未填')} · ${htmlEscape(shop||'店铺未填')} · 全组 ${total} 个 SKU${hidden?`，当前隐藏 ${hidden} 个`:''}${!productId?' · 身份不全，仅处理本行':''}</small></td>
-        <td><select name="group-material-${htmlEscape(id)}" aria-label="统一该商品全部 SKU 的材质" class="pv4-select" data-pv4-group-field="material" data-group-id="${htmlEscape(id)}">${materialOptions(material)}</select></td>
-        <td><select name="group-thickness-${htmlEscape(id)}" aria-label="统一该商品全部 SKU 的厚度" class="pv4-select" data-pv4-group-field="thickness" data-group-id="${htmlEscape(id)}" data-material-id="${htmlEscape(material)}" ${mixed||!material||material===BLANK?'disabled':''}>${thicknessOptions(material,rule)}</select></td>
-        <td colspan="3"><small>材质与厚度会应用到全组；各 SKU 尺寸保持不变。</small></td>
-      </tr>`;
-    }
-    function tableHtml(){
-      const rows=array(local.page?.rows);if(!rows.length)return '<div class="pv4-empty"><h2>当前筛选没有规格</h2><p>筛选结果为空不代表整张表已完成复核。</p></div>';
-      const groups=normalizeGroupMap(local.page);let lastGroup='',body='';
-      for(const row of rows){const groupId=text(row.groupId);if(groupId!==lastGroup){const groupRows=rows.filter(item=>text(item.groupId)===groupId);body+=groupHtml(groups.get(groupId)||{groupId},groupRows);lastGroup=groupId;}body+=rowHtml(row);}
-      return `<div class="pv4-table-scroll"><table class="pv4-table"><caption class="sr-only">商品规格复核</caption><thead><tr><th><input type="checkbox" name="product-page" aria-label="选择当前页全部规格" data-pv4-select-page></th><th>商品与规格原文</th><th class="num">平台售价</th><th>材质</th><th>厚度</th><th>尺寸</th><th class="num">重量与成本</th><th>状态</th></tr></thead><tbody>${body}</tbody></table></div>`;
-    }
-    function filterButton(key,label){return `<button type="button" class="pv4-filter" data-pv4-filter="${key}" aria-pressed="${local.filter===key}">${label}<span>${countValue(local.page,key)}</span></button>`;}
-    function filterHtml(){
-      const missingActive=local.missingThickness;
-      return `<div class="pv4-filter-group" role="group" aria-label="复核状态筛选">${filterButton('all','全部规格')}${filterButton('pending','待复核')}${filterButton('confirmed','已确认')}${local.moreOpen?`<button type="button" class="pv4-filter" data-pv4-missing aria-pressed="${missingActive}">未写厚度<span>${countValue(local.page,'missingThickness')}</span></button><button type="button" class="pv4-filter pv4-collapse" data-pv4-more aria-expanded="true" aria-controls="pv4-extra-filter" aria-label="收起更多筛选">${icon('chevron-left')}</button>`:`<button type="button" class="pv4-filter pv4-more ${missingActive?'active':''}" data-pv4-more aria-expanded="false" aria-controls="pv4-extra-filter">更多筛选${missingActive?'<span>1</span>':''}${icon('chevron-right')}</button>`}</div>`;
-    }
     function progressHtml(status){
       const progressState=status?.job?.progress||status?.progress||{};
       const completed=number(progressState.bytesRead??progressState.rowsCommitted??progressState.rowsRead);
@@ -415,66 +388,85 @@
     }
     function pagerHtml(){
       if(!local.page||local.page.totalPages<=1)return '';
-      return `<nav class="pv4-pager" aria-label="商品规格分页"><button type="button" class="icon-btn" data-pv4-page="${local.pageNumber-1}" aria-label="上一页" ${local.pageNumber<=1?'disabled':''}>${icon('chevron-left')}</button><span>第 ${local.pageNumber} / ${local.page.totalPages} 页 · 共 ${local.page.total} 条</span><button type="button" class="icon-btn" data-pv4-page="${local.pageNumber+1}" aria-label="下一页" ${local.pageNumber>=local.page.totalPages?'disabled':''}>${icon('chevron-right')}</button></nav>`;
+      return `<nav class="pv4-pager" aria-label="商品规格分页"><button type="button" class="icon-btn" data-pv4-page="${local.pageNumber-1}" aria-label="上一页" ${local.pageNumber<=1?'disabled':''}>${icon('chevron-left')}</button><span>第 ${local.pageNumber} / ${local.page.totalPages} 页 · 共 ${local.page.total} ${local.manual?'个商品':'条'}</span><button type="button" class="icon-btn" data-pv4-page="${local.pageNumber+1}" aria-label="下一页" ${local.pageNumber>=local.page.totalPages?'disabled':''}>${icon('chevron-right')}</button></nav>`;
+    }
+    function thicknessSetup(){return !!local.session&&(local.setup||local.page?.thicknessConfigured===false);}
+    function summary(){return local.page?.materialSummary||{materials:[],unknown:0,unknownGroups:[],groupCount:0,page:1,totalPages:1};}
+    function loadPreferences(){
+      const current=target(),key=`mat-product-thickness:${current.workspaceId}:${current.storageEpoch||''}`;
+      if(local.preferencesKey===key)return;local.preferencesKey=key;local.thicknessDefaults={};
+      try{const value=JSON.parse(root.localStorage?.getItem(key)||'{}');if(value&&typeof value==='object'&&!Array.isArray(value))local.thicknessDefaults=value;}catch{}
+    }
+    function setupMaterials(){
+      const counts=new Map(summary().materials.map(m=>[m.materialId,m.count]));
+      if(local.unknownMaterial&&![CUSTOM,KEEP].includes(local.unknownMaterial))counts.set(local.unknownMaterial,(counts.get(local.unknownMaterial)||0)+summary().unknown);
+      for(const [groupId,id] of Object.entries(local.unknownMaterial===CUSTOM?local.materialAssignments:{}))if(id&&id!==KEEP)counts.set(id,(counts.get(id)||0)+(local.assignmentCounts[groupId]||0));
+      return [...counts].map(([id,count])=>({material:materialById(id),count})).filter(x=>x.material&&!x.material.deleted);
+    }
+    function initializeSetup(){
+      loadPreferences();if(local.setupSession===local.session?.sessionId)return;
+      local.setupSession=local.session?.sessionId||'';local.uniformChoices={...local.thicknessDefaults,...local.page?.thicknessDefaults};local.materialAssignments={};local.assignmentCounts={};local.unknownMaterial='';local.materialPage=1;local.setupDirty=false;
+    }
+    function fileInput(label='选择 Excel',primary=false){return `<label class="btn ${primary?'primary':''} pv4-file-button">${icon('file-up')}${label}<input type="file" name="product-file" accept=".xlsx" aria-label="选择商品 Excel 文件" data-pv4-file ${local.busy?'disabled':''}></label>`;}
+    function unknownHtml(){
+      const s=summary();if(!s.unknown)return '';
+      const example=array(s.unknownGroups).slice(0,3).map(g=>g.productName).join('、');
+      const options=materialOptions([CUSTOM,KEEP].includes(local.unknownMaterial)?'':local.unknownMaterial,{allowBlank:false,compact:false}).replace('请选择材质','请选择这些商品的材质');
+      const groups=local.unknownMaterial===CUSTOM?`<div class="pv5-unknown-list">${array(s.unknownGroups).map(g=>`<label class="pv5-unknown-row"><span><strong>${htmlEscape(g.productName)}</strong><small>${htmlEscape(g.examples.join(' / '))} · ${g.count} 条规格</small></span><select name="group-material" aria-label="${htmlEscape(g.productName)}的材质" data-pv5-assign="${htmlEscape(g.groupId)}" ${local.busy?'disabled':''}>${materialOptions(local.materialAssignments[g.groupId]===KEEP?'':local.materialAssignments[g.groupId]||'',{allowBlank:false,compact:false})}<option value="${KEEP}" ${local.materialAssignments[g.groupId]===KEEP?'selected':''}>复杂情况，稍后处理</option></select></label>`).join('')}</div>${s.totalPages>1?`<div class="pv5-material-pager"><button type="button" class="btn ghost" data-pv5-material-page="${s.page-1}" ${s.page<=1||local.busy?'disabled':''}>上一页</button><span>${s.page} / ${s.totalPages} 页</span><button type="button" class="btn ghost" data-pv5-material-page="${s.page+1}" ${s.page>=s.totalPages||local.busy?'disabled':''}>下一页</button></div>`:''}`:'';
+      return `<section class="pv5-unknown"><div><h3>先确认 ${s.unknown} 条规格的材质</h3><p>原文未标明材质，或同时出现多个材质。${htmlEscape(example)}${s.groupCount>3?'等':''}。</p></div><label class="pv5-unknown-choice"><span>这些商品的材质</span><select name="unknown-material" data-pv5-unknown ${local.busy?'disabled':''}>${options}<option value="${CUSTOM}" ${local.unknownMaterial===CUSTOM?'selected':''}>材质不同，分别指定</option><option value="${KEEP}" ${local.unknownMaterial===KEEP?'selected':''}>复杂情况，稍后手动处理</option></select></label>${groups}</section>`;
+    }
+    function setupHtml(){
+      initializeSetup();const entries=setupMaterials();
+      return `<section class="pv5-setup" data-pv5-setup><div class="pv5-section-title"><h2>为这份表统一材质和厚度</h2><p>每种材质只选一次，应用到对应的全部商品。</p></div>${unknownHtml()}<form data-pv5-uniform-form><div class="pv5-material-list">${entries.map(({material,count})=>{const selected=local.uniformChoices[material.id]||'',available=active(material.weightRules);return `<label class="pv5-material-row"><span><strong>${htmlEscape(material.name)}</strong><small>${count} 条规格</small></span><span class="pv5-thickness-field"><span>统一厚度</span><select name="uniform-${htmlEscape(material.id)}" aria-label="${htmlEscape(material.name)}统一厚度" data-pv5-uniform="${htmlEscape(material.id)}" ${local.busy?'disabled':''}>${thicknessOptions(material.id,selected)}${available.length?'':'<option value="__later__">暂无厚度规则，稍后处理</option>'}</select></span></label>`;}).join('')||(!summary().unknown?'<p class="pv5-note">没有可统一的材质，可继续查看结果。</p>':'')}</div><div class="pv5-step-foot"><p>选定厚度会覆盖原表厚度。少数不同厚度的商品，可在下一步单独修改。</p><div>${local.page?.thicknessConfigured?'<button type="button" class="btn ghost" data-pv5-cancel-setup>取消</button>':''}<button type="submit" class="btn primary" ${local.busy?'disabled':''}>确认并生成${icon('arrow-right')}</button></div></div></form></section>`;
+    }
+    function resultHtml(){
+      const p=local.page;if(!p)return '';const pending=countValue(p,'pending'),total=countValue(p,'total');
+      return `<section class="pv5-result" data-pv4-auto-result><div class="pv5-result-title">${icon(p.ready?'circle-check':'file-check')}<h2>${p.rulesStale?'规则已更新，需要重新计算':p.ready?'商品表已准备好':`还需处理 ${pending} 条特殊规格`}</h2><p>${total} 条规格 · ${countValue(p,'confirmed')} 条已完成</p></div><div class="pv5-applied">${setupMaterialsFromPage().map(({name,label,count})=>`<p><strong>${htmlEscape(name)}</strong><span>${htmlEscape(label)}</span><small>${count} 条</small></p>`).join('')}</div><div class="pv5-result-actions">${p.rulesStale?'<button type="button" class="btn primary" data-pv4-recompute>按当前规则重新计算</button>':p.ready?'<button type="button" class="btn primary" data-pv4-export>一键导出 Excel</button>':'<button type="button" class="btn primary" data-pv5-pending>处理特殊规格</button>'}<button type="button" class="btn ${p.ready?'':'ghost'}" data-pv4-manual>手动调整</button></div><button type="button" class="btn ghost pv5-reset" data-pv5-setup>重新统一厚度</button>${p.duplicateRows?`<p class="pv5-note">原表有 ${p.duplicateRows} 条重复内容，已按原样保留。</p>`:''}</section>`;
+    }
+    function setupMaterialsFromPage(){
+      return summary().materials.map(item=>{
+        const material=materialById(item.materialId),thicknesses=array(summary().thicknesses).map(t=>({rule:material?.weightRules?.find(r=>`${item.materialId}:${r.id}`===t.value),count:t.count})).filter(t=>t.rule),covered=thicknesses.reduce((n,t)=>n+t.count,0);
+        const label=thicknesses.length>1?'多种厚度（已单独调整）':thicknesses.length?thicknessLabel(thicknesses[0].rule)+(covered<item.count?' · 部分待确认':''):'厚度待确认';
+        return {name:material?.name||'未知材质',label,count:item.count};
+      });
+    }
+    function searchHtml(){return `<form class="pv5-search" data-pv4-search-form role="search">${icon('search')}<input type="search" name="product-search" aria-label="搜索商品" placeholder="搜索商品名称、ID、SKU 或规格" maxlength="200" value="${htmlEscape(local.search)}" ${local.busy?'disabled':''}><button type="submit" class="btn" ${local.busy?'disabled':''}>搜索</button>${local.search?'<button type="button" class="btn ghost" data-pv4-clear-search>清除</button>':''}</form>`;}
+    function groupValues(group){
+      const material=materialById(group.materialState),rule=material?.weightRules?.find(r=>`${material.id}:${r.id}`===group.thicknessState);
+      return `${material?.name||(group.materialState==='mixed'?'多种材质':'材质待确认')} · ${rule?thicknessLabel(rule):group.thicknessState==='mixed'?'多种厚度':'厚度待确认'}`;
+    }
+    function skuHtml(row){
+      const d=row.derived,status=statusLabel(row),material=materialById(materialId(row)),rule=material?.weightRules?.find(r=>r.id===thicknessId(row));
+      return `<article class="pv5-item pv6-sku" data-pv4-row="${row.rowId}"><div class="pv5-item-source"><h4>${htmlEscape(d.specName||'未命名规格')}</h4><small>SKU ${htmlEscape(d.skuId||'未提供')} · ${htmlEscape(row.sheetName)}第 ${row.sourceRow} 行</small></div><div class="pv5-item-values"><p>${htmlEscape(material?.name||'材质待确认')} · ${htmlEscape(rule?thicknessLabel(rule):'厚度待确认')}</p><small>${htmlEscape(d.size?.label||'尺寸待确认')} · ${number(d.weight)===null?'重量待计算':Number(d.weight).toFixed(3)+' kg'} · ${money(d.cost)}</small>${d.issues?.length?`<small class="pv5-item-issue">${htmlEscape(d.issues.map(i=>i.message).join('；'))}</small>`:''}</div><div class="pv5-item-action"><span class="pv4-status ${status[1]}">${status[0]}</span><button type="button" class="btn" data-pv5-edit="${row.rowId}" ${local.busy?'disabled':''}>修改</button></div></article>`;
+    }
+    function groupDetailHtml(group,index){
+      const page=local.groupRows;
+      return `<div class="pv6-skus" id="pv6-skus-${index}" role="region" aria-label="${htmlEscape(group.productName)}的 SKU">${page?`<p class="pv6-sku-count">${local.search||local.filter!=='all'?`符合筛选 ${page.total} 条 / 商品共 ${group.total} 条 SKU`:`共 ${group.total} 条 SKU`}</p>${array(page.rows).map(skuHtml).join('')||'<p class="pv5-note">当前筛选下没有 SKU。</p>'}${page.totalPages>1?`<nav class="pv4-pager" aria-label="商品内 SKU 分页"><button type="button" class="btn ghost" data-pv6-sku-page="${page.page-1}" ${page.page<=1||local.busy?'disabled':''}>上一页 SKU</button><span>SKU 第 ${page.page} / ${page.totalPages} 页</span><button type="button" class="btn ghost" data-pv6-sku-page="${page.page+1}" ${page.page>=page.totalPages||local.busy?'disabled':''}>下一页 SKU</button></nav>`:''}`:`<p class="pv5-note" role="status">${local.busy?'正在读取 SKU…':'SKU 未能加载，可收起后重新展开。'}</p>`}</div>`;
+    }
+    function manualHtml(){
+      const groups=array(local.page?.groups),counts=local.page?.productCounts||{};
+      return `<section class="pv5-manual"><div class="pv5-manual-head"><div><h2>手动调整</h2><p>按商品统一材质和厚度，展开后可单独修改 SKU。</p></div><button type="button" class="btn" data-pv4-auto>完成调整</button></div>${searchHtml()}<div class="pv5-list-tools"><div role="group" aria-label="商品筛选"><button type="button" class="btn ghost" data-pv4-filter="all" aria-pressed="${local.filter==='all'}">全部 ${counts.total??0} 个商品</button><button type="button" class="btn ghost" data-pv4-filter="pending" aria-pressed="${local.filter==='pending'}">待处理 ${counts.pending??0}</button></div><span>${local.search?`找到 ${local.page?.total||0} 个商品 · ${local.page?.matchedRows||0} 条 SKU`:`共 ${countValue(local.page,'total')} 条 SKU`}</span></div>${local.undo?'<div class="pv6-undo" role="status">已统一修改商品<button type="button" class="btn ghost" data-pv6-undo>撤销这次修改</button></div>':''}<div class="pv6-products">${groups.map((g,index)=>{const expanded=local.expandedGroupId===g.groupId;return `<article class="pv6-product" data-pv6-product="${htmlEscape(g.groupId)}"><div class="pv6-product-head"><button type="button" class="pv6-disclosure" data-pv6-expand="${htmlEscape(g.groupId)}" aria-expanded="${expanded}" ${expanded?`aria-controls="pv6-skus-${index}"`:''} ${local.busy?'disabled':''}>${icon(expanded?'chevron-down':'chevron-right')}<span><strong>${htmlEscape(g.productName)}</strong><small>${htmlEscape(g.platform)} · ${htmlEscape(g.shop)} · 商品 ${htmlEscape(g.productId||'ID 未提供')} · ${g.total} 条 SKU</small></span></button><div class="pv6-product-summary"><p>${htmlEscape(groupValues(g))}</p><span class="pv4-status ${g.pending?'pending':'confirmed'}">${g.pending?`${g.pending} 条待处理`:'全部已确认'}</span></div><button type="button" class="btn" data-pv6-unify="${htmlEscape(g.groupId)}" ${local.busy?'disabled':''}>统一修改</button></div>${expanded?groupDetailHtml(g,index):''}</article>`;}).join('')||'<div class="pv5-no-results"><h3>没有匹配的商品</h3><p>换个关键词，或清除搜索查看全部。</p></div>'}</div>${pagerHtml()}</section>`;
     }
     function html(){
-      const selected=local.selected.size;const ready=!!local.page?.ready;
-      return `<div class="product-v4" data-product-v4>
-        <div class="page-header"><div class="page-heading"><h1>商品转表</h1><p class="page-sub">拖入商品表，自动识别完成即可导出。</p></div>${local.manual?`<button type="button" class="btn primary" data-pv4-export ${!ready||local.busy?'disabled':''}>${icon('download')}一键导出 Excel</button>`:''}</div>
-        <div class="wide-content pv4-content">
-          <section class="pv4-upload" data-pv4-dropzone aria-label="商品 Excel 上传区域" aria-disabled="${local.busy}"><div><h2>ERP 商品规格</h2><p class="pv4-drop-hint"><span>拖入一个 .xlsx 文件，或点击选择 Excel。</span><strong>松开即可导入 Excel</strong></p>${local.session?`<p class="pv4-current-file">当前会话 ${htmlEscape(local.session.filename||local.session.sessionId)}</p>`:''}</div><label class="btn pv4-file-button">${icon('file-up')}选择 Excel<input type="file" name="product-file" accept=".xlsx" aria-label="选择商品 Excel 文件" data-pv4-file ${local.busy?'disabled':''}></label></section>
-          ${local.busy?progressHtml(local.waitStatus||local.candidateStatus):''}${candidateHtml()}${local.error?`<div class="pv4-error" role="alert">${htmlEscape(local.error)}<button type="button" class="icon-btn" data-pv4-dismiss aria-label="关闭提示">${icon('x')}</button></div>`:''}
-          ${local.session&&!local.manual?autoHtml():local.session?`<section class="pv4-review"><button type="button" class="btn ghost" data-pv4-auto>返回自动处理</button>${local.page?.duplicateRows?`<p class="pv4-dialog-note">发现 ${htmlEscape(local.page.duplicateRows)} 条重复商品内容，原行已全部保留。</p>`:''}<div class="pv4-toolbar">${filterHtml()}<div class="pv4-actions"><span>${selected?`已选 ${selected} 条`:`本页 ${array(local.page?.rows).length} 条`}</span><button type="button" class="btn" data-pv4-batch ${!selected||local.busy?'disabled':''}>${icon('layers')}批量处理所选</button>${local.undo?`<button type="button" class="btn ghost" data-pv4-undo ${local.busy?'disabled':''}>${icon('undo-2')}撤销</button>`:''}</div></div>${tableHtml()}${pagerHtml()}</section>`:`<div class="pv4-empty"><h2>等待商品规格文件</h2><p>自动识别材质、厚度和尺寸，仅在需要时请你补充。</p></div>`}
-        </div>
-      </div>`;
+      loadPreferences();const step=!local.session?1:thicknessSetup()?2:3;
+      return `<div class="product-v4 product-v5" data-product-v4><div class="page-header"><div class="page-heading"><h1>商品转表</h1><p class="page-sub">导入商品表，统一厚度，确认导出。</p></div></div><div class="pv5-content"><ol class="pv5-steps" role="list">${['导入表格','材质与厚度','确认导出'].map((label,i)=>`<li ${step===i+1?'aria-current="step"':''} data-complete="${step>i+1}"><span>${i+1}</span>${label}</li>`).join('')}</ol>${local.session?`<section class="pv5-file" data-pv4-dropzone aria-label="商品 Excel 上传区域">${icon('file-spreadsheet')}<div><strong class="pv4-current-file">${htmlEscape(local.session.filename||'当前商品表')}</strong><p>${countValue(local.page,'total')} 条规格</p></div>${fileInput('换一份表')}</section>`:!local.busy&&!local.candidate?`<section class="pv5-upload" data-pv4-dropzone aria-label="商品 Excel 上传区域"><div class="pv4-drop-hint"><h2>把商品 Excel 拖到这里</h2><p>支持 .xlsx，导入后只需按材质统一一次厚度。</p><strong>松开即可导入 Excel</strong></div>${fileInput('选择 Excel',true)}</section>`:`<section class="pv5-file" data-pv4-dropzone aria-label="商品 Excel 上传区域"><strong>正在读取商品表</strong>${fileInput('选择 Excel')}</section>`}${local.busy?progressHtml(local.waitStatus||local.candidateStatus):''}${candidateHtml()}${local.error?`<div class="pv4-error" role="alert">${htmlEscape(local.error)}<button type="button" class="icon-btn" data-pv4-dismiss aria-label="关闭提示">${icon('x')}</button></div>`:''}${local.session&&!local.candidate?(thicknessSetup()?setupHtml():local.manual?manualHtml():local.busy?'':resultHtml()):''}</div></div>`;
     }
-
-    function autoHtml(){
-      if(local.busy)return '';
-      const p=local.page;if(!p)return '';
-      const pending=countValue(p,'pending'),total=countValue(p,'total');
-      const message=p.rulesStale?'规则已变化，需要重新校验':p.ready?'已自动识别完成':total===0?'文件中没有可导出的商品规格':`还有 ${pending} 条规格需要补充`;
-      return `<section class="pv4-auto-result" data-pv4-auto-result><span class="pv4-auto-icon">${icon(p.ready?'circle-check':'file-search')}</span><h2>${message}</h2><p>共 ${total} 条规格 · 已确认 ${countValue(p,'confirmed')} 条</p>${p.duplicateRows?`<p>发现 ${p.duplicateRows} 条重复商品内容，已全部保留，可在手动调整中核对。</p>`:''}<div class="pv4-auto-actions">${p.rulesStale?'<button type="button" class="btn primary" data-pv4-recompute>按当前规则重新校验</button>':p.ready?'<button type="button" class="btn primary" data-pv4-export>一键导出 Excel</button>':pending?'<button type="button" class="btn primary" data-pv4-attention>补充未识别信息</button>':''}<button type="button" class="btn ghost" data-pv4-manual>手动调整</button></div></section>`;
-    }
-    function openAttention(){
-      if(local.busy||local.dialog||local.manual||!local.page||local.page.ready||local.page.rulesStale)return;
-      const row=array(local.page.rows)[0];if(!row)return;
-      const field=Recognition.attentionField(row.derived),labels={material:'材质',size:'尺寸',thickness:'厚度'};
-      local.lastFocus=root.document?.activeElement;local.dialog={type:'attention',row,field,revision:local.session.revision};
-      let input='';
-      if(field==='material')input=`<label>选择材质<select name="attention-value" required>${materialOptions('',{allowBlank:false,compact:false})}</select></label>`;
-      if(field==='thickness')input=`<label>选择厚度<select name="attention-value" required>${thicknessOptions(materialId(row),'')}</select></label>`;
-      if(field==='size'){
-        const candidates=array(row.derived.size.candidates).map(value=>Recognition.parseDimensions(value)).filter(value=>value.status==='value');
-        const unique=[...new Map(candidates.map(value=>[value.label,value])).values()];local.dialog.sizes=unique;
-        input=`${unique.length?`<label>选择原文中的尺寸<select name="attention-size"><option value="">手动输入长宽</option>${unique.map((value,index)=>`<option value="${index}">${htmlEscape(value.label)} cm</option>`).join('')}</select></label>`:''}<div class="pv4-custom-size"><label>宽 / cm<input name="attention-width" type="number" min="0" max="10000" step="any"></label><label>长 / cm<input name="attention-length" type="number" min="0" max="10000" step="any"></label></div>`;
+    async function submitUniform(){
+      if(local.busy)return;initializeSetup();const s=summary(),entries=setupMaterials();
+      if(s.unknown&&!local.unknownMaterial){local.error='请先确认未识别商品的材质。';scheduleRender();return;}
+      if(local.unknownMaterial===CUSTOM&&Object.keys(local.materialAssignments).length<s.groupCount){local.error='请为未识别商品指定材质；复杂情况可选择稍后处理。';scheduleRender();return;}
+      const defaults={};for(const {material} of entries){const id=local.uniformChoices[material.id];if(!id){local.error=`请选择${material.name}的统一厚度。`;scheduleRender();return;}if(id!=='__later__')defaults[material.id]=id;}
+      try{Recognition.normalizeThicknessDefaults(defaults,stateRules());}catch(error){local.error=safeMessage(error);scheduleRender();return;}
+      const assignments=local.unknownMaterial===CUSTOM?Object.fromEntries(Object.entries(local.materialAssignments).filter(([,id])=>id!==KEEP)):{},fallbackMaterialId=local.unknownMaterial&&![CUSTOM,KEEP].includes(local.unknownMaterial)?local.unknownMaterial:'';
+      if(await recompute({thicknessDefaults:defaults,applyUniformThickness:true,materialAssignments:assignments,fallbackMaterialId})){
+        local.setup=false;local.setupDirty=false;local.manual=false;local.thicknessDefaults={...local.thicknessDefaults,...defaults};try{root.localStorage?.setItem(local.preferencesKey,JSON.stringify(local.thicknessDefaults));}catch{}scheduleRender();
       }
-      const sameGroup=field&&['material','thickness'].includes(field)&&fieldObject(row,field).reason==='missing'&&fieldObject(row,field).source!=='manual'&&row.missingPeers>1;
-      const scope=sameGroup?`<label class="pv4-overwrite"><input type="checkbox" name="attention-group" checked>应用到同一商品${field==='thickness'?'、相同材质':''}的 ${row.missingPeers} 条缺失${labels[field]}规格</label><p class="pv4-dialog-note">已有${labels[field]}、冲突值和人工确认值会保留。</p>`:'';
-      const body=`<p class="pv4-dialog-note">只需补充${labels[field]||'原表信息'}，其他识别结果已保留。</p><div class="pv4-attention-source">${sourceCell(row)}</div>${field?input+scope:`<p>${htmlEscape(array(row.derived.issues).map(i=>i.message).join('；'))}。${array(row.derived.issues).some(i=>i.code==='INVALID_RULE')?'请在可复用规则中补齐重量和成本，再返回重新校验。':'请修正原 Excel 后重新导入。'}</p>`}`;
-      const dialog=ensureDialog();dialog.innerHTML=field?dialogShell(`确认${labels[field]}`,body,'确认并继续'):`<div class="pv4-dialog-head"><h2 id="pv4-dialog-title">原表信息不完整</h2></div><div class="pv4-dialog-body">${body}</div><div class="pv4-dialog-foot"><button type="button" class="btn" data-pv4-dialog-close>知道了</button></div>`;
-      dialog.showModal();root.lucide?.createIcons?.();dialog.querySelector('select,input')?.focus();
     }
-    async function submitAttention(form,error){
-      const snapshot={...local.dialog},field=snapshot.field,row=snapshot.row;let part;
-      if(field==='size'){
-        const selected=form.elements['attention-size']?.value,choice=selected!==undefined&&selected!==''?snapshot.sizes[Number(selected)]:null;
-        const width=choice?.width??number(form.elements['attention-width'].value),length=choice?.length??number(form.elements['attention-length'].value);
-        if(!(width>0&&width<=10000&&length>0&&length<=10000)){error.textContent='请选择尺寸或输入有效长宽（0–10000 cm）。';return;}part={mode:'value',width,length};
-      }else{
-        const value=form.elements['attention-value']?.value;if(!value){error.textContent='请选择需要补充的值。';return;}
-        part=field==='material'?{mode:'value',id:value}:{mode:'value',materialId:materialId(row),ruleId:value};
-      }
-      const group=!!form.elements['attention-group']?.checked;
-      const result=await applyReview({type:group?'group-fill-missing':'row-edit',groupId:group?row.groupId:undefined,rowIds:group?undefined:[row.rowId],patch:{[field]:part}});
-      if(!result){error.textContent=local.error||'未能保存，请重试。';return;}
-      closeDialog();local.offerAttention=true;scheduleRender();
-    }
-    async function recompute(){
-      if(local.busy||!local.session)return;beginWaiting('正在按当前规则重新校验');scheduleRender();
-      const session=local.session,sessionId=session.sessionId;
-      try{const result=await call('recompute',{sessionId,options:{ownerToken:local.session.ownerToken,expectedSessionRevision:local.session.revision}});if(local.session!==session)return;local.jobId=result.jobId;local.jobKind='review';await waitForMutation(result.jobId,session);local.offerAttention=true;await refreshPage({silent:true});}
-      catch(error){if(local.session===session)local.error=safeMessage(error,'重新校验失败，请重试。');}
+    async function searchProducts(value){if(local.busy||!local.session)return;local.search=text(value).trim().slice(0,200);local.manual=true;local.filter='all';local.pageNumber=1;resetGroup();await refreshPage();}
+    async function recompute(extra={}){
+      if(local.busy||!local.session)return false;beginWaiting(extra.applyUniformThickness?'正在统一材质和厚度':'正在重新计算');local.error='';scheduleRender();const session=local.session;
+      try{const result=await call('recompute',{sessionId:session.sessionId,options:{...extra,ownerToken:session.ownerToken,expectedSessionRevision:session.revision}});if(local.session!==session)return false;local.jobId=result.jobId;local.jobKind='review';const finished=await waitForMutation(result.jobId,session);if(local.session!==session)return false;updateSessionRevision(finished);local.undo=null;await refreshPage({silent:true});return true;}
+      catch(error){if(local.session===session)local.error=safeMessage(error,'计算未完成，选择已保留，可重试。');return false;}
       finally{if(local.session===session){local.busy=false;local.jobId='';local.jobKind='';scheduleRender();}}
     }
 
@@ -484,108 +476,72 @@
       if(!dialog){dialog=root.document.createElement('dialog');dialog.id='product-v4-dialog';dialog.className='pv4-dialog';dialog.setAttribute('aria-labelledby','pv4-dialog-title');root.document.body.append(dialog);dialog.addEventListener('cancel',event=>{if(local.busy)event.preventDefault();});dialog.addEventListener('click',dialogClick);dialog.addEventListener('change',dialogChange);dialog.addEventListener('input',dialogInput);dialog.addEventListener('close',()=>{if(dialog.open)return;local.dialog=null;local.lastFocus?.focus?.({preventScroll:true});local.lastFocus=null;});}
       return dialog;
     }
-    function closeDialog(force=false){if(!force&&local.busy&&local.dialog?.type==='attention')return;const dialog=ensureDialog();local.dialog=null;if(dialog?.open)dialog.close();}
+    function closeDialog(force=false){if(!force&&local.busy)return;const dialog=ensureDialog();local.dialog=null;if(dialog?.open)dialog.close();}
     function dialogShell(title,body,submitLabel='应用修改'){
       return `<form method="dialog" data-pv4-dialog-form><div class="pv4-dialog-head"><h2 id="pv4-dialog-title">${htmlEscape(title)}</h2><button type="button" class="icon-btn" data-pv4-dialog-close aria-label="关闭">${icon('x')}</button></div><div class="pv4-dialog-body">${body}<p class="pv4-dialog-error" role="alert" data-pv4-dialog-error></p></div><div class="pv4-dialog-foot"><button type="button" class="btn ghost" data-pv4-dialog-close>取消</button><button type="submit" class="btn primary">${htmlEscape(submitLabel)}</button></div></form>`;
     }
-    function openBatch(){
-      const ids=[...local.selected];if(!ids.length)return;
-      const selectedRows=array(local.page?.rows).filter(row=>ids.includes(text(row.rowId))),materialIds=[...new Set(selectedRows.map(materialId).filter(Boolean))];
-      const uniformMaterial=materialIds.length===1?materialIds[0]:'';
-      local.lastFocus=root.document.activeElement;local.dialog={type:'batch',rowIds:ids,revision:local.session.revision};
-      const dialog=ensureDialog();dialog.innerHTML=dialogShell('批量处理所选',`<p class="pv4-dialog-note">本次固定处理当前选中的 ${ids.length} 条规格。默认只补待复核字段；勾选覆盖后才修改已确认值或留空。</p><div class="pv4-batch-grid">
-        <label>材质<select name="batch-material"><option value="${KEEP}">保持原值</option><option value="${BLANK}">保留为空</option>${materials().map(item=>`<option value="${htmlEscape(item.id)}">${htmlEscape(item.name)}</option>`).join('')}</select></label>
-        <label>厚度<select name="batch-thickness" data-current-material="${htmlEscape(uniformMaterial)}" ${uniformMaterial?'':'disabled'}><option value="${KEEP}">保持原值</option>${uniformMaterial?active(materialById(uniformMaterial)?.weightRules).map(rule=>`<option value="${htmlEscape(rule.id)}">${htmlEscape(thicknessLabel(rule))}</option>`).join(''):''}</select></label>
-        <label>尺寸<select name="batch-size"><option value="${KEEP}">保持原值</option><option value="${BLANK}">保留为空</option>${sizes().map(item=>`<option value="${htmlEscape(item.id)}">${htmlEscape(sizeLabel(item))}</option>`).join('')}<option value="${CUSTOM}">输入本次尺寸…</option></select></label>
-      </div><div class="pv4-custom-size" data-pv4-custom-size hidden><label>宽 / cm<input name="batch-width" type="number" min="0.000001" max="10000" step="any"></label><label>长 / cm<input name="batch-length" type="number" min="0.000001" max="10000" step="any"></label></div><label class="pv4-overwrite"><input name="batch-overwrite" type="checkbox">覆盖已确认、自动识别和已留空的字段</label>`);
-      dialog.showModal();root.lucide?.createIcons?.();dialog.querySelector('select')?.focus();
+    function openRow(rowId){
+      if(local.busy)return;const row=array(local.groupRows?.rows).find(r=>String(r.rowId)===String(rowId));if(!row)return;
+      local.lastFocus=root.document.activeElement;local.dialog={type:'row',row,revision:local.session.revision};
+      const material=materialId(row),size=fieldObject(row,'size'),dialog=ensureDialog();
+      dialog.innerHTML=dialogShell('调整这条规格',`<div class="pv5-edit-source"><h3>${htmlEscape(row.derived.productName)}</h3><p>${htmlEscape(row.derived.specName)}</p><small>SKU ${htmlEscape(row.derived.skuId)} · 原表第 ${row.sourceRow} 行</small></div><div class="pv5-edit-grid"><label>材质<select name="edit-material">${materialOptions(material,{allowBlank:false,compact:false})}</select></label><label>厚度<select name="edit-thickness" ${material?'':'disabled'}>${thicknessOptions(material,thicknessId(row))}</select></label><label>宽 / cm<input name="edit-width" type="number" min="0" max="10000" step="any" value="${size.status==='value'?size.width:''}"></label><label>长 / cm<input name="edit-length" type="number" min="0" max="10000" step="any" value="${size.status==='value'?size.length:''}"></label></div>${row.derived.issues?.some(i=>['MISSING_FIELD','INVALID_RULE'].includes(i.code))?`<p class="pv5-note">${htmlEscape(row.derived.issues.filter(i=>['MISSING_FIELD','INVALID_RULE'].includes(i.code)).map(i=>i.message).join('；'))}。原表缺失信息请补齐后重新导入；规则成本和重量请在可复用规则中补齐。</p>`:''}<p class="pv5-note">只修改这一条规格，其余商品保持不变。</p>`,'保存修改');dialog.showModal();dialog.querySelector('select')?.focus();
     }
-    function openCustomSize(rowId){
-      local.lastFocus=root.document.activeElement;local.dialog={type:'custom-size',rowIds:[rowId],revision:local.session.revision};
-      const dialog=ensureDialog();dialog.innerHTML=dialogShell('输入本次尺寸',`<p class="pv4-dialog-note">只应用到当前规格，不写入可复用尺寸方案。</p><div class="pv4-custom-size"><label>宽 / cm<input name="custom-width" type="number" min="0.000001" max="10000" step="any" required></label><label>长 / cm<input name="custom-length" type="number" min="0.000001" max="10000" step="any" required></label></div>`,'应用尺寸');
-      dialog.showModal();root.lucide?.createIcons?.();dialog.querySelector('input')?.focus();
+    async function submitRow(form,error){
+      const snapshot=local.dialog,row=snapshot.row,material=form.elements['edit-material'].value,rule=form.elements['edit-thickness'].value,width=number(form.elements['edit-width'].value),length=number(form.elements['edit-length'].value),size=fieldObject(row,'size'),patch={};
+      if(!material||!rule){error.textContent='请选择材质和厚度。';return;}
+      if(material!==materialId(row))patch.material={mode:'value',id:material};
+      if(material!==materialId(row)||rule!==thicknessId(row))patch.thickness={mode:'value',materialId:material,ruleId:rule};
+      if(width!==number(size.width)||length!==number(size.length)||size.status==='pending'){
+        if(!(width>0&&length>0&&width<=10000&&length<=10000)){error.textContent='请输入有效尺寸，宽和长需在 0–10000 cm 之间。';return;}patch.size={mode:'value',width,length};
+      }
+      if(!Object.keys(patch).length){closeDialog();return;}
+      const controls=[...form.querySelectorAll('input,select,button')];controls.forEach(e=>e.disabled=true);const result=await applyReview({type:'row-edit',rowIds:[row.rowId],patch});if(local.dialog!==snapshot)return;
+      if(result)closeDialog();else{controls.forEach(e=>e.disabled=false);error.textContent=local.error||'修改未保存，请重试。';}
+    }
+    function openGroup(groupId){
+      const group=array(local.page?.groups).find(g=>g.groupId===groupId);if(!group||local.busy)return;
+      local.lastFocus=root.document.activeElement;local.dialog={type:'group',group,revision:local.session.revision};
+      const material=materialById(group.materialState),dialog=ensureDialog();
+      dialog.innerHTML=dialogShell('统一修改此商品',`<div class="pv5-edit-source"><h3>${htmlEscape(group.productName)}</h3><p>${htmlEscape(group.platform)} · ${htmlEscape(group.shop)} · 商品 ${htmlEscape(group.productId||'ID 未提供')}</p><small>将应用到此商品全部 ${group.total} 条 SKU，包含未展开及未匹配搜索的规格。</small></div><div class="pv5-edit-grid"><label>材质<select name="group-material"><option value="${KEEP}">保留各 SKU 原材质</option>${materialOptions('',{allowBlank:false,placeholder:false,compact:false})}</select></label><label>厚度<select name="group-thickness" ${material?'':'disabled'}><option value="${KEEP}">保留各 SKU 原厚度</option>${material?thicknessOptions(material.id,'',{placeholder:false}):''}</select></label></div><p class="pv5-note" data-pv6-group-note>${material?'只覆盖你选择修改的字段，个别 SKU 的厚度例外也会被所选厚度覆盖。':'此商品包含多种或未确认材质，请先选择统一材质，再选择对应厚度。'}</p>`,'应用到全部 SKU');dialog.showModal();dialog.querySelector('select')?.focus();
+    }
+    async function submitGroup(form,error){
+      const snapshot=local.dialog,group=snapshot.group,material=form.elements['group-material'].value,thickness=form.elements['group-thickness'].value,patch={},effective=material===KEEP?group.materialState:material;
+      if(material!==KEEP){if(!material||!thickness||thickness===KEEP){error.textContent='统一材质时，请同时选择对应厚度。';return;}patch.material={mode:'value',id:material};}
+      if(thickness&&thickness!==KEEP)patch.thickness={mode:'value',materialId:effective,ruleId:thickness};
+      if(!Object.keys(patch).length){error.textContent='请选择需要统一的材质或厚度。';return;}
+      const controls=[...form.querySelectorAll('input,select,button')],disabled=controls.map(e=>e.disabled);controls.forEach(e=>e.disabled=true);
+      const result=await applyReview({type:'group-unify',groupId:group.groupId,patch});if(local.dialog!==snapshot)return;
+      if(result)closeDialog();else{controls.forEach((e,i)=>e.disabled=disabled[i]);error.textContent=local.error||'修改未保存，请重试。';}
     }
     function openMapping(sheet,continueImport=false){
-      const headers=array(sheet?.header?.headers),mapping=sheetMapping(sheet),issues=sheetIssues(sheet);
-      if(!headers.length){notify('所选工作表没有可用表头');return;}
-      local.lastFocus=root.document.activeElement;local.dialog={type:'mapping',continueImport,sheetId:text(sheet.sheetId||sheet.id),revision:local.candidate?.revision,baseMapping:Object.fromEntries(Object.entries(mapping).filter(([,value])=>Number.isInteger(value)))};
-      local.dialog.fields=continueImport?issues:Object.keys(REQUIRED_PRODUCT_FIELDS);
-      const fields=local.dialog.fields.map(key=>[key,REQUIRED_PRODUCT_FIELDS[key]]).map(([key,label])=>`<label>${label}<select name="map-${htmlEscape(key)}"><option value="">未选择</option>${headers.map((header,index)=>`<option value="${index}" ${mapping[key]===index?'selected':''}>第 ${index+1} 列 · ${htmlEscape(header||'空表头')}${sheet.header?.samples?.[index]?.length?' · 例：'+htmlEscape(sheet.header.samples[index].join(' / ')):''}</option>`).join('')}</select></label>`).join('');
-      const dialog=ensureDialog();dialog.innerHTML=dialogShell('确认商品字段',`<p class="pv4-dialog-note">${htmlEscape(sheet.name||'工作表')}：${issues.length?'请补充或确认 '+issues.map(key=>REQUIRED_PRODUCT_FIELDS[key]).join('、')+'；其余字段已自动识别。':'字段已自动识别，可在这里手动核对。'}</p><div class="pv4-mapping-grid">${fields}</div>`,continueImport?'确认并继续':'保存字段');dialog.showModal();root.lucide?.createIcons?.();dialog.querySelector('select')?.focus();
-    }
-    function openPicker({field,rowId='',groupId=''}){
-      const entries=field==='material'?materials().map(item=>({id:text(item.id),label:text(item.name)})):sizes().map(item=>({id:text(item.id),label:sizeLabel(item)}));
-      local.lastFocus=root.document.activeElement;local.dialog={type:'picker',field,rowId,groupId,entries,query:''};
-      const dialog=ensureDialog();dialog.innerHTML=`<div class="pv4-dialog-head"><h2 id="pv4-dialog-title">${field==='material'?'选择材质':'选择尺寸'}</h2><button type="button" class="icon-btn" data-pv4-dialog-close aria-label="关闭">${icon('x')}</button></div><div class="pv4-dialog-body"><label class="pv4-picker-search"><span class="sr-only">搜索${field==='material'?'材质':'尺寸'}</span><input type="search" name="picker-search" placeholder="搜索${field==='material'?'材质名称':'尺寸名称或长宽'}" autocomplete="off"></label><div class="pv4-picker-results" data-pv4-picker-results></div></div>`;
-      renderPickerResults(dialog);dialog.showModal();root.lucide?.createIcons?.();dialog.querySelector('input')?.focus();
-    }
-    function renderPickerResults(dialog=ensureDialog()){
-      if(local.dialog?.type!=='picker')return;
-      const query=text(local.dialog.query).normalize('NFKC').toLowerCase(),entries=local.dialog.entries.filter(item=>!query||item.label.normalize('NFKC').toLowerCase().includes(query)).slice(0,100);
-      const results=dialog.querySelector('[data-pv4-picker-results]');if(!results)return;
-      results.innerHTML=`<button type="button" data-pv4-picker-value="${BLANK}">保留为空</button>${entries.map(item=>`<button type="button" data-pv4-picker-value="${htmlEscape(item.id)}"><span>${htmlEscape(item.label)}</span>${icon('chevron-right')}</button>`).join('')}${entries.length?'<small>最多显示 100 项，可继续输入缩小范围。</small>':'<p>没有匹配项。</p>'}`;
-      root.lucide?.createIcons?.();
+      const headers=array(sheet?.header?.headers),mapping=sheetMapping(sheet),issues=sheetIssues(sheet);if(!headers.length){notify('所选工作表没有可用表头');return;}
+      local.lastFocus=root.document.activeElement;local.dialog={type:'mapping',continueImport,sheetId:text(sheet.sheetId||sheet.id),revision:local.candidate?.revision,baseMapping:Object.fromEntries(Object.entries(mapping).filter(([,value])=>Number.isInteger(value)))};local.dialog.fields=continueImport?issues:Object.keys(REQUIRED_PRODUCT_FIELDS);
+      const fields=local.dialog.fields.map(key=>`<label>${REQUIRED_PRODUCT_FIELDS[key]}<select name="map-${htmlEscape(key)}"><option value="">未选择</option>${headers.map((header,index)=>`<option value="${index}" ${mapping[key]===index?'selected':''}>第 ${index+1} 列 · ${htmlEscape(header||'空表头')}${sheet.header?.samples?.[index]?.length?' · 例：'+htmlEscape(sheet.header.samples[index].join(' / ')):''}</option>`).join('')}</select></label>`).join('');
+      const dialog=ensureDialog();dialog.innerHTML=dialogShell('确认表格字段',`<p class="pv4-dialog-note">${htmlEscape(sheet.name||'工作表')}：${issues.length?'请确认 '+issues.map(key=>REQUIRED_PRODUCT_FIELDS[key]).join('、')+' 对应哪一列，其余已自动识别。':'字段已自动识别，可在这里核对。'}</p><div class="pv4-mapping-grid">${fields}</div>`,'确认并继续');dialog.showModal();dialog.querySelector('select')?.focus();
     }
     function dialogChange(event){
-      const form=event.target.form;if(!form)return;
-      if(event.target.name==='batch-material'){
-        const thickness=form.elements['batch-thickness'],chosen=event.target.value,material=chosen===KEEP?text(thickness.dataset.currentMaterial):chosen;thickness.innerHTML=`<option value="${KEEP}">保持原值</option>${material&&material!==BLANK?active(materialById(material)?.weightRules).map(rule=>`<option value="${htmlEscape(rule.id)}">${htmlEscape(thicknessLabel(rule))}</option>`).join(''):''}`;thickness.value=KEEP;thickness.disabled=!material||material===BLANK;
+      event.target.form?.querySelector('[data-pv4-dialog-error]')?.replaceChildren();
+      if(event.target.name==='group-material'&&event.target.form){
+        const chosen=event.target.value,id=chosen===KEEP?local.dialog.group.materialState:chosen,material=materialById(id),thickness=event.target.form.elements['group-thickness'];
+        thickness.innerHTML=(chosen===KEEP?`<option value="${KEEP}">保留各 SKU 原厚度</option>`:'')+thicknessOptions(id,'',{placeholder:chosen!==KEEP});thickness.disabled=!material;return;
       }
-      if(event.target.name==='batch-size')form.querySelector('[data-pv4-custom-size]').hidden=event.target.value!==CUSTOM;
+      if(event.target.name!=='edit-material'||!event.target.form)return;const thickness=event.target.form.elements['edit-thickness'],material=event.target.value,uniform=local.page?.thicknessDefaults?.[material]||'';thickness.innerHTML=thicknessOptions(material,uniform);thickness.disabled=!material;
     }
-    async function dialogClick(event){
-      if(event.target.closest('[data-pv4-dialog-close]')){closeDialog();return;}
-      const option=event.target.closest('[data-pv4-picker-value]');
-      if(option&&local.dialog?.type==='picker'){
-        const snapshot={...local.dialog},value=text(option.dataset.pv4PickerValue),patch=snapshot.field==='material'?{material:value===BLANK?{mode:'blank'}:{mode:'value',id:value}}:{size:value===BLANK?{mode:'blank'}:{mode:'value',id:value}};
-        closeDialog();await applyReview({type:snapshot.groupId?'group-unify':'row-edit',rowIds:snapshot.rowId?[snapshot.rowId]:undefined,groupId:snapshot.groupId||undefined,patch});return;
-      }
-      const form=event.target.closest('form');if(!form||event.type!=='submit')return;
-    }
-    function dialogInput(event){if(event.target.name==='picker-search'&&local.dialog?.type==='picker'){local.dialog.query=event.target.value;renderPickerResults(event.currentTarget);}}
+    function dialogClick(event){if(event.target.closest('[data-pv4-dialog-close]'))closeDialog();}
+    function dialogInput(){}
     async function dialogSubmit(event){
-      const form=event.target;if(!form.matches('[data-pv4-dialog-form]')||!local.dialog)return;
-      event.preventDefault();if(local.busy)return;const error=form.querySelector('[data-pv4-dialog-error]');error.textContent='';
-      const currentRevision=local.dialog.type==='mapping'?local.candidate?.revision:local.session?.revision;
-      if(local.dialog.revision!==currentRevision){error.textContent='复核数据已更新，请关闭后重新选择。';return;}
-      let patch,overwrite=false;
+      const form=event.target;if(form.matches('[data-pv4-search-form]')){event.preventDefault();await searchProducts(form.elements['product-search'].value);return;}if(form.matches('[data-pv5-uniform-form]')){event.preventDefault();await submitUniform();return;}
+      if(!form.matches('[data-pv4-dialog-form]')||!local.dialog)return;event.preventDefault();if(local.busy)return;const error=form.querySelector('[data-pv4-dialog-error]');error.textContent='';
+      const revision=local.dialog.type==='mapping'?local.candidate?.revision:local.session?.revision;if(local.dialog.revision!==revision){error.textContent='数据已更新，请关闭后重新打开。';return;}
       if(local.dialog.type==='replace'){const file=local.dialog.file;closeDialog();await startImport(file,true);return;}
-      if(local.dialog.type==='attention'){await submitAttention(form,error);return;}
+      if(local.dialog.type==='group'){await submitGroup(form,error);return;}
+      if(local.dialog.type==='row'){await submitRow(form,error);return;}
       if(local.dialog.type==='mapping'){
-        const requiredMapping=Object.fromEntries(Object.keys(REQUIRED_PRODUCT_FIELDS).filter(key=>Number.isInteger(local.dialog.baseMapping[key])).map(key=>[key,local.dialog.baseMapping[key]]));for(const key of local.dialog.fields){const value=form.elements[`map-${key}`]?.value;if(value==null||value===''){error.textContent=`请选择${REQUIRED_PRODUCT_FIELDS[key]}对应的列。`;return;}requiredMapping[key]=Number(value);}if(new Set(Object.values(requiredMapping)).size!==Object.keys(requiredMapping).length){error.textContent='同一列不能同时对应多个必需字段。';return;}const mapping={...local.dialog.baseMapping,...requiredMapping};
-        const snapshot={...local.dialog};local.sheetMappings[snapshot.sheetId]=mapping;closeDialog();scheduleRender();if(snapshot.continueImport)await chooseSheet();return;
-      }else if(local.dialog.type==='custom-size'){
-        const width=number(form.elements['custom-width'].value),length=number(form.elements['custom-length'].value);
-        if(!(width>0&&width<=10000&&length>0&&length<=10000)){error.textContent='宽和长需大于 0，且不超过 10000 cm。';return;}
-        patch={size:{mode:'value',width,length}};
-      }else{
-        const material=text(form.elements['batch-material'].value),thickness=text(form.elements['batch-thickness'].value),size=text(form.elements['batch-size'].value),thicknessMaterial=material===KEEP?text(form.elements['batch-thickness'].dataset.currentMaterial):material;overwrite=form.elements['batch-overwrite'].checked;
-        patch={material:material===KEEP?{mode:'keep'}:material===BLANK?{mode:'blank'}:{mode:'value',id:material},thickness:thickness===KEEP?{mode:'keep'}:{mode:'value',materialId:thicknessMaterial,ruleId:thickness},size:size===KEEP?{mode:'keep'}:size===BLANK?{mode:'blank'}:size===CUSTOM?{mode:'value',width:number(form.elements['batch-width'].value),length:number(form.elements['batch-length'].value)}:{mode:'value',id:size}};
-        if(size===CUSTOM&&!(patch.size.width>0&&patch.size.width<=10000&&patch.size.length>0&&patch.size.length<=10000)){error.textContent='宽和长需大于 0，且不超过 10000 cm。';return;}
-        if(material===BLANK&&thickness!==KEEP){error.textContent='材质保留为空时，厚度必须保持原值。';return;}
-        if([material,thickness,size].every(value=>value===KEEP)){error.textContent='请选择至少一个需要修改的字段。';return;}
+        const mapping={...local.dialog.baseMapping};for(const key of local.dialog.fields){const value=form.elements[`map-${key}`]?.value;if(value==null||value===''){error.textContent=`请选择${REQUIRED_PRODUCT_FIELDS[key]}对应的列。`;return;}mapping[key]=Number(value);}if(Recognition.productMappingIssues(array(candidateSheets().find(s=>text(s.sheetId||s.id)===local.dialog.sheetId)?.header?.headers),mapping).length){error.textContent='同一列不能同时对应多个必需字段。';return;}
+        const snapshot=local.dialog;local.sheetMappings[snapshot.sheetId]=mapping;closeDialog();scheduleRender();if(snapshot.continueImport)await chooseSheet();
       }
-      const snapshot={...local.dialog};const result=await applyReview({type:snapshot.type==='batch'?'selected-batch':'row-edit',rowIds:snapshot.rowIds,patch,overwrite});if(result)closeDialog();else error.textContent=local.error;
     }
 
-    async function rowFieldChange(select){
-      const rowId=text(select.dataset.rowId),field=select.dataset.pv4RowField,value=text(select.value);if(!value)return refreshPage({silent:true});
-      if(value===CHOOSE){const row=array(local.page?.rows).find(item=>text(item.rowId)===rowId);select.value=field==='material'?rowMaterialValue(row):isBlank(row,'size')?BLANK:sizeId(row)||DERIVED;openPicker({field,rowId});return;}
-      if(field==='size'&&value===CUSTOM){const row=array(local.page?.rows).find(item=>text(item.rowId)===rowId);select.value=isBlank(row,'size')?BLANK:sizeId(row)||DERIVED;openCustomSize(rowId);return;}
-      let patch;
-      if(field==='material')patch={material:value===BLANK?{mode:'blank'}:{mode:'value',id:value}};
-      else if(field==='size')patch={size:value===BLANK?{mode:'blank'}:{mode:'value',id:value}};
-      else {const row=array(local.page?.rows).find(item=>text(item.rowId)===rowId);patch={thickness:{mode:'value',materialId:materialId(row),ruleId:value}};}
-      await applyReview({type:'row-edit',rowIds:[rowId],patch});
-    }
-    async function groupFieldChange(select){
-      const groupId=text(select.dataset.groupId),field=select.dataset.pv4GroupField,value=text(select.value);if(!value)return refreshPage({silent:true});
-      if(value===CHOOSE){const group=normalizeGroupMap(local.page).get(groupId),rows=array(local.page?.rows).filter(row=>text(row.groupId)===groupId);select.value=currentMaterial(group,rows);openPicker({field:'material',groupId});return;}
-      const patch=field==='material'?{material:value===BLANK?{mode:'blank'}:{mode:'value',id:value}}:{thickness:{mode:'value',materialId:text(select.dataset.materialId),ruleId:value}};
-      await applyReview({type:'group-unify',groupId,patch});
-    }
-    function pageRows(){return array(local.page?.rows).map(row=>text(row.rowId));}
-    function toggleRows(ids,checked){for(const id of ids)checked?local.selected.add(id):local.selected.delete(id);scheduleRender();}
     function fileDrag(event){return Array.from(event.dataTransfer?.types||[]).includes('Files')||!!event.dataTransfer?.files?.length;}
     function dropZone(target){return target?.closest?.('[data-product-v4] [data-pv4-dropzone]');}
     function resetDrop(){root.document?.querySelector('[data-pv4-dropzone]')?.removeAttribute('data-pv4-dragging');}
@@ -612,35 +568,38 @@
       await startImport(files[0]);
     }
     async function documentChange(event){
-      const target=event.target;if(!target.closest?.('[data-product-v4]'))return;
-      if(target.matches('[data-pv4-file]')){const file=target.files?.[0];if(file)await startImport(file);target.value='';return;}
-      if(target.matches('[data-pv4-sheet]')){const id=text(target.dataset.pv4Sheet);target.checked?local.sheetSelection.add(id):local.sheetSelection.delete(id);scheduleRender();return;}
-      if(target.matches('[data-pv4-select-page]')){toggleRows(pageRows(),target.checked);return;}
-      if(target.matches('[data-pv4-select-group]')){toggleRows(text(target.dataset.groupRows).split(',').filter(Boolean),target.checked);return;}
-      if(target.matches('[data-pv4-select-row]')){toggleRows([text(target.dataset.pv4SelectRow)],target.checked);return;}
-      if(target.matches('[data-pv4-row-field]'))await rowFieldChange(target);
-      if(target.matches('[data-pv4-group-field]'))await groupFieldChange(target);
+      const el=event.target;if(!el.closest?.('[data-product-v4]')||local.busy)return;
+      if(el.matches('[data-pv4-file]')){const file=el.files?.[0];if(file)await startImport(file);el.value='';return;}
+      if(el.matches('[data-pv4-sheet]')){const id=text(el.dataset.pv4Sheet);el.checked?local.sheetSelection.add(id):local.sheetSelection.delete(id);scheduleRender();return;}
+      if(el.matches('[data-pv5-uniform]')){local.uniformChoices[el.dataset.pv5Uniform]=el.value;local.setupDirty=true;return;}
+      if(el.matches('[data-pv5-unknown]')){local.unknownMaterial=el.value;local.setupDirty=true;scheduleRender();return;}
+      if(el.matches('[data-pv5-assign]')){const id=el.dataset.pv5Assign;if(el.value)local.materialAssignments[id]=el.value;else delete local.materialAssignments[id];local.assignmentCounts[id]=summary().unknownGroups.find(g=>g.groupId===id)?.count||0;local.setupDirty=true;scheduleRender();}
     }
     async function documentClick(event){
-      const button=event.target.closest?.('[data-product-v4] button');if(!button)return;
-      if(button.matches('[data-pv4-manual]')){closeDialog();local.manual=true;local.offerAttention=false;local.page=null;local.pageNumber=1;await refreshPage();return;}
-      if(button.matches('[data-pv4-auto]')){local.manual=false;local.offerAttention=true;local.page=null;await refreshPage();return;}
-      if(button.matches('[data-pv4-attention]')){openAttention();return;}
+      const button=event.target.closest?.('[data-product-v4] button');if(!button||local.busy&&!button.matches('[data-pv4-cancel]'))return;
+      if(button.matches('[data-pv4-manual]')||button.matches('[data-pv5-pending]')){local.manual=true;local.filter=button.matches('[data-pv5-pending]')?'pending':'all';local.pageNumber=1;local.search='';resetGroup();await refreshPage();return;}
+      if(button.matches('[data-pv4-auto]')){local.manual=false;local.search='';local.pageNumber=1;resetGroup();await refreshPage();return;}
+      if(button.matches('[data-pv5-setup]')){local.setup=true;local.setupSession='';scheduleRender();return;}
+      if(button.matches('[data-pv5-cancel-setup]')){local.setup=false;local.setupDirty=false;local.setupSession='';local.error='';scheduleRender();return;}
+      if(button.matches('[data-pv6-expand]')){const id=button.dataset.pv6Expand;if(local.expandedGroupId===id){resetGroup();scheduleRender();}else{resetGroup();local.expandedGroupId=id;await refreshPage();}return;}
+      if(button.matches('[data-pv6-unify]')){openGroup(button.dataset.pv6Unify);return;}
+      if(button.matches('[data-pv6-sku-page]')){local.groupPage=Math.max(1,Number(button.dataset.pv6SkuPage)||1);await refreshPage();return;}
+      if(button.matches('[data-pv6-undo]')){await undo();return;}
+      if(button.matches('[data-pv5-edit]')){openRow(button.dataset.pv5Edit);return;}
+      if(button.matches('[data-pv5-material-page]')){local.materialPage=Number(button.dataset.pv5MaterialPage);await refreshPage();return;}
+      if(button.matches('[data-pv4-clear-search]')){await searchProducts('');return;}
       if(button.matches('[data-pv4-recompute]')){await recompute();return;}
-      if(button.matches('[data-pv4-filter]')){local.filter=button.dataset.pv4Filter;local.pageNumber=1;local.selected.clear();await refreshPage();return;}
-      if(button.matches('[data-pv4-more]')){local.moreOpen=!local.moreOpen;scheduleRender();return;}
-      if(button.matches('[data-pv4-missing]')){local.missingThickness=!local.missingThickness;local.pageNumber=1;local.selected.clear();await refreshPage();return;}
-      if(button.matches('[data-pv4-page]')){local.pageNumber=Math.max(1,Number(button.dataset.pv4Page)||1);local.selected.clear();await refreshPage();return;}
-      if(button.matches('[data-pv4-batch]'))openBatch();
-      else if(button.matches('[data-pv4-export]'))await exportFile();
+      if(button.matches('[data-pv4-filter]')){local.filter=button.dataset.pv4Filter;local.pageNumber=1;resetGroup();await refreshPage();return;}
+      if(button.matches('[data-pv4-page]')){local.pageNumber=Math.max(1,Number(button.dataset.pv4Page)||1);resetGroup();await refreshPage();return;}
+      if(button.matches('[data-pv4-export]'))await exportFile();
       else if(button.matches('[data-pv4-use]'))await useCandidate();
       else if(button.matches('[data-pv4-map-sheet]')){const sheet=candidateSheets().find(x=>text(x.sheetId||x.id)===button.dataset.pv4MapSheet);if(sheet)openMapping(sheet);}
       else if(button.matches('[data-pv4-read-sheet]'))await chooseSheet();
       else if(button.matches('[data-pv4-discard]'))await discardCandidate();
       else if(button.matches('[data-pv4-cancel]'))await cancelJob();
-      else if(button.matches('[data-pv4-undo]'))await undo();
       else if(button.matches('[data-pv4-dismiss]')){local.error='';scheduleRender();}
     }
+
     function bind(){
       if(local.listeners||!root.document)return;local.listeners=true;
       root.document.addEventListener('click',documentClick);
@@ -652,36 +611,30 @@
       root.document.addEventListener('drop',documentDrop);
       root.document.addEventListener('dragend',resetDrop);
     }
-    function syncChecks(){
-      const scope=root.document?.querySelector('[data-product-v4]');if(!scope)return;
-      const visible=pageRows(),selected=visible.filter(id=>local.selected.has(id)).length,pageCheck=scope.querySelector('[data-pv4-select-page]');
-      if(pageCheck){pageCheck.checked=!!visible.length&&selected===visible.length;pageCheck.indeterminate=selected>0&&selected<visible.length;}
-      scope.querySelectorAll('[data-pv4-select-group]').forEach(check=>{const ids=text(check.dataset.groupRows).split(',').filter(Boolean),count=ids.filter(id=>local.selected.has(id)).length;check.checked=!!ids.length&&count===ids.length;check.indeterminate=count>0&&count<ids.length;});
-    }
+    function syncChecks(){}
     function activate(context={}){
       local.active=true;refreshContext(context,{render:false});bind();ensureDialog();syncChecks();waitingLoader.activate(root.document?.querySelector('[data-product-v4]'));root.lucide?.createIcons?.();
       if(local.session&&!local.page&&!local.busy)refreshPage();
-      else if(local.offerAttention&&!local.manual&&!local.busy&&!local.dialog&&!local.candidate){local.offerAttention=false;openAttention();}
       return api;
     }
     function deactivate(){
       waitingLoader.stop();resetDrop();
-      local.active=false;closeDialog();local.filter='all';local.missingThickness=false;local.moreOpen=false;local.pageNumber=1;local.selected.clear();local.page=null;
+      local.active=false;closeDialog();resetGroup();local.search='';local.filter='all';local.missingThickness=false;local.moreOpen=false;local.pageNumber=1;local.selected.clear();local.page=null;
     }
     function refreshContext(context={},settings={}){
       const previousWorkspace=text(local.context.workspaceId),previousEpoch=text(local.context.storageEpoch);local.context={...local.context,...context};
       if((previousWorkspace&&text(local.context.workspaceId)!==previousWorkspace)||(previousEpoch&&text(local.context.storageEpoch)!==previousEpoch)){
-        clearPoll();local.contextSerial++;local.requestSerial++;closeDialog(true);local.session=null;local.candidate=null;local.candidateStatus=null;local.page=null;local.selected.clear();local.busy=false;local.jobId='';local.jobKind='';local.undo=null;local.error='工作区已切换，请重新选择商品规格文件。';
+        clearPoll();local.contextSerial++;local.requestSerial++;resetGroup();closeDialog(true);local.setup=false;local.setupSession='';local.setupDirty=false;local.search='';local.session=null;local.candidate=null;local.candidateStatus=null;local.page=null;local.selected.clear();local.busy=false;local.jobId='';local.jobKind='';local.undo=null;local.error='工作区已切换，请重新选择商品规格文件。';
       }
-      if(settings.render!==false)scheduleRender();return api;
+      loadPreferences();if(settings.render!==false)scheduleRender();return api;
     }
     async function restoreSession(session){
       if(!session?.sessionId||!session?.ownerToken)throw Error('文件会话信息不完整');
-      clearPoll();local.contextSerial++;local.requestSerial++;local.manual=false;local.offerAttention=true;local.busy=false;local.jobId='';local.session={...session};local.candidate=null;local.candidateStatus=null;local.page=null;local.pageNumber=1;local.filter='all';local.missingThickness=false;local.moreOpen=false;local.selected.clear();local.undo=null;local.error='';
-      await refreshPage();return api;
+      clearPoll();local.contextSerial++;local.requestSerial++;local.setup=false;local.setupSession='';local.setupDirty=false;local.manual=false;local.search='';resetGroup();local.offerAttention=false;local.busy=false;local.jobId='';local.session={...session};local.candidate=null;local.candidateStatus=null;local.page=null;local.pageNumber=1;local.filter='all';local.missingThickness=false;local.moreOpen=false;local.selected.clear();local.undo=null;local.error='';
+      await refreshPage();if(local.page?.rulesStale)await recompute();return api;
     }
     function isBusy(){return local.busy||!!local.jobId;}
-    function canQuit(){return !isBusy()&&!local.dialog&&!local.candidate;}
+    function canQuit(){return !isBusy()&&!local.dialog&&!local.candidate&&!local.setupDirty;}
     function destroy(){
       waitingLoader.stop();resetDrop();
       clearPoll();local.destroyed=true;local.active=false;

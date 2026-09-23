@@ -1,6 +1,6 @@
 {
   "formatVersion": 1,
-  "appVersion": "1.2.7",
+  "appVersion": "1.2.10",
   "roots": {
     "electron-updater": "6.6.2",
     "sax": "1.6.1",

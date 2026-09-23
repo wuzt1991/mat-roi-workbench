@@ -34,3 +34,12 @@ test('explicit recompute preserves reviews, refreshes generation and stops befor
 
 
 test('旧识别版本缓存必须重新校验，不能直接导出看似完整的文件',async t=>{const f=await fixture(t),store=f.open();store.setMeta('derivationVersion',0);store.close();const page=await f.request('GET',`/api/file-sessions/${f.id}/rows?attention=1`);assert.equal(page.value.counts.ready,true);assert.equal(page.value.ready,false);assert.equal(page.value.rulesStale,true);await assert.rejects(f.request('POST',`/api/file-sessions/${f.id}/export`,{ownerToken:f.created.ownerToken,expectedSessionRevision:0}),rejectedCode('RULES_CHANGED'));});
+
+test('新流程必须先确认材质厚度，再允许导出；确认后发布完整结果',async t=>{
+ const f=await fixture(t),store=f.open();store.setMeta('requireThicknessSetup',true);store.close();
+ const before=await f.request('GET',`/api/file-sessions/${f.id}/rows`);assert.equal(before.value.counts.ready,true);assert.equal(before.value.ready,false);
+ await assert.rejects(f.request('POST',`/api/file-sessions/${f.id}/export`,{ownerToken:f.created.ownerToken,expectedSessionRevision:0}),rejectedCode('THICKNESS_SETUP_REQUIRED'));
+ const material=f.rules.materials.find(m=>m.name==='硅藻泥'),rule=material.weightRules.find(r=>Number(r.thickness)===5);
+ const started=await f.request('POST',`/api/file-sessions/${f.id}/recompute`,{ownerToken:f.created.ownerToken,expectedSessionRevision:0,applyUniformThickness:true,thicknessDefaults:{[material.id]:rule.id}});const job=await completed(f.service,started.value.jobId);assert.equal(job.state,'succeeded',JSON.stringify(job.error));
+ const after=await f.request('GET',`/api/file-sessions/${f.id}/rows`);assert.equal(after.value.ready,true);assert.equal(after.value.thicknessConfigured,true);assert.equal(after.value.revision,1);assert.equal(after.value.rows[0].derived.thickness.ruleId,rule.id);
+});

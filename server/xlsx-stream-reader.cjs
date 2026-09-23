@@ -79,7 +79,7 @@ async function scanSheet(info,sheet,store,{collectRows=false,recognize=true,head
 async function inspectWorkbook(filename,sessionDirectory,options={}){
   const info=await workbookInfo(filename),store=new ImportSessionStore(sessionDirectory);try{await loadSharedStrings(info,store,options);const candidates=[];for(const sheet of info.sheets){checkCanceled(options.canceled);const scan=await scanSheet(info,sheet,store,{headerLimit:40,progress:options.progress,canceled:options.canceled});candidates.push({...sheet,header:scan.header?{...scan.header,samples:scan.header.headers.map((_,i)=>scan.headerRows.slice(scan.header.rowIndex+1).map(row=>String(row[i]??'').slice(0,180)).filter(Boolean).slice(0,3))}:null,physicalRows:scan.physicalRows,maxColumn:scan.maxColumn});}return {sourceBytes:info.sourceBytes,totalUncompressed:info.total,date1904:info.date1904,sheets:candidates};}finally{store.close();info.zip.close();}
 }
-async function importSheets(filename,sessionDirectory,{selections,rules,derive=true,progress,canceled}={}){
+async function importSheets(filename,sessionDirectory,{selections,rules,thicknessDefaults={},requireThicknessSetup=false,derive=true,progress,canceled}={}){
   const info=await workbookInfo(filename),store=new ImportSessionStore(sessionDirectory);
   try{
     if(!Array.isArray(selections)||!selections.length)throw new SessionError(422,'请选择需要读取的工作表。','EMPTY_SHEET_SELECTION');
@@ -99,7 +99,7 @@ async function importSheets(filename,sessionDirectory,{selections,rules,derive=t
     }
     store.resetImport({keepSharedStrings:true});
     const sheetMappings=Object.fromEntries(prepared.map(x=>[x.sheet.sheetId,x.mapping]));
-    store.updateMeta({phase:'importing',rules,mapping:prepared[0].mapping,sheetMappings,selectedSheets:ordered.map(({sheetId,name})=>({sheetId,name})),sourceRows:0,duplicateRows:0});
+    store.updateMeta({phase:'importing',requireThicknessSetup:!!requireThicknessSetup,uniformConfirmed:false,thicknessMode:'missing',rules,mapping:prepared[0].mapping,sheetMappings,selectedSheets:ordered.map(({sheetId,name})=>({sheetId,name})),sourceRows:0,duplicateRows:0});
     let total=0;const results=[];
     for(const {sheet,header,mapping} of prepared){
       checkCanceled(canceled);
@@ -110,7 +110,7 @@ async function importSheets(filename,sessionDirectory,{selections,rules,derive=t
     checkCanceled(canceled);
     const duplicateRows=derive?Number(store.db.prepare("SELECT coalesce(sum(n-1),0) n FROM (SELECT count(*) n FROM raw_rows WHERE platform<>'' AND shop<>'' AND product_id<>'' AND sku_id<>'' GROUP BY source_hash HAVING count(*)>1)").get().n):0;
     store.updateMeta({header:results[0].header.headers,sourceRows:total,duplicateRows});
-    const derived=derive?store.rebuildDerived(rules,{progress,canceled}):{generation:0,total,pending:0,confirmed:0,missingThickness:0,ready:false};
+    const derived=derive?store.rebuildDerived(rules,{progress,canceled,thicknessDefaults}):{generation:0,total,pending:0,confirmed:0,missingThickness:0,ready:false};
     return {businessRows:total,header:results[0].header,sheets:results,duplicateRows,...derived};
   }finally{store.close();info.zip.close();}
 }

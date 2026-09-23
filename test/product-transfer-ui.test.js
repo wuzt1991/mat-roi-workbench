@@ -49,13 +49,15 @@ test('正式界面暴露恢复上下文和退出保护接口',()=>{
 
 test('正式界面按真实分页响应读取派生字段与字符串分组状态',async()=>{
   const state={materials:[{id:'mat-a',name:'硅藻泥',active:true,deleted:false,weightRules:[{id:'3.0',thickness:3,coefficient:.9,costPerSqm:9.8,active:true,deleted:false}]}],sizes:[]};
-  const page={page:1,pageSize:100,total:1,totalPages:1,revision:2,generation:1,ready:false,counts:{total:1,pending:1,confirmed:0,missingThickness:0},groups:[{groupId:'group-a',platform:'抖音',shop:'测试店铺',productId:'12345678901234',total:1,visible:1,hidden:0,materialState:'mat-a',thicknessState:'mat-a:3.0'}],rows:[{rowId:1,sourceRow:2,groupId:'group-a',raw:['原始数组不用于展示'],review:{materialId:'',sizeId:'',materialRuleId:''},derived:{productName:'吸水地垫',specName:'灰色 40×60cm 3mm',skuId:'SKU-00000001',material:{status:'value',source:'auto',materialId:'mat-a',name:'硅藻泥'},size:{status:'value',source:'auto',width:40,length:60,label:'40*60',area:.24},thickness:{status:'value',source:'auto',materialId:'mat-a',ruleId:'3.0'},weight:.216,cost:2.352,values:Array.from({length:29},(_,i)=>i===19?19.9:i===21?100:null),status:'pending',issues:[{field:'price'}]}}]};
+  const page={page:1,pageSize:100,total:1,totalPages:1,revision:2,generation:1,ready:false,counts:{total:1,pending:1,confirmed:0,missingThickness:0},groups:[{groupId:'group-a',productName:'吸水地垫',pending:1,platform:'抖音',shop:'测试店铺',productId:'12345678901234',total:1,visible:1,hidden:0,materialState:'mat-a',thicknessState:'mat-a:3.0'}],rows:[{rowId:1,sourceRow:2,groupId:'group-a',raw:['原始数组不用于展示'],review:{materialId:'',sizeId:'',materialRuleId:''},derived:{productId:'12345678901234',productName:'吸水地垫',specName:'灰色 40×60cm 3mm',skuId:'SKU-00000001',material:{status:'value',source:'auto',materialId:'mat-a',name:'硅藻泥'},size:{status:'value',source:'auto',width:40,length:60,label:'40*60',area:.24},thickness:{status:'value',source:'auto',materialId:'mat-a',ruleId:'3.0'},weight:.216,cost:2.352,values:Array.from({length:29},(_,i)=>i===19?19.9:i===21?100:null),status:'pending',issues:[{field:'price'}]}}]};
   const h=dragHarness(async(action)=>{assert.equal(action,'rows');return page;},state),controller=h.controller;
   await controller.restoreSession({sessionId:'session-a',ownerToken:'owner-a',revision:1});
   assert.doesNotMatch(controller.html(),/pv4-table/);
   await h.listeners.get('click')({target:{closest:()=>({matches:s=>s==='[data-pv4-manual]'})}});
+  assert.match(controller.html(),/data-pv6-expand/);assert.doesNotMatch(controller.html(),/data-pv5-edit=/);
+  await h.listeners.get('click')({target:{closest:()=>({matches:s=>s==='[data-pv6-expand]',dataset:{pv6Expand:'group-a'}})}});
   const html=controller.html();controller.destroy();
-  assert.match(html,/吸水地垫/);assert.match(html,/灰色 40×60cm 3mm/);assert.match(html,/123456…1234/);assert.match(html,/¥19\.90/);assert.match(html,/40\*60/);assert.match(html,/value="mat-a" selected/);assert.match(html,/value="3\.0" selected/);
+  assert.match(html,/吸水地垫/);assert.match(html,/灰色 40×60cm 3mm/);assert.match(html,/12345678901234/);assert.match(html,/¥2\.35/);assert.match(html,/40\*60/);assert.match(html,/硅藻泥 · 3 mm/);assert.match(html,/data-pv5-edit="1"/);assert.doesNotMatch(html,/<select/);
 });
 
 function dragHarness(request,state={}){

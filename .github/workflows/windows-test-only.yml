@@ -1,9 +1,9 @@
-name: Windows test only - 1.2.7
+name: Windows test only - 1.2.10
 
 on:
   push:
     branches:
-      - codex/windows-test-1.2.7-20260923
+      - codex/windows-test-1.2.10-20260923
   workflow_dispatch:
 
 permissions:

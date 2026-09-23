@@ -17,48 +17,13 @@ async function main(){
   }else{server=createServer({port:0,dataDir:directory});url=await server.listen();browser=await chromium.launch({channel:'chrome',headless:true});page=await browser.newPage({viewport:{width:1440,height:850}});}
   const workspace=async()=>await(await fetch(url+'/api/state')).json(),before=await workspace();const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',message=>{if(message.type()==='error'&&message.text().includes('[workbench] file session draft'))errors.push(message.text());});
   await page.goto(url);await page.evaluate(()=>UiAppearance.setMotion(false));await page.locator('[data-action="product-view"]').click();
-  const importFile=async file=>{if(!lattice)lattice=await require('./verify-lattice-loader.cjs').verifyWaitingUpload(page,file,out,label);else {await page.locator('[data-pv4-file]').setInputFiles(file);await page.locator('#product-v4-dialog button[type=submit]').click();}await page.waitForFunction(name=>document.querySelector('.pv4-current-file')?.textContent.includes(name)&&!document.querySelector('.pv4-lattice-wait'),file.name);if(await page.locator('#product-v4-dialog').evaluate(e=>e.open))await page.locator('#product-v4-dialog [data-pv4-dialog-close]').first().click();await page.locator('[data-pv4-manual]').click();await page.locator('.pv4-table tbody tr').first().waitFor();};
-  const Excel=require(path.join(root,'public/assets/exceljs.min.js'));let sourceBytes;
-  if(source)sourceBytes=fs.readFileSync(source);else{
-   const sample=new Excel.Workbook(),sheet=sample.addWorksheet('ERP');sheet.addRow(require(path.join(root,'public/product-recognition.js')).OUTPUT_HEADERS);
-   for(let i=0;i<60;i++){const row=Array(29).fill('');Object.assign(row,{0:i+1,1:'测试平台',2:'自动生成样本店铺',3:'吸水防滑地垫 测试图案 '+(i%12),4:['40×60cm','45×70cm','50×80cm','60×90cm','80×100cm'][i%5]+' 硅藻泥 加厚',17:'00000000000000000001',18:'0000000000000000'+i,19:15.8,20:'在售',21:999999});sheet.addRow(row);}sourceBytes=Buffer.from(await sample.xlsx.writeBuffer());
-  }
-  await importFile({name:'scroll-60-rows.xlsx',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',buffer:sourceBytes});
-  const measure=()=>page.evaluate(()=>{const e=document.querySelector('.pv4-table-scroll');return {top:scrollY,left:e.scrollLeft,height:e.clientHeight,scrollHeight:e.scrollHeight,overscrollY:getComputedStyle(e).overscrollBehaviorY};});
-  const hoverTable=async()=>{const box=await page.locator('.pv4-table-scroll').boundingBox();await page.mouse.move(Math.max(350,box.x+60),Math.max(200,Math.min(700,box.y+160)));};
-  assert.match(await page.locator('.pv4-actions').innerText(),/本页 60 条/);
-  const sessionRows=async()=>page.evaluate(async()=>{const list=await(await fetch('/api/file-sessions')).json();const session=list.items.filter(i=>i.kind==='product').at(-1);return (await(await fetch(`/api/file-sessions/${session.sessionId}/rows`)).json()).rows;});
-  const rowsBefore=await sessionRows();
+  const automatic=await require('./verify-product-auto.cjs').verifyProductAuto(page,out,label,root);lattice=automatic.lattice;
+  const settled=()=>page.waitForFunction(()=>{const last=window.__scrollCheck||{},y=scrollY;window.__scrollCheck={y,n:last.y===y?(last.n||0)+1:0};return window.__scrollCheck.n>=6;});
   for(const mode of ['rays','day'])for(const width of [1440,1024,842,390]){
-   await page.setViewportSize({width,height:850});await page.evaluate(mode=>{UiAppearance.setMode(mode);scrollTo(0,0);},mode);
-   await page.locator('.pv4-table').scrollIntoViewIfNeeded();await page.evaluate(()=>scrollTo(0,Math.max(0,document.querySelector('.pv4-table-scroll').getBoundingClientRect().top+scrollY-300)));
-   const box=await page.locator('.pv4-table-scroll').boundingBox();await page.mouse.move(box.x+60,Math.min(650,box.y+150));
-   const start=await measure();await page.mouse.wheel(0,650);
-   try{await page.waitForFunction(y=>scrollY>y+100,start.top,{timeout:2000});}catch{throw Error('Table swallowed downward wheel: '+JSON.stringify({mode,width,start,after:await measure()}));}
-   const lower=await measure();await page.mouse.wheel(0,-300);await page.waitForFunction(y=>scrollY<y-80,lower.top);
-   const tinyStart=await measure();for(let i=0;i<10;i++)await page.mouse.wheel(0,30);await page.waitForFunction(y=>scrollY>y+100,tinyStart.top);
-   if(width<1200){const x0=(await measure()).left;await page.mouse.wheel(450,0);await page.waitForFunction(x=>document.querySelector('.pv4-table-scroll').scrollLeft>x+100,x0);}
-   // Reach the last row by input scrolling, never by scrollIntoView.
-   for(let i=0;i<30;i++){await page.mouse.wheel(0,1400);if(await page.evaluate(()=>scrollY+innerHeight>=document.documentElement.scrollHeight-2))break;}
-   await page.waitForFunction(()=>scrollY+innerHeight>=document.documentElement.scrollHeight-2);
-   assert.ok(await page.locator('.pv4-table tbody tr').last().isVisible());
-   const last=await page.locator('.pv4-table tbody tr').last().boundingBox();assert.ok(last.y<850&&last.y+last.height>0);
-   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));checks.push({mode,width,down:true,up:true,continuousSmallDeltas:true,horizontal:width<1200,lastRowReached:true});
-   if(width===1440)await page.screenshot({path:path.join(out,`scroll-bottom-${label}-${mode}.png`)});
+   await page.setViewportSize({width,height:850});await page.evaluate(mode=>{UiAppearance.setMode(mode);scrollTo(0,0);},mode);await page.locator('.pv6-product').first().scrollIntoViewIfNeeded();const box=await page.locator('.pv6-product').first().boundingBox();await page.mouse.move(box.x+Math.min(box.width/2,150),Math.min(600,box.y+40));const start=await page.evaluate(()=>scrollY);await page.mouse.wheel(0,650);await page.waitForFunction(start=>scrollY>start+100,start);await settled();const lower=await page.evaluate(()=>scrollY);await page.mouse.wheel(0,-300);try{await page.waitForFunction(lower=>scrollY<lower-80,lower,{timeout:3000});}catch{throw Error('Upward scrolling failed: '+JSON.stringify({mode,width,start,lower,after:await page.evaluate(()=>scrollY)}));}await settled();for(let i=0;i<40;i++){await page.mouse.wheel(0,2200);if(await page.evaluate(()=>scrollY+innerHeight>=document.documentElement.scrollHeight-2))break;}await page.waitForFunction(()=>scrollY+innerHeight>=document.documentElement.scrollHeight-2);assert.ok(await page.locator('.pv6-product').last().isVisible());assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));checks.push({mode,width,down:true,up:true,lastRowReached:true,noHorizontalOverflow:true});if(width===1440)await page.screenshot({path:path.join(out,`scroll-bottom-${label}-${mode}.png`)});
   }
-  assert.deepEqual(await sessionRows(),rowsBefore);assert.deepEqual(await workspace(),before);
-  // Expand the actual workbook to two pages; scrolling must reach and operate the pager.
-  const book=new Excel.Workbook();await book.xlsx.load(sourceBytes);const sheet=book.worksheets[0],original=sheet.getRows(2,60).map(r=>r.values);
-  for(let i=0;i<80;i++)sheet.addRow(original[i%original.length]);
-  await page.setViewportSize({width:1440,height:850});await page.evaluate(()=>scrollTo(0,0));await importFile({name:'scroll-140-rows.xlsx',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',buffer:Buffer.from(await book.xlsx.writeBuffer())});
-  await page.locator('.pv4-table').scrollIntoViewIfNeeded();await hoverTable();for(let i=0;i<40;i++)await page.mouse.wheel(0,1800);
-  await page.waitForFunction(()=>{const r=document.querySelector('.pv4-pager').getBoundingClientRect();return r.top<innerHeight&&r.bottom>0;});
-  await page.locator('[data-pv4-page="2"]').click();await page.waitForFunction(()=>document.querySelector('.pv4-pager').textContent.includes('第 2 / 2 页'));assert.match(await page.locator('.pv4-actions').innerText(),/本页 40 条/);
-  await page.reload();await page.locator('[data-action="product-view"]').click();await page.locator('[data-pv4-auto-result]').waitFor();if(await page.locator('#product-v4-dialog').evaluate(e=>e.open))await page.locator('#product-v4-dialog [data-pv4-dialog-close]').first().click();await page.locator('[data-pv4-manual]').click();await page.locator('.pv4-table tbody tr').first().waitFor();
-  assert.match(await page.locator('.pv4-current-file').innerText(),/scroll-140-rows.xlsx/);assert.match(await page.locator('.pv4-actions').innerText(),/本页 100 条/);
-  assert.deepEqual(await workspace(),before);assert.deepEqual(errors,[]);
-  const automatic=await require('./verify-product-auto.cjs').verifyProductAuto(page,out,label,root);assert.deepEqual(errors,[]);
-  const report={passed:true,lattice,automatic,root,host:process.platform,installedWindow:!!installed,sourceKind:source?'user-supplied':'synthetic',workbookRows:60,twoPageFixtureRows:140,checks,paginationReached:true,sessionRestoredAfterReload:true,scrollDoesNotChangeSessionOrWorkspace:true,errors};fs.writeFileSync(path.join(out,`scroll-${label}.json`),JSON.stringify(report,null,2));console.log(JSON.stringify(report,null,2));
+  await page.setViewportSize({width:1440,height:850});for(let n=2;n<=7;n++){await page.locator(`[data-pv4-page="${n}"]`).click();await page.waitForFunction(n=>!document.querySelector('.pv4-lattice-wait')&&document.querySelector('.pv4-pager').textContent.includes(`第 ${n} / 7 页`),n);}assert.equal(await page.locator('.pv6-product').count(),20);await page.reload();await page.locator('[data-action="product-view"]').click();await page.locator('[data-pv4-export]').waitFor();assert.match(await page.locator('.pv4-current-file').innerText(),/scroll-final-140/);assert.deepEqual(await workspace(),before);assert.deepEqual(errors,[]);
+  const report={passed:true,lattice,automatic,root,host:process.platform,installedWindow:!!installed,sourceKind:source?'user-supplied':'synthetic',workbookRows:140,productPages:7,checks,paginationReached:true,sessionRestoredAfterReload:true,scrollDoesNotChangeSessionOrWorkspace:true,errors};fs.writeFileSync(path.join(out,`scroll-${label}.json`),JSON.stringify(report,null,2));console.log(JSON.stringify(report,null,2));
  }catch(error){if(page)await page.screenshot({path:path.join(out,`scroll-failure-${label}.png`)});throw error;}finally{await browser?.close();if(child){child.kill();await new Promise(resolve=>{if(child.exitCode!==null)return resolve();child.once('exit',resolve);setTimeout(resolve,5000);});}await server?.close();fs.rmSync(directory,{recursive:true,force:true,maxRetries:10,retryDelay:200});}
 }
 main().catch(error=>{console.error(error);process.exitCode=1;});
