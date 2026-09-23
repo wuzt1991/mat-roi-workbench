@@ -25,3 +25,20 @@ test('搜索命中 SKU 后仍按商品汇总，统一修改覆盖整个商品且
  const changed=store.applyReview({ownerToken:'o',expectedSessionRevision:3,mutationId:'thickness',groupId,action:{type:'group-unify'},patch:{thickness:{mode:'value',materialId:'m',ruleId:'5'}}},rules);assert.equal(changed.changed,207);assert.equal(store.page({view:'products'}).groups[0].thicknessState,'m:5');
  store.applyReview({ownerToken:'o',expectedSessionRevision:4,mutationId:'exception',rowIds:[205],action:{type:'row-edit'},patch:{thickness:{mode:'value',materialId:'m',ruleId:'3'}}},rules);assert.equal(store.page({view:'products'}).groups[0].thicknessState,'mixed');assert.deepEqual(store.page().materialSummary.thicknesses.map(x=>({value:String(x.value),count:Number(x.count)})),[{value:'m:3',count:34},{value:'m:5',count:206}]);assert.equal(store.page({groupId,search:'SKU-204'}).rows[0].derived.thickness.ruleId,'3');
 });
+
+test('筛选商品的计数、分页越界和无命中与独立逐行汇总相同，查询不改变会话',t=>{
+ const {store}=fixture(t),generation=store.getMeta('generation'),revision=store.getMeta('revision');
+ const data=store.db.prepare('SELECT row_id,group_id,status,original_missing_thickness,derived_json FROM derived_rows WHERE generation=? ORDER BY row_id').all(generation);
+ const fields=['productName','specName','productId','skuId'];
+ for(const search of ['SKU-','SKU-2','目标%_','同名','完全无匹配'])for(const status of ['all','pending','confirmed'])for(const missingThickness of [false,true]){
+  const matches=data.filter(r=>(status==='all'||(status==='pending'?r.status!=='confirmed':r.status==='confirmed'))&&(!missingThickness||r.original_missing_thickness)&&fields.some(k=>String(JSON.parse(r.derived_json)[k]||'').toLowerCase().includes(search.toLowerCase())));
+  const grouped=new Map();for(const r of matches)grouped.set(r.group_id,(grouped.get(r.group_id)||0)+1);
+  const ids=[...grouped.keys()].sort((a,b)=>data.find(r=>r.group_id===a).row_id-data.find(r=>r.group_id===b).row_id);
+  for(const requested of [1,2,999]){
+   const actual=store.page({view:'products',search,status,missingThickness,page:requested,pageSize:7}),pages=Math.max(1,Math.ceil(ids.length/7)),page=Math.min(requested,pages),visible=ids.slice((page-1)*7,page*7);
+   assert.equal(actual.total,ids.length);assert.equal(actual.matchedRows,matches.length);assert.equal(actual.totalPages,pages);assert.equal(actual.page,page);assert.deepEqual(actual.groups.map(g=>g.groupId),visible);assert.deepEqual(actual.groups.map(g=>g.matched),visible.map(id=>grouped.get(id)));
+  }
+ }
+ assert.equal(store.getMeta('generation'),generation);assert.equal(store.getMeta('revision'),revision);
+ assert.deepEqual(store.db.prepare('SELECT row_id,group_id,status,original_missing_thickness,derived_json FROM derived_rows WHERE generation=? ORDER BY row_id').all(generation),data);
+});

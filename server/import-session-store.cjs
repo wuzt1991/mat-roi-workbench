@@ -165,10 +165,22 @@ class ImportSessionStore{
     const filtered=!!search||status!=='all'||missingThickness;
     const source=filtered?`WITH matches AS (SELECT d.group_id,count(*) matched FROM derived_rows d WHERE ${clause} GROUP BY d.group_id) SELECT g.*,m.matched FROM groups g JOIN matches m ON m.group_id=g.group_id WHERE g.generation=?`:'SELECT g.*,g.total matched FROM groups g WHERE g.generation=?';
     const args=filtered?[...params,generation]:[generation];
-    const totals=this.db.prepare(`SELECT count(*) total,coalesce(sum(matched),0) matchedRows FROM (${source})`).get(...args);
+    let totals,visible;
+    if(filtered){
+      // Count and page the same matches. Re-running the JSON search for the page
+      // otherwise scans every SKU twice, including sparse searches on large files.
+      const result=this.db.prepare(`WITH candidates AS MATERIALIZED (${source}), totals AS (SELECT count(*) total,coalesce(sum(matched),0) matchedRows FROM candidates)
+        SELECT t.total result_total,t.matchedRows result_matched,v.* FROM totals t LEFT JOIN
+          (SELECT * FROM candidates ORDER BY first_row LIMIT ? OFFSET (SELECT max(0,min(?,CAST((total-1)/? AS INTEGER)))*? FROM totals)) v ON 1`).all(...args,pageSize,page-1,pageSize,pageSize);
+      totals={total:result[0].result_total,matchedRows:result[0].result_matched};visible=result.filter(g=>g.group_id!==null);
+    }else{
+      totals=this.db.prepare(`SELECT count(*) total,coalesce(sum(matched),0) matchedRows FROM (${source})`).get(...args);
+      const lastPage=Math.max(1,Math.ceil(Number(totals.total)/pageSize));
+      visible=this.db.prepare(`${source} ORDER BY g.first_row LIMIT ? OFFSET ?`).all(...args,pageSize,(Math.min(page,lastPage)-1)*pageSize);
+    }
     const total=Number(totals.total),totalPages=Math.max(1,Math.ceil(total/pageSize));page=Math.min(page,totalPages);
     const first=this.db.prepare('SELECT derived_json FROM derived_rows WHERE generation=? AND row_id=?');
-    const groups=this.db.prepare(`${source} ORDER BY g.first_row LIMIT ? OFFSET ?`).all(...args,pageSize,(page-1)*pageSize).map(g=>({groupId:g.group_id,productName:parse(first.get(generation,g.first_row)?.derived_json,{}).productName||'未命名商品',platform:g.platform,shop:g.shop,productId:g.product_id,total:g.total,matched:g.matched,pending:g.pending,confirmed:g.confirmed,materialState:g.material_state,thicknessState:g.thickness_state,specExamples:parse(g.spec_examples,[])}));
+    const groups=visible.map(g=>({groupId:g.group_id,productName:parse(first.get(generation,g.first_row)?.derived_json,{}).productName||'未命名商品',platform:g.platform,shop:g.shop,productId:g.product_id,total:g.total,matched:g.matched,pending:g.pending,confirmed:g.confirmed,materialState:g.material_state,thicknessState:g.thickness_state,specExamples:parse(g.spec_examples,[])}));
     const productCounts=this.db.prepare('SELECT count(*) total,coalesce(sum(pending>0),0) pending FROM groups WHERE generation=?').get(generation),counts=this.counts(generation);
     return {view:'products',rows:[],groups,page,pageSize,total,totalPages,matchedRows:Number(totals.matchedRows),productCounts,search,counts,materialSummary:this.materialSummary(generation,materialPage),thicknessConfigured:this.getMeta('uniformConfirmed',false),thicknessDefaults:this.getMeta('thicknessDefaults',{}),revision:this.getMeta('revision',0),generation,ready:counts.ready};
   }

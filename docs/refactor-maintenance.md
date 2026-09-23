@@ -46,6 +46,12 @@ Mac：`npm run package -- --platform darwin --output <候选目录>`；Windows�
 
 版本需要同步 `package.json`、`package-lock.json`、`common/runtime-manifest.cjs`、`common/runtime-dependencies.json` 及 index 的外壳脚本缓存号。生产依赖变更另行重新生成并核验依赖快照。
 
+Windows 实际安装包业务回归：`node scripts/release-validation/run-installed.cjs <安装目录> business`，同时设置 `MAT_STAGE3_INSTALLED=<安装目录>/地垫工作台.exe`、`MAT_PLAYWRIGHT_MODULE` 和新的 `MAT_VERIFY_OUTPUT`。商品用 `scroll` 模式，分组性能用 `performance` 模式。安装包装入口会以该安装目录的 Electron 执行脚本，业务帮助模块通过 `MAT_VERIFY_ROOT` 加载同一载荷。
+
+Electron 下读取整个 `app.asar` 的哈希必须使用 `original-fs`，普通 fs 会把 ASAR 当目录。业务原生窗口已由桌面入口导航，测试应等待首次导航完成；不要在初次加载期间再次 page.goto。Windows 结束测试时按 PID 清理该测试进程树，不能停止所有同名应用。
+
+`verify-windows-rollback.cjs` 仅在 GitHub 托管 Windows runner 运行，以明确的旧／新安装器进行同目录覆盖升级和回退，保存后继续读取最新合成数据。候选 SHA-256 清单位于隔离测试分支 `validation/candidate/sha256.json`。`emit-ci-evidence.py` 将合成 JSON 报告压缩分段输出并附哈希，下载后必须完整重组验证；不得把 GitHub 截断的长 annotation 当完整报告。
+
 Windows 原生验收与安装升级需 Windows 环境。`audit-windows-upgrade.cjs` 只接受 GitHub 托管的一次性 Windows runner，不能绕过环境保护。本地构建不等于原生通过，远程运行沿用用户授权边界。
 
 ## 交付和回退

@@ -4,7 +4,7 @@ const root=path.resolve(process.env.MAT_VERIFY_ROOT||path.join(__dirname,'../..'
 const {ImportSessionStore}=require(path.join(root,'server/import-session-store.cjs')),R=require(path.join(root,'public/product-recognition.js'));
 const rules={materials:[{id:'m',name:'硅藻泥',weightRules:[{id:'3',thickness:3,coefficient:.9,costPerSqm:10}]}]};
 const mapping=R.mapFields(['平台','店铺','平台商品名称','平台规格名称','平台商品ID','平台规格ID','平台售价','售卖状态','平台库存']);
-const report={root,platform:process.platform,node:process.version,cpu:os.cpus()[0].model,rowsPerDistribution:50000,results:[]};
+const report={root,platform:process.platform,node:process.version,cpu:os.cpus()[0].model,totalMemoryGiB:os.totalmem()/2**30,osRelease:os.release(),rowsPerDistribution:50000,results:[]};
 fs.mkdirSync(output,{recursive:true});
 for(const distribution of ['single-product','many-products','same-name-products']){
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'mat-group-performance-')),store=new ImportSessionStore(dir,{create:true,meta:{ownerToken:'test',rules,mapping}});
