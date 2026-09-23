@@ -3,7 +3,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-const APP_VERSION = '1.2.12';
+const APP_VERSION = '1.2.13';
 
 // This is the only application-file allowlist used by both supported packagers.
 // Keep entries explicit: a newly added runtime module must be reviewed here before
@@ -61,7 +61,6 @@ const RUNTIME_FILES = Object.freeze([
   'public/transfer.js',
   'public/transfer-v3.js',
   'public/product-recognition.js',
-  'public/product-transfer.js',
   'public/product-transfer/commands.js',
   'public/product-transfer/model.js',
   'public/product-transfer/controller.js',
@@ -97,6 +96,8 @@ const RUNTIME_FILES = Object.freeze([
 
   'public/assets/InterVariable.woff2',
   'public/assets/LICENSE',
+  'public/licenses/lucide-ISC.txt',
+  'public/licenses/inter-OFL.txt',
   'public/assets/app-icon.png',
   'public/assets/brand-mark.svg',
   'public/assets/exceljs.min.js',

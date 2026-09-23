@@ -3,6 +3,9 @@ const assert=require('node:assert/strict');
 const M=require('../public/domain.js');
 const P=require('../public/product-transfer.js');
 const W=require('../public/workbook.js');
+const Recognition=require('../public/product-recognition.js');
+const {canonicalRules}=require('../public/product-transfer/model.js');
+const {ruleSnapshot}=require('../server/file-service.cjs');
 const {appHarness}=require('./app-harness.cjs');
 const headers=['平台','店铺','平台商品名称','平台规格名称','平台商品ID','平台规格ID','平台售价','售卖状态','平台库存'];
 const source=(spec='40x60cm',price=20,inventory=5,name='硅藻泥')=>[headers,['淘宝','测试店',name,spec,'product','sku',price,'在售',inventory]];
@@ -24,9 +27,13 @@ test('P0-1 入账实际报价经 UI 改价后决定冻结成本、利润及 Exce
   const restored=await W.importWorkbook(await W.exportWorkbook(s));
   assert.equal(restored.records[0].result.profit,record.result.profit);
 });
-test('P0-2 公共材料经真实转表适配器保留包边变体',()=>{
-  const {ui}=appHarness();const r=P.transformRows(source('80x120 包边',39.9,5,'水晶绒'),{rules:ui.transferRules()});
-  assert.equal(r.summary.ready,true);assert.ok(Math.abs(r.rows[0].values[11]-.672)<1e-12);assert.equal(r.rows[0].values[12],8.64);
+test('P0-2 正式转表规则经统一确认使用包边变体',()=>{
+  const state=M.initialState(),rules=canonicalRules(state);assert.deepEqual(rules,ruleSnapshot(state));
+  const rows=source('80x120 包边',39.9,5,'水晶绒'),raw={rowId:1,sourceRow:2,sheetId:'s',mapping:Recognition.mapFields(headers),values:rows[1]};
+  const material=rules.materials.find(m=>m.name==='水晶绒'),rule=material.weightRules.find(r=>r.variant==='包边');
+  assert.equal(Recognition.deriveTransferRow(raw,{},{rules}).status,'pending');
+  const r=Recognition.deriveTransferRow(raw,{},{rules,thicknessDefaults:{[material.id]:rule.id},thicknessMode:'uniform'});
+  assert.equal(r.status,'confirmed');assert.ok(Math.abs(r.weight-.672)<1e-12);assert.equal(r.cost,8.64);
 });
 test('P0-3 长宽单位转为 cm，支持双单位、中文、大小写和空白',()=>{
   for(const spec of ['400x600mm','0.4x0.6m','40 x 60 CM','400毫米×600毫米','0.4 米 × 0.6 米','40 厘米 * 60 厘米','400 MM x 600 MM','40x60','400mm x 60cm']){
@@ -48,10 +55,12 @@ test('P0-5 负规则成本不能通过备份校验或生成可入账结果',()=>
   assert.equal(M.validateBackup(s),false);assert.equal(M.calculate(s,s.plans[0]).valid,false);
 });
 test('P0-6 人工复核使用同一厚度或变体规则计算重量与成本',()=>{
-  const {ui}=appHarness();
-  for(const [spec,name,weight,cost] of [['40x60 5mm','硅藻泥',.24*1.3,.24*11.2],['80x120 包边','水晶绒',.96*.7,.96*9]]){
-    const r=P.transformRows(source(spec,20,5,'未知材料'),{rules:ui.transferRules()});
-    const reviewed=P.applyReviews(r,{2:{material:name}});assert.equal(reviewed.summary.ready,true);
-    assert.equal(reviewed.rows[0].values[11],weight);assert.equal(reviewed.rows[0].values[12],cost);
+  const rules=canonicalRules(M.initialState());
+  for(const [spec,name,weight,cost] of [['40x60cm 5mm','硅藻泥',.24*1.3,.24*11.2],['80x120 包边','水晶绒',.96*.7,.96*9]]){
+    const raw={rowId:1,sourceRow:2,sheetId:'s',mapping:Recognition.mapFields(headers),values:source(spec,20,5,'未知材料')[1]};
+    const material=rules.materials.find(m=>m.name===name);
+    const rule=material.weightRules.find(r=>spec.includes('包边')?r.variant==='包边':r.thickness===5);
+    const {derived:reviewed}=Recognition.previewTransferRowPatch(raw,{},{material:{mode:'value',id:material.id},thickness:{mode:'value',materialId:material.id,ruleId:rule.id}},{type:'row-edit'},rules);
+    assert.equal(reviewed.status,'confirmed');assert.equal(reviewed.weight,weight);assert.equal(reviewed.cost,cost);
   }
 });

@@ -5,11 +5,10 @@
 input[aria-invalid=true],select[aria-invalid=true]{border-color:#b13d40;outline:1px solid #b13d40}
 .review-pagination{display:flex;align-items:center;justify-content:flex-end;gap:12px;padding:16px 0;font-size:13px}
 .update-status{max-width:200px;white-space:normal;overflow:visible;text-overflow:clip}
-.product-upload small,.product-summary span,.sidebar .view-label,.plan-roi,.local-status,.brand-sub{color:#5d6875!important;font-size:12px!important}
+.sidebar .view-label,.plan-roi,.local-status,.brand-sub{color:#5d6875!important;font-size:12px!important}
 .plan-resource input[data-packaging-weight]{height:36px;width:100%;padding:0 10px}
 .sku-table td:last-child{min-width:82px;white-space:nowrap}
 #toast{max-width:calc(100vw - 32px);overflow-wrap:anywhere}
-.product-exceptions{margin-bottom:16px}
 @media(max-width:1000px){
   .topbar{height:auto;min-height:64px;flex-wrap:wrap;padding-top:10px;padding-bottom:10px}
   .topbar-right{flex-wrap:wrap;white-space:normal;gap:8px;flex-shrink:1}
@@ -42,8 +41,6 @@ input[aria-invalid=true],select[aria-invalid=true]{border-color:#b13d40;outline:
   .ledger-filters{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
   .ledger-filters .field{width:100%;min-width:0}
   .history-summary{grid-template-columns:1fr;gap:16px}
-  .product-summary{gap:14px;padding:16px}.product-summary>div{border:0;padding:0;flex-wrap:wrap}
-  .product-rules,.product-exceptions{padding:16px}
   .total-row,.page-footer,.data-actions{flex-wrap:wrap;gap:12px}
   dialog{max-width:calc(100vw - 24px);max-height:90vh}
   .dialog-head,.dialog-body,.dialog-footer{padding:16px}

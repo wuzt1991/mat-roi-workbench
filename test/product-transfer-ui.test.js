@@ -25,7 +25,7 @@ test('商品转表初始界面只提供真实 Excel 入口，不再暴露示例�
 test('正式入口先加载商品识别模块，再加载商品转表脚本',()=>{
   const html=fs.readFileSync(path.join(__dirname,'../public/index.html'),'utf8');
   const recognition=html.indexOf('product-recognition.js');
-  const transfer=html.indexOf('product-transfer.js');
+  const transfer=html.indexOf('product-transfer/model.js');
   const transferUI=html.indexOf('product-transfer-ui.js');
   assert.ok(recognition>=0&&recognition<transfer&&recognition<transferUI);
 });
@@ -144,4 +144,16 @@ test('失败的新导入不删除当前会话或改变当前文件名',async t=>
 test('切换工作区后迟到的分页响应不得回填',async t=>{
  let resolve;const h=dragHarness(async action=>{if(action==='rows')return new Promise(r=>resolve=r);return {};});t.after(()=>h.controller.destroy());
  h.controller.refreshContext({workspaceId:'a',storageEpoch:0});const restoring=h.controller.restoreSession({sessionId:'old',ownerToken:'o'});h.controller.refreshContext({workspaceId:'b',storageEpoch:0});resolve({ready:true,rows:[],counts:{total:1}});await restoring;assert.equal(h.controller.inspect().session,null);assert.doesNotMatch(h.controller.html(),/已自动识别完成/);
+});
+
+
+test('商品模块缺失时只提供恢复入口，不回退到旧转表流程',async()=>{
+  const {ui,dispatch,elements}=require('./app-harness.cjs').appHarness();
+  const before=structuredClone(ui.state),html=ui.productTransferPage();
+  assert.match(html,/role="alert"/);assert.match(html,/data-action="reload-product-module"/);assert.match(html,/data-action="data-view"/);
+  assert.doesNotMatch(html,/data-product-file|data-product-edit|product-export/);
+  await dispatch('click',{closest:()=>({dataset:{action:'product-export'}})});
+  assert.deepEqual(ui.state,before);
+  await dispatch('click',{closest:()=>({dataset:{action:'data-view'}})});
+  assert.match(elements.get('#app').innerHTML,/导出 Excel 工作簿/);
 });

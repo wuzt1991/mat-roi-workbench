@@ -119,30 +119,14 @@ html[data-ui-refine="true"][data-ui-material="rays"] tbody tr:nth-child(even)>td
 html[data-ui-refine="true"][data-ui-material="rays"] tbody tr:hover>td { background:#2b3647; }
 html[data-ui-refine="true"][data-ui-material="rays"] .review-table tbody tr:focus-within>td { background:#2c3a50; }
 html[data-ui-refine="true"][data-ui-material="rays"] .table-scroll { border-color:#ffffff1a; }
-html[data-ui-refine="true"][data-ui-material="rays"] :is(.material-strip,.sku-options-body,.help-box,.upload-panel,.promotion-preview,.activity-order,.sales-map span,.data-stats span,.plan-tile,.shipping-card,.trend-detail,.export-preview,.import-source) { background:#272c37; color:#bbc6d7; border-color:#ffffff1c; }
+html[data-ui-refine="true"][data-ui-material="rays"] :is(.material-strip,.sku-options-body,.help-box,.upload-panel,.promotion-preview,.activity-order,.sales-map span,.data-stats span,.plan-tile,.shipping-card,.export-preview,.import-source) { background:#272c37; color:#bbc6d7; border-color:#ffffff1c; }
 html[data-ui-refine="true"][data-ui-material="rays"] :is(.ledger-stats p,.review-empty,.transfer-summary span,.chart-bars>div,.strategy-line) { color:#b4bfd0; }
 html[data-ui-refine="true"][data-ui-material="rays"] :is(.ledger-stats strong,.review-empty h3,.help-box strong,.promotion-preview strong,.preview-grid strong) { color:#edf3fb; }
 html[data-ui-refine="true"][data-ui-material="rays"] .chart-bar { background:#8eaacc; }
-/* Ledger and the shared investment chart use the same dark surfaces as the workspace. */
-html[data-ui-refine="true"][data-ui-material="rays"] :is(.ledger-trend,.investment-chart) {
-  background:#1c2029; color:var(--ink); border-color:var(--line);
-}
 html[data-ui-refine="true"][data-ui-material="rays"] .history-summary>div {
   background:var(--mat-control); border-color:var(--line);
 }
-html[data-ui-refine="true"][data-ui-material="rays"] :is(.empty h3,.trend-legend) { color:var(--ink); }
-html[data-ui-refine="true"][data-ui-material="rays"] .trend-table summary { color:var(--muted); }
-html[data-ui-refine="true"][data-ui-material="rays"] .investment-chart text { fill:var(--muted); }
-html[data-ui-refine="true"][data-ui-material="rays"] .investment-chart line { stroke:var(--line); }
-html[data-ui-refine="true"][data-ui-material="rays"] .investment-chart line[stroke-dasharray] { stroke:#74849a; }
-html[data-ui-refine="true"][data-ui-material="rays"] .investment-key::before { background:#9cbcf9; }
-html[data-ui-refine="true"][data-ui-material="rays"] .profit-key::before { background:var(--green); }
-html[data-ui-refine="true"][data-ui-material="rays"] .investment-chart [data-series="investment"] { stroke:#9cbcf9; }
-html[data-ui-refine="true"][data-ui-material="rays"] .investment-chart [data-series="profit"] { stroke:var(--green); }
-/* Match the dots to the corresponding series colors from the SVG renderer. */
-html[data-ui-refine="true"][data-ui-material="rays"] .investment-chart circle[fill="#5572c3"] { fill:#9cbcf9; }
-html[data-ui-refine="true"][data-ui-material="rays"] .investment-chart circle[fill="#237657"] { fill:var(--green); }
-html[data-ui-refine="true"][data-ui-material="rays"] .investment-chart rect[data-trend-index]:focus-visible { fill:#b2cff918; }
+html[data-ui-refine="true"][data-ui-material="rays"] .empty h3 { color:var(--ink); }
 html[data-ui-refine="true"][data-ui-material="rays"] :is(#dialog,.sidebar-picker-menu) { background:#252b37ed; color:#edf2fa; border-color:#ffffff26; box-shadow:inset 0 1px 0 #ffffff20,0 25px 60px #0007; }
 html[data-ui-refine="true"][data-ui-material="rays"] #dialog::backdrop { background:#06090f85; }
 html[data-ui-refine="true"][data-ui-material="rays"] .dialog-head { background:#ffffff03; }

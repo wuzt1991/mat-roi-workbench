@@ -1,7 +1,7 @@
 /* Desktop workbench. Confirmed records and database persistence are independent of the forecast. */
 (() => {
   'use strict';
-  const M=window.MatModel,W=window.MatWorkbook,T=window.MatTransfer,H=window.MatTrends,P=window.MatProductTransfer,R=window.ReusableRules,A=window.PromotionRules,S=window.SalesImport,O=window.OperatingRecords;
+  const M=window.MatModel,T=window.MatTransfer,R=window.ReusableRules,A=window.PromotionRules,S=window.SalesImport,O=window.OperatingRecords;
   const app=document.querySelector('#app'),dialog=document.querySelector('#dialog');
   const APP_VERSION=window.WorkbenchConfig?.version||'未知',updates=window.matUpdates;
   const updatesSupported=!!updates&&window.WorkbenchConfig?.updatesSupported===true;
@@ -17,8 +17,6 @@
   let draftKey=DRAFT_PREFIX+clientId,workspaceId='',storageEpoch=0;
   const operating=window.OperatingController.create();
 
-  let productFiles={template:null,source:null},productResult=null,productBusy=false,productError='',productReviews={},productGroupPage=0,productRowPage=0;
-  let chartFilters={from:H.shift(M.today(),-29),to:M.today(),unit:'day'},ledgerUnit='day',trendPoints=[];
   const {e,n,money,short,roi,icon,btn,ib,sizeName,dimensions,production,field,gramField,weightText,option,empty}=window.WorkbenchFormat;
 
   const current=()=>state.plans.find(p=>p.id===state.active&&!p.deleted&&p.shopId===state.activeShop);
@@ -40,7 +38,7 @@
   function toast(message){clearTimeout(toastTimer);const t=document.querySelector('#toast');t.textContent=message;t.classList.add('show');toastTimer=setTimeout(()=>t.classList.remove('show'),5000);}
   function save(reason='save'){queue?.enqueue(state,reason);}
   function saveStatusText(){return {loading:'正在读取数据',pending:'有修改待保存',saving:'正在保存…',saved:'已保存到电脑',error:'保存失败',conflict:'其他窗口已更新'}[saveStatus];}
-  function updateInstallBlocked(){return !booted||!!modal||Object.keys(inlineDrafts).length>0||operationPending||busy||productBusy||!shell.canQuit()||formDrafts?.status().pending>0||!!formDrafts?.status().error||!!queue?.pending||!!queue?.sending||!!queue?.failedSent||!!saveError||saveStatus!=='saved';}
+  function updateInstallBlocked(){return !booted||!!modal||Object.keys(inlineDrafts).length>0||operationPending||busy||!shell.canQuit()||formDrafts?.status().pending>0||!!formDrafts?.status().error||!!queue?.pending||!!queue?.sending||!!queue?.failedSent||!!saveError||saveStatus!=='saved';}
   function updateStatusText(){if(!updatesSupported)return '仅 Windows x64 支持自动更新';const s=updateStatus;return s.state==='checking'?'正在检查更新…':s.state==='available'?`发现新版本 v${e(s.version||'')}`:s.state==='downloading'?`正在后台下载 ${e(s.percent??0)}%`:s.state==='downloaded'?'已下载，重启安装':s.state==='uptodate'?'当前已是最新版':s.state==='error'?'更新失败，继续使用当前版本':'检查更新';}
   function updateAction(){
     if(!updatesSupported)return btn('check-updates','检查更新','refresh-cw','ghost','disabled');
@@ -141,11 +139,7 @@
   async function exportListing(){if(busy)return;busy=true;try{const result=await auxiliary('export-listing',{state,planId:current().id});downloadLink(window.FileJobs.auxiliaryDownloadUrl(result.jobId),'上架价格-'+M.today()+'.xlsx');toast('上架价格表已生成');}catch(error){fail(error.message);}finally{busy=false;}}
   function downloadLink(url,name){const a=document.createElement('a');a.href=url;a.download=name;a.click();}
   async function restoreWorkspace(next){const target=modal;if(!target||operationPending)return;operationPending=true;target.pending=true;target.operationId??=crypto.randomUUID();target.expectedRevision??=queue?.revision??recoveryContext?.revision;try{if(queue&&!await queue.pause())return fail('请先解决当前保存问题再恢复');if(target.expectedRevision!==queue?.revision&&queue)target.expectedRevision=queue.revision;await request('/api/restore',{method:'POST',body:JSON.stringify({state:next,expectedRevision:target.expectedRevision,operationId:target.operationId})});target.committed=true;close(true);shell.destroy();productUI=null;salesUI=null;await initialize();toast('工作区已恢复并保存');}catch(error){fail(error.message);}finally{operationPending=false;if(target)target.pending=false;queue?.resume();}}
-  function transferRules(){
-    const materials={};let weightRules=[];
-    for(const m of state.materials.filter(m=>m.active)){const rules=m.weightRules||[],selected=rules.find(r=>r.default)||rules[0];materials[m.name]={weightPerSqm:Number(selected?.coefficient)||0,costPerSqm:Number(selected?.costPerSqm??m.price)};for(const r of rules)weightRules.push({material:m.name,thickness:r.thickness,variant:r.variant,coefficient:r.coefficient,default:r.default,costPerSqm:r.costPerSqm});}
-    return P.normalizeRules({materials,weightRules,keywords:state.materials.map(m=>m.name)});
-  }
+
   async function recoveryPoints(){const result=await request('/api/backups');backupItems=result.items;dataPath=result.dataDir;open('recovery-points');}
   async function downloadState(data,name){const migrated=M.migrate(data);if(!M.validateBackup(migrated))throw Error('恢复点未通过校验，请下载原件');const result=await auxiliary('export-backup',{state:migrated});downloadLink(window.FileJobs.auxiliaryDownloadUrl(result.jobId),name+'.xlsx');}
 
@@ -185,83 +179,28 @@
     return `<div class="section-head review-toolbar"><div class="row"><h2>商品规格</h2><span class="tag">${r.rows.length} 个</span><button type="button" class="sku-options-toggle" data-action="sku-options" aria-expanded="${skuOptionsOpen}" aria-controls="sku-options">${skuOptionsOpen?'收起设置':'更多设置'}${icon('chevron-down')}</button></div><div class="row"><select class="strategy-select" data-plan-strategy aria-label="定价策略">${option('','定价策略 · 手动定价',p.strategyId)}${(state.pricingStrategies||[]).filter(x=>!x.deleted||x.id===p.strategyId).map(x=>option(x.id,'定价策略 · '+x.name+(x.deleted?'（已删除）':''),p.strategyId)).join('')}</select>${btn('sku-display','显示设置','sliders-horizontal','ghost','aria-label="商品规格显示设置"')}${btn('add-skus','添加规格','plus')}</div></div>${skuOptions()}${r.rows.length?`<div class="table-scroll"><table class="sku-table" style="--sku-min:${260+columns.length*98}px"><thead><tr><th>商品规格</th>${heads.map(c=>`<th data-column="${c.id}">${e(c.label)}${c.unit?`<small>/ ${e(c.unit)}</small>`:''}</th>`).join('')}<th><span class="sr-only">操作</span></th></tr></thead><tbody>${r.rows.map(i=>`<tr><td><div class="sku-title"><button type="button" data-action="sku-settings" data-id="${e(i.id)}">${e(sizeName(i.size))}</button></div>${i.size?.name||i.size?.needsReview?`<div class="sku-sub">实际生产 ${e(production(i.size))}</div>`:''}</td>${columns.map(id=>skuCell(id,i)).join('')}<td>${ib('remove-sku','移除 '+sizeName(i.size),'x',`data-id="${e(i.id)}"`)}</td></tr>`).join('')}</tbody></table></div><div class="total-row"><span>售价为最终到手价，手动改价后保留手动模式。</span><div class="row"><span id="share-total">合计 ${n(r.total,2)}%</span>${ib('normalize-share','调整占比至 100%','equal')}</div></div>`:empty('还没有商品规格','选择常用尺寸或输入自定义尺寸。','add-skus','添加规格')}<div id="validation">${errors(r)}</div>`;
   }
   function errors(r){return r.valid?'':`<div class="message-error" role="status"><span>${e(r.errors.join('；'))}</span>${['price','share','weight'].some(id=>!M.skuColumns(state).includes(id))?btn('show-sku-inputs','显示填写项','','ghost'):''}</div>`;}
-  function trendDetail(index){
-    const p=trendPoints[index],previous=trendPoints[index-1];if(!p)return '';
-    const change=key=>{if(p[key]===null||!previous||previous[key]===null||p.partial||previous.partial)return '上期无完整可比数据';const delta=p[key]-previous[key];return `较上期 ${delta>=0?'+':'−'}${money(Math.abs(delta))}${previous[key]===0?'':`（${delta>=0?'+':'−'}${n(Math.abs(delta/previous[key]*100),1)}%）`}`;};
-    return `<div class="trend-period"><strong>${e(p.label)}</strong><span>${p.count?`${p.days} 天有入账 · ${p.count} 笔${p.partial?' · 非完整周期':''}`:'未入账'}</span></div><div><span class="trend-key investment-key">总投入</span><strong>${p.investment===null?'—':money(p.investment)}</strong><small>${p.missingInvestment?'旧记录缺少成本数据':change('investment')}</small></div><div><span class="trend-key profit-key">利润</span><strong class="${p.profit<0?'negative':''}">${p.profit===null?'—':money(p.profit)}</strong><small>${change('profit')}</small></div>`;
-  }
-  function trendPanel(f,source=state){
-    let r;try{r=H.series(source,f);}catch(error){trendPoints=[];return `<p class="message-error">${e(safeError(error,'趋势暂不可用，请检查起止日期后重试。'))}</p>`;}
-    trendPoints=r.points;
-    const header=`<div class="section-head trend-heading"><div><h2>投入与利润</h2><p class="note stack-gap">每期合计 · 已入账 ${r.count} 笔 · 成本按入账时保留</p></div><div class="trend-legend"><span class="trend-key investment-key">总投入</span><span class="trend-key profit-key">利润</span></div></div>`;
-    if(!r.points.length)return header+empty('这个范围还没有入账数据','核对每天的投放数据并确认入账后，这里会显示两条时间曲线。试算不会计入。','trend-demo','查看图表示例');
-    const values=r.points.flatMap(p=>[p.investment,p.profit]).filter(Number.isFinite),top=Math.max(1,...values),bottom=Math.min(0,...values),rawStep=(top-bottom)/5,base=10**Math.floor(Math.log10(rawStep)),step=base*[1,2,2.5,5,10].find(v=>v>=rawStep/base),max=Math.ceil(top*1.04/step)*step,min=bottom<0?Math.floor(bottom/step)*step:0;
-    const x=i=>82+(r.points.length===1?326:i/(r.points.length-1)*652),y=v=>268-(v-min)/(max-min)*225;
-    const line=key=>{let drawing=false;return r.points.map((p,i)=>{if(p[key]===null){drawing=false;return '';}const command=drawing?'L':'M';drawing=true;return `${command}${x(i)},${y(p[key])}`;}).join(' ');};
-    const tickIds=[...new Set(Array.from({length:Math.min(6,r.points.length)},(_,i)=>Math.round(i*(r.points.length-1)/Math.max(1,Math.min(6,r.points.length)-1))))];
-    const initial=r.points.findLastIndex(p=>p.count>0);
-    return header+`<div class="trend-totals"><span>范围合计</span><span>总投入 <strong title="${e(money(r.investment))}">${r.investment===null?'数据待补':'¥'+short(r.investment)}</strong></span><span>利润 <strong class="${r.profit<0?'negative':'positive'}" title="${e(money(r.profit))}">¥${short(r.profit)}</strong></span></div><div class="trend-detail" id="trend-detail" aria-live="polite">${trendDetail(initial)}</div><div class="investment-chart"><svg viewBox="0 0 790 325" role="group" aria-label="总投入与利润随时间变化，横轴日期，纵轴金额；同一金额刻度，缺失日期断线"><text x="15" y="20">金额 / 元</text>${Array.from({length:Math.round((max-min)/step)+1},(_,i)=>{const value=min+step*i;return `<line x1="82" x2="734" y1="${y(value)}" y2="${y(value)}" stroke="#e6ebe7"/><text x="72" y="${y(value)+4}" text-anchor="end">${e(short(value))}</text>`;}).join('')}<line x1="82" x2="734" y1="${y(0)}" y2="${y(0)}" stroke="#9ba89e" stroke-dasharray="4 5"/>${tickIds.map(i=>`<text x="${x(i)}" y="294" text-anchor="middle">${e(f.unit==='month'?r.points[i].key.slice(0,7):r.points[i].from.slice(5))}</text>`).join('')}<text x="408" y="319" text-anchor="middle">日期 · ${{day:'每日',week:'每周（周一开始）',month:'每月'}[f.unit]}</text>${[['investment','#5572c3'],['profit','#237657']].map(([key,color])=>`<path data-series="${key}" d="${line(key)}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linejoin="round"/>${r.points.map((p,i)=>p[key]===null?'':`<circle cx="${x(i)}" cy="${y(p[key])}" r="${r.points.length<65?3.5:2}" fill="${color}"/>`).join('')}`).join('')}<line id="trend-guide" x1="${x(initial)}" x2="${x(initial)}" y1="35" y2="268" stroke="#b6c2b9" stroke-dasharray="3 4"/>${r.points.map((p,i)=>{const width=r.points.length===1?652:652/(r.points.length-1),left=i===0?82:x(i)-width/2,right=i===r.points.length-1?734:x(i)+width/2;return `<rect data-trend-index="${i}" data-x="${x(i)}" x="${r.points.length===1?82:left}" y="30" width="${right-left}" height="245" fill="transparent" tabindex="0" role="button" aria-label="${e(p.label+' 总投入 '+money(p.investment)+' 利润 '+money(p.profit)+(p.count?'':' 未入账'))}"/>`;}).join('')}</svg></div><p class="note">总投入含广告、材料、运费及已填费用；利润已扣退货影响。两条线使用同一刻度，按期合计，不是累计值。未入账日期留空，周/月仅合计已入账日期。</p>${r.missingInvestment?'<p class="message-error">部分旧账缺少成本数据，对应投入留空，利润仍保留。</p>':''}<details class="trend-table stack-gap"><summary>查看各期数据</summary><div class="table-scroll"><table><thead><tr><th>日期</th><th>总投入</th><th>利润</th><th>入账情况</th></tr></thead><tbody>${r.points.map(p=>`<tr><td>${e(p.label)}</td><td>${money(p.investment)}</td><td>${money(p.profit)}</td><td>${p.count?p.days+' 天 / '+p.count+' 笔':'未入账'}</td></tr>`).join('')}</tbody></table></div></details>`;
-  }
-  function chartPage(){return `<div class="ledger-filters trend-filters"><label class="field"><span>开始日期</span><input type="date" data-chart="from" aria-label="趋势开始日期" value="${chartFilters.from}"></label><label class="field"><span>结束日期</span><input type="date" data-chart="to" aria-label="趋势结束日期" value="${chartFilters.to}"></label>${unitControl(false)}${btn('chart-recent','近 30 天','','ghost')}${btn('export-chart','导出此范围','download','ghost')}</div>${trendPanel({...chartFilters,shopId:state.activeShop,planId:current().id})}`;}
-  function unitControl(all){const unit=all?ledgerUnit:chartFilters.unit;return `<label class="field"><span>查看方式</span><select data-${all?'ledger-unit':'chart="unit"'} aria-label="${all?'总账':'趋势'}查看方式">${[['day','按日'],['week','按周'],['month','按月']].map(([v,l])=>option(v,l,unit)).join('')}</select></label>`;}
-  function trendDemo(){const demo=M.seed();demo.records=[];const p=demo.plans[0],breakeven=M.calculate(demo,p).roi;[600,900,1200,1500,1800,2000].forEach((spend,i)=>{const f=M.makeFrame(demo,p);Object.assign(f.plan.params,{spend,actualRoi:breakeven*(1+(i===5?50:150)/spend)});M.confirmRecord(demo,{frame:f,date:H.shift(M.today(),i-5)});});frame('图表示例 · 不计入总账',`<p class="dialog-note">这是演示数据：总投入持续增加，前五天利润保持 150 元，第六天降至 50 元。正式曲线只使用你的已入账数据。</p>${trendPanel({from:H.shift(M.today(),-5),to:M.today(),unit:'day'},demo)}`,btn('close','关闭示例'));}
+
   function historyPage(all){const f=all?operating.state.ledger:{...operating.state.operating,shopId:state.activeShop,planId:current().id};return `${all?'<div class="page-header"><div class="page-heading"><h1>总账</h1><p class="page-sub">汇总有效经营记录，比较店铺与计划表现。</p></div>'+btn('export-ledger','导出筛选账目','file-spreadsheet')+'</div><div class="wide-content">':''}${O.page(state,f,{all,group:operating.state.group,sort:operating.state.sort,page:operating.state.page,metric:operating.state.metric})}${all?'</div>':''}`;}
-  const {materialRuleUsable,materialDisplayCost,shippingTypeLabels,shippingTypeOptions,ruleText,ruleTabs}=window.RulesViews;
+  const {materialRuleUsable,ruleText}=window.RulesViews;
   function rulesViews(){return window.RulesViews.create({state,modal,libraryTab,query,showDeletedRules,showInactiveMaterials});}
 
   function libraryPage(){return rulesViews().libraryPage();}
   function ruleSummary(x,key){return rulesViews().ruleSummary(x,key);}
-  function reusableList(){return rulesViews().reusableList();}
+
   function reusableForm(){return frame(...rulesViews().reusableForm());}
   function listingCalculator(){const p=current(),scheme=state.promotionSchemes.find(x=>x.id===p.promotionSchemeId),rows=M.calculate(state,p).rows;return frame('上架价格计算器',`<label class="field"><span>活动方案</span><select data-promotion-scheme aria-label="活动方案">${option('','无活动',p.promotionSchemeId)}${state.promotionSchemes.filter(x=>!x.deleted||x.id===p.promotionSchemeId).map(x=>option(x.id,x.name+(x.deleted?'（已删除）':''),p.promotionSchemeId)).join('')}</select></label><p class="note stack-gap">${scheme?e(ruleSummary(scheme,'promotionSchemes')):'上架价与最终到手价相同'}</p><div class="table-scroll"><table><thead><tr><th>商品规格</th><th>目标到手价</th><th>原始上架价</th><th>预计到手价</th><th>高出目标</th></tr></thead><tbody>${rows.map(i=>{const r=i.priceError?{error:i.priceError}:A.reverse(i.price,scheme);return `<tr><td>${e(sizeName(i.size))}</td><td>${money(i.price)}</td>${r.error?`<td colspan="3" class="negative">${e(r.error)}</td>`:`<td>${money(r.listingPrice)}</td><td>${money(r.finalPrice)}</td><td>${money(r.difference)}</td>`}</tr>`;}).join('')}</tbody></table></div>`,btn('save-selected-promotion','另存活动方案','save','ghost',scheme?'':'disabled')+btn('close','关闭')+btn('export-listing','导出价格表','download','primary',rows.some(i=>i.priceError||A.reverse(i.price,scheme).error)?'disabled':''));}
   function skuSettings(){const d=modal.draft,p=current(),m=state.materials.find(x=>x.id===(d.materialId||p.materialId));return frame('商品规格设置',`<label class="field"><span>材料</span><select data-field="materialId" aria-label="SKU 材料">${option('','继承计划默认',d.materialId||'')}${materialOptions(d.materialId)}</select></label><label class="field"><span>厚度</span><select data-field="materialRuleId" aria-label="SKU 厚度" ${d.materialId?'':'disabled'}>${option('','请选择厚度',d.materialRuleId)}${(m?.weightRules||[]).filter(r=>materialRuleUsable(r)&&(!r.deleted||r.id===d.materialRuleId)).map(r=>option(r.id,(r.thickness===''?'不限厚度':r.thickness+' mm')+(r.deleted?'（已删除）':''),d.materialRuleId)).join('')}</select></label><div class="dialog-grid">${field('商品 ID','productId',d.productId||'','text','maxlength="200"')}${field('SKU ID','skuId',d.skuId||'','text','maxlength="200"')}</div>${gramField('实测发货重量 / g','weight',d.weight)}`);}
-    function materialList(){return rulesViews().materialList();}
+
   function sizeList(){return rulesViews().sizeList();}
-  function shippingList(){return rulesViews().shippingList();}
+
   function plansPage(){return `<div class="page-header"><div class="page-heading"><h1>${e(shopName(state.activeShop))} · 计划管理</h1><p class="page-sub">删除计划后，原有账目仍留在总账。</p></div>${btn('new-plan','新建计划','plus','primary')}</div><div class="wide-content"><div class="plans-grid">${state.plans.filter(p=>p.shopId===state.activeShop).map(p=>{const r=M.calculate(state,p);return `<article class="plan-tile ${p.deleted?'disabled-row':''}"><div class="row between"><h2>${e(p.name)}</h2>${p.deleted?'<span class="tag">已删除</span>':ib('delete-plan','删除 '+p.name,'trash-2',`data-id="${p.id}"`)}</div><div><span class="muted tiny">保本 ROI</span><div class="tile-roi">${r.valid?roi(r.roi):'待完善'}</div></div><p class="note">${e(p.note||'暂无备注')}</p>${btn(p.deleted?'restore-plan':'select-plan',p.deleted?'恢复计划':'打开计划',p.deleted?'rotate-ccw':'arrow-up-right','',`data-id="${p.id}"`)}</article>`;}).join('')||empty('还没有计划','新计划会归属当前店铺。')}</div></div>`;}
   function shopsPage(){return `<div class="page-header"><div class="page-heading"><h1>店铺管理</h1><p class="page-sub">每家店铺独立管理计划，共用可复用规则。</p></div>${btn('new-shop','新增店铺','plus','primary')}</div><div class="wide-content"><div class="plans-grid">${state.shops.map(s=>`<article class="plan-tile"><div class="row between"><h2>${e(s.name)}</h2>${ib('rename-shop','重命名 '+s.name,'pencil',`data-id="${s.id}"`)}</div><p class="note">${state.plans.filter(p=>p.shopId===s.id&&!p.deleted).length} 个使用中计划</p>${btn('select-shop','进入店铺','arrow-up-right','',`data-id="${s.id}"`)}</article>`).join('')}</div></div>`;}
   function dataPage(){const bytes=new Blob([JSON.stringify(state)]).size;return `<div class="page-header"><div class="page-heading"><h1>备份与迁移</h1><p class="page-sub">一份 Excel，运营能看，另一台电脑也能恢复。</p></div></div><div class="wide-content"><section class="data-section"><h2>导出 Excel 工作簿</h2><p>可导出完整工作区，或自选店铺、计划和账目日期。所需的材料、尺寸和运费规则会随文件保存。</p><div class="data-actions">${btn('export','选择范围并导出','file-spreadsheet','primary')}${btn('import','导入并恢复','upload')}</div><p>完整恢复请使用未修改的原始导出文件。需要分析时可另存副本；导入会检查表格与冻结账目的完整性。</p></section><section class="data-section"><h2>当前数据</h2><div class="data-stats"><span>${state.shops.length} 家店铺</span><span>${state.plans.filter(p=>!p.deleted).length} 个计划</span><span>${state.records.filter(h=>h.kind==='daily').length} 条账目版本</span><span>约 ${n(bytes/1024)} KB</span></div><p>工作区保存在本机数据库。保留最近 30 个有修改日期的恢复点和最近 10 次导入替换前的副本，更正前账目一直保留。</p><p>普通改数不会反复新增整份备份。旧版升级前的原始副本继续保留；仍建议定期导出 Excel 到其他磁盘。</p><div class="data-actions">${btn('recovery-points','查看本机恢复点','history')}</div></section><section class="data-section"><h2>换电脑</h2><p>在原电脑导出 Excel → 复制文件到新电脑 → 导入恢复。默认合并并跳过重复账目；按范围的文件不会替换整个工作区。</p><p>兼容导入旧版 JSON；新导出统一使用 Excel。完整文件可选替换全部数据，确认前先备份本机。从原型迁移时，请先在原型导出 Excel，再在这里导入。</p></section></div>`;}
-  function productTransferPage(){if(productUI)return productUI.html();
-    const r=productResult;
-    const exceptionCount=r?.exceptions?.length||0;
-    const exceptionGroups=r&&P?.exceptionGroups?P.exceptionGroups(r):{products:[],rows:[]};
-    const allGroups=exceptionGroups.products||[],allRows=exceptionGroups.rows||[];
-    productGroupPage=Math.max(0,Math.min(productGroupPage,Math.ceil(allGroups.length/100)-1));productRowPage=Math.max(0,Math.min(productRowPage,Math.ceil(allRows.length/100)-1));
-    const productGroups=allGroups.slice(productGroupPage*100,productGroupPage*100+100),rowExceptions=allRows.slice(productRowPage*100,productRowPage*100+100);
-    return `<div class="page-header"><div class="page-heading"><h1>商品转表</h1><p class="page-sub">上传 ERP 商品规格，使用固定模板识别字段后生成静态值商品表。</p></div><div class="row">${btn('product-export','导出商品表','download','primary',(!r||!r.summary?.ready||productBusy)?'disabled':'')}</div></div>
-      <div class="wide-content product-transfer-page">
-        <section class="product-upload-grid"><div class="product-upload product-template-fixed"><span>1. 模板文件</span><strong>已内置固定模板</strong><small>${e(productFiles.template?.name||'正在加载固定 29 列模板')}</small></div><label class="product-upload"><span>2. ERP 原始商品规格</span><input type="file" accept=".xlsx" data-product-file="source" ${productBusy?'disabled':''}><small>${e(productFiles.source?.name||'选择包含商品规格的 Excel')}</small></label></section>
-        <section class="product-rules"><div class="section-head"><div><h2>材料规则来源</h2><p class="note">商品转表直接读取可复用规则中的材质、厚度、重量系数和成本价。请在材料库维护唯一规则。</p></div>${btn('library-view','打开材料库','library','ghost')}</div></section>
-        ${productBusy?'<p class="message-success" role="status" aria-live="polite">正在读取并计算商品数据…</p>':''}${productError?`<div class="message-error" role="alert">${e(productError)}${btn('product-retry','重试','refresh-cw')}</div>`:''}
-        ${r?`<section class="product-summary"><div><strong>${r.summary.sourceRows}</strong><span>条原始规格</span></div>${productGroups.length?`<div><strong>${productGroups.length}</strong><span>个待复核商品</span></div>`:''}<div><strong>${r.summary.exceptionRows}</strong><span>条待复核 SKU</span></div><div><strong>${r.summary.ready?'可导出':'需处理异常'}</strong><span>导出状态</span></div><p class="note">识别到表头：${e(r.sourceHeader.join('、'))} · 输出 29 列、${r.summary.sourceRows} 条数据（含表头共 ${r.summary.sourceRows+1} 行）。</p></section>`:'<div class="empty product-empty">'+icon('file-spreadsheet')+'<h3>等待上传 ERP 商品规格 Excel</h3><p class="note">模板已固定内置。文件只作为表格数据读取，单元格内容不会被执行。</p></div>'}
-        ${r&&productGroups.length?`<section class="product-exceptions product-product-groups"><div class="section-head"><div><h2>按商品 ID 复核材质</h2><p class="note">同一平台商品 ID 下的不同 SKU 共用一个材质。填写一次后，会应用到该商品的全部 SKU。</p></div><span class="tag amber">${productGroups.length} 个商品</span></div><div class="table-scroll"><table><thead><tr><th>商品 ID</th><th>平台商品名称</th><th>SKU 数</th><th>规格示例</th><th>材质</th><th>异常</th><th>操作</th></tr></thead><tbody>${productGroups.map(group=>{const rowNumber=group.rowNumbers[0],specs=group.specNames.slice(0,3).join('、')+(group.specNames.length>3?'…':'');return `<tr><td>${e(group.productId)}</td><td>${e(group.productName)}</td><td>${group.skuCount}</td><td class="product-spec-preview">${e(specs)}</td><td><input data-product-group-edit="material" data-product-row="${rowNumber}" value="${e(group.material)}" aria-label="商品 ${e(group.productId)} 材质"></td><td class="negative">${e(group.issueText)}</td><td>${btn('product-review-product','应用到全部 SKU','check','ghost',`data-row="${rowNumber}"`)}</td></tr>`;}).join('')}</tbody></table></div></section>`:''}
-        ${r&&rowExceptions.length?`<section class="product-exceptions"><div class="section-head"><div><h2>${productGroups.length?'逐 SKU 异常':'异常复核'}</h2><p class="note">尺寸、商品 ID、规格 ID 或售价异常需要逐行确认；材质统一在商品级区域填写。</p></div><div class="row"><span class="tag amber">${rowExceptions.length} 条</span>${btn('product-batch-review','批量应用逐行复核','check','primary')}</div></div><div class="table-scroll"><table><thead><tr><th>行</th><th>平台规格名称</th><th>材质</th><th>长</th><th>宽</th><th>商品 ID</th><th>规格 ID</th><th>售价 / 元</th><th>库存</th><th>异常</th><th>操作</th></tr></thead><tbody>${rowExceptions.map(({exception:x,row,materialEditable})=>{const v=[...(row?.values||x.output||[])];for(const [key,index] of [['material',5],['width',9],['length',10],['productId',17],['specId',18],['price',19],['inventory',21]])if(productReviews[x.rowNumber]?.[key]!==undefined)v[index]=productReviews[x.rowNumber][key];return `<tr><td>${x.rowNumber}</td><td>${e(v[4])}</td><td>${materialEditable?`<input data-product-edit="material" data-row="${x.rowNumber}" value="${e(v[5])}" aria-label="第 ${x.rowNumber} 行材质">`:`<span class="muted">${e(v[5]||'在上方按商品填写')}</span>`}</td><td><input type="number" data-product-edit="width" data-row="${x.rowNumber}" value="${e(v[9])}" aria-label="第 ${x.rowNumber} 行长度"></td><td><input type="number" data-product-edit="length" data-row="${x.rowNumber}" value="${e(v[10])}" aria-label="第 ${x.rowNumber} 行宽度"></td><td><input data-product-edit="productId" data-row="${x.rowNumber}" value="${e(v[17])}" aria-label="第 ${x.rowNumber} 行商品 ID"></td><td><input data-product-edit="specId" data-row="${x.rowNumber}" value="${e(v[18])}" aria-label="第 ${x.rowNumber} 行规格 ID"></td><td><input type="number" min="0" max="1000000000000" step="any" data-product-edit="price" data-row="${x.rowNumber}" value="${e(v[19])}" aria-label="第 ${x.rowNumber} 行售价"></td><td><input type="number" min="0" max="1000000000000" step="any" data-product-edit="inventory" data-row="${x.rowNumber}" value="${e(v[21])}" aria-label="第 ${x.rowNumber} 行库存"></td><td class="negative" id="product-error-${x.rowNumber}">${e(x.issues.map(i=>i.message).join('；'))}</td><td>${btn('product-review-row','应用复核','check','ghost',`data-row="${x.rowNumber}"`)}</td></tr>`;}).join('')}</tbody></table></div></section>`:''}
-        ${productPager('group',productGroupPage,allGroups.length)}${productPager('row',productRowPage,allRows.length)}
-        ${r&&r.summary.ready?'<p class="message-success">已完成字段映射、材质识别、尺寸解析及静态值计算，可以导出。</p>':''}
-      </div>`;
+  function productTransferPage(){
+    if(productUI)return productUI.html();
+    return '<div class="page-header"><div class="page-heading"><h1>商品转表</h1></div></div><section class="wide-content product-module-error" aria-labelledby="product-module-error-title"><h2 id="product-module-error-title">商品转表暂时无法加载</h2><p role="alert">请重新加载后再试。已保存的数据不会丢失。</p><div class="data-actions">'+btn('reload-product-module','重新加载','refresh-cw','primary')+btn('data-view','备份与迁移','database','ghost')+'</div></section>';
   }
-  function productPager(kind,page,count){return count<=100?'':`<nav class="review-pagination" aria-label="${kind==='group'?'商品':'SKU'}异常分页">${ib('product-page','上一页','chevron-left',`data-kind="${kind}" data-page="${page-1}" ${page===0?'disabled':''}`)}<span>${kind==='group'?'商品':'SKU'}异常 ${page+1} / ${Math.ceil(count/100)} 页 · 共 ${count} 条</span>${ib('product-page','下一页','chevron-right',`data-kind="${kind}" data-page="${page+1}" ${(page+1)*100>=count?'disabled':''}`)}</nav>`;}
-  async function analyzeProductFiles(file){
-    if(productBusy||!P||!file&&!productFiles.source)return;
-    productBusy=true;productError='';productResult=null;productReviews={};productGroupPage=productRowPage=0;render();
-    try{
-      if(file){if(file.size>P.MAX_FILE_BYTES)throw Object.assign(Error('ERP file size limit'),{code:'IMPORT_LIMIT'});productFiles.source={name:file.name,arrayBuffer:await readProductFile(file)};}
-      if(!productFiles.template){const response=await fetch('assets/product-template.xlsx');if(!response.ok)throw Error('Template unavailable');productFiles.template={name:'内置商品模板（固定）',arrayBuffer:await response.arrayBuffer()};}
-      productResult=await P.analyze(productFiles.template.arrayBuffer,productFiles.source.arrayBuffer,{rules:transferRules()});
-    }catch(error){productError=safeError(error,error.code==='IMPORT_LIMIT'?'文件超过导入上限（15 MB、5000 行、200 列），请拆分后重新上传。':'文件解析失败，请检查 Excel 格式和商品表头后重新上传或重试。');}
-    finally{productBusy=false;render();}
-  }
-  function readProductFile(file){
-    if(file.arrayBuffer)return file.arrayBuffer();
-    return new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(reader.error||Error('文件读取失败'));reader.readAsArrayBuffer(file);});
-  }
-  async function exportProduct(){
-    if(productBusy||!productResult?.summary?.ready||productResult.exceptions?.length)return toast('请先处理全部异常');
-    productBusy=true;render();
-    try{const bytes=await P.exportWorkbook(productFiles.template.arrayBuffer,productResult),url=URL.createObjectURL(new Blob([bytes],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})),a=document.createElement('a');a.href=url;a.download=`商品转表-${M.today()}-${productResult.rows.length}条.xlsx`;a.click();setTimeout(()=>URL.revokeObjectURL(url),30000);toast('商品表已导出');}
-    catch(error){toast(safeError(error,'文件处理失败，请检查文件格式和数据后重试。'));}
-    finally{productBusy=false;render();}
-  }
+
   function focusSnapshot(root){
     const el=document.activeElement;if(!root.contains?.(el))return null;
     return {id:el.id,tag:el.tagName,data:{...el.dataset},label:el.getAttribute('aria-label'),start:el.selectionStart,end:el.selectionEnd};
@@ -278,15 +217,8 @@
       table.querySelectorAll('thead th').forEach(th=>th.setAttribute('scope','col'));
     }
   }
-  function markProductErrors(){
-    let first=null;
-    for(const exception of productResult?.exceptions||[]){
-      const fields=exception.issues.flatMap(i=>i.field?[i.field]:i.code==='DIMENSION'?['width','length']:i.code==='ID'?['productId','specId']:i.code==='MATERIAL'?['material']:[]);
-      for(const field of fields){const input=document.querySelector(`[data-product-edit="${field}"][data-row="${exception.rowNumber}"]`);if(!input)continue;input.setAttribute('aria-invalid','true');input.setAttribute('aria-describedby',`product-error-${exception.rowNumber}`);first??=input;}
-    }
-    return first;
-  }
-  function render(){const focus=focusSnapshot(app),listScroll=document.querySelector('.plan-list-scroll')?.scrollTop||0;normalize();app.innerHTML=`<div class="app-shell">${nav()}<main class="workspace" id="main-content" tabindex="-1">${topbar()}${({plan:planPage,plans:plansPage,shops:shopsPage,library:libraryPage,history:()=>historyPage(true),data:dataPage,product:productTransferPage}[view]||planPage)()}</main></div>`;window.ScopePickers?.refresh();window.lucide?.createIcons();paintSaveStatus();decorateTables(app);applyInlineDrafts();restoreFocus(app,focus);const list=document.querySelector('.plan-list-scroll');if(list)list.scrollTop=listScroll;markProductErrors();O.drawCharts(app);shell.mount();}
+
+  function render(){const focus=focusSnapshot(app),listScroll=document.querySelector('.plan-list-scroll')?.scrollTop||0;normalize();app.innerHTML=`<div class="app-shell">${nav()}<main class="workspace" id="main-content" tabindex="-1">${topbar()}${({plan:planPage,plans:plansPage,shops:shopsPage,library:libraryPage,history:()=>historyPage(true),data:dataPage,product:productTransferPage}[view]||planPage)()}</main></div>`;window.ScopePickers?.refresh();window.lucide?.createIcons();paintSaveStatus();decorateTables(app);applyInlineDrafts();restoreFocus(app,focus);const list=document.querySelector('.plan-list-scroll');if(list)list.scrollTop=listScroll;O.drawCharts(app);shell.mount();}
   function refreshCalculation(){const p=current();if(!p)return;const r=M.calculate(state,p),el=document.querySelector('#metrics');if(el)el.innerHTML=metrics(r);for(const i of r.rows){for(const [selector,value] of [['material',money(i.material)],['shipping',money(i.shipping)],['cost',money(i.cost)],['grossMargin',Number.isFinite(i.grossMargin)?n(i.grossMargin)+'%':'—'],['roi',!M.positive(i.price)||!Number.isFinite(i.cost)?'待完善':roi(i.roi)]]){const cell=document.querySelector(`[data-row-${selector}="${i.id}"]`);if(cell)cell.textContent=value;}}for(const i of r.rows){const priceInput=document.querySelector(`[data-item="${i.id}"][data-key="price"]`);if(priceInput&&document.activeElement!==priceInput)priceInput.value=i.price;const mode=priceInput?.parentElement?.querySelector('.price-mode');if(mode)mode.innerHTML=i.priceMode==='manual'?'手动'+(p.strategyId?btn('restore-price','恢复策略价','','ghost',`data-id="${e(i.id)}"`):''):p.strategyId?'策略价':'手动价';const cell=document.querySelector(`[data-row-cost="${i.id}"]`);if(cell)cell.title='按退款类型分摊商品和运费；含平台费、税及其他费用，未含广告';}const total=document.querySelector('#share-total');if(total)total.textContent=`合计 ${n(r.total,2)}%`;const breakdown=document.querySelector('#refund-breakdown');if(breakdown)breakdown.textContent=refundSummaryText(p.params);const error=document.querySelector('#validation');if(error)error.innerHTML=errors(r);const side=document.querySelector(`[data-sidebar="${p.id}"]`);if(side)side.textContent='保本 ROI '+(r.valid?roi(r.roi):'待完善');window.lucide?.createIcons();}
   function open(type,data={}){lastFocus=document.activeElement;modal={type,...data};paintModal();modal.baseline=modalValue();if(!dialog.open)dialog.showModal();dialog.querySelector('input,select,button')?.focus();dialog.scrollTop=0;}
   function close(force=false){if(!modal)return;if(!force&&modal.pending)return;if(!force&&!modal.committed&&modal.baseline!==modalValue()&&!window.confirm('有未保存的修改，确定放弃并关闭吗？'))return;const parent=modal?.parent;if(!['recover-form','recover-draft','recovery-points','record-detail','listing-calculator','confirm'].includes(modal.type))formDrafts?.remove('modal').catch(error=>toast(error.message));dialog.close();modal=null;if(parent){modal=parent;paintModal();dialog.showModal();}else if(lastFocus?.isConnected)lastFocus.focus();else{const action=lastFocus?.dataset?.action,id=lastFocus?.dataset?.id;const target=action?[...document.querySelectorAll('[data-action]')].find(el=>el.dataset.action===action&&(!id||el.dataset.id===id)):null;(target||document.querySelector('#main-content'))?.focus();}}
@@ -308,12 +240,10 @@
   }
   function fail(message,selector){const el=document.querySelector('#dialog-error');if(el){el.textContent=message;const input=selector?dialog.querySelector(selector):null;if(input){let parent=input.parentElement;while(parent&&parent!==dialog){if(parent.tagName==='DETAILS')parent.open=true;parent=parent.parentElement;}input.setAttribute('aria-invalid','true');input.setAttribute('aria-describedby','dialog-error');input.closest('details')?.setAttribute('open','');input.focus();}else el.focus();}else toast(message);}
   function lockCommittedFields(){if(modal?.committed){dialog.querySelectorAll('input,select,textarea').forEach(el=>el.disabled=true);dialog.querySelectorAll('[data-action="confirm-record"],[data-action="confirm-restore"],[data-action="recover-draft"]').forEach(el=>el.textContent='重试保存');}}
-  function frame(title,body,footer){const focus=focusSnapshot(dialog);dialog.className=['entry','record-detail','trend-demo'].includes(modal.type)?'entry-dialog':['export','restore'].includes(modal.type)?'transfer-dialog':modal.type==='size'?'size-dialog':modal.type==='sku-display'?'sku-settings-dialog':'';if(modal.type==='entry')dialog.className+=' operating-entry-dialog';dialog.innerHTML=`<div class="dialog-head"><h2 id="dialog-title">${e(title)}</h2>${ib('close','关闭','x')}</div><div class="dialog-body">${body}<p id="dialog-error" class="dialog-error" tabindex="-1" role="alert"></p></div><div class="dialog-footer">${footer||btn('close','取消')+btn('save-modal','保存','check','primary')}</div>`;window.lucide?.createIcons();decorateTables(dialog);restoreFocus(dialog,focus);lockCommittedFields();}
+  function frame(title,body,footer){const focus=focusSnapshot(dialog);dialog.className=['entry','record-detail'].includes(modal.type)?'entry-dialog':['export','restore'].includes(modal.type)?'transfer-dialog':modal.type==='size'?'size-dialog':modal.type==='sku-display'?'sku-settings-dialog':'';if(modal.type==='entry')dialog.className+=' operating-entry-dialog';dialog.innerHTML=`<div class="dialog-head"><h2 id="dialog-title">${e(title)}</h2>${ib('close','关闭','x')}</div><div class="dialog-body">${body}<p id="dialog-error" class="dialog-error" tabindex="-1" role="alert"></p></div><div class="dialog-footer">${footer||btn('close','取消')+btn('save-modal','保存','check','primary')}</div>`;window.lucide?.createIcons();decorateTables(dialog);restoreFocus(dialog,focus);lockCommittedFields();}
   function commonSizeChoices(){const used=new Set(current().items.map(i=>i.sizeId));return state.sizes.filter(s=>s.active!==false&&!s.deleted&&!s.needsReview&&M.validSize(s)&&!used.has(s.id)).map(s=>`<label class="select-size"><input type="checkbox" data-select-size="${e(s.id)}" ${modal.ids.includes(s.id)?'checked':''}><span>${e(dimensions(s))}</span></label>`).join('')||'<p class="note">常用尺寸均已添加</p>';}
-  function sizeChoices(ids=[]){return rulesViews().sizeChoices(ids);}
+
   function sizeForm(){return frame(...rulesViews().sizeForm());}
-  function shippingRuleFields(d){return rulesViews().shippingRuleFields(d);}
-  function materialRuleFields(d){return rulesViews().materialRuleFields(d);}
 
   function entryForm(){return frame(...window.OperatingEntryViews.create({state,modal}).entryForm());}
 
@@ -336,7 +266,7 @@
     if(modal.type==='record-detail')return recordDetail();
     if(modal.type==='display')return displayForm();
     if(modal.type==='sku-display')return skuDisplayForm();
-    if(modal.type==='trend-demo')return trendDemo();if(modal.type==='reusable')return reusableForm();if(modal.type==='listing-calculator')return listingCalculator();if(modal.type==='sku-settings')return skuSettings();if(modal.type==='save-rule-copy')return frame('保存方案',field('方案名称','name',d.name,'text','maxlength="80"'));
+    if(modal.type==='reusable')return reusableForm();if(modal.type==='listing-calculator')return listingCalculator();if(modal.type==='sku-settings')return skuSettings();if(modal.type==='save-rule-copy')return frame('保存方案',field('方案名称','name',d.name,'text','maxlength="80"'));
     if(modal.type==='export')return exportForm();
     if(modal.type==='restore')return restoreForm();
     if(modal.type==='material')return frame(...rulesViews().materialForm());
@@ -391,6 +321,11 @@
     const b=event.target.closest('[data-action]');if(!b||b.disabled||operationPending)return;event.preventDefault();const a=b.dataset.action,id=b.dataset.id,p=current();
     try{
       if(a==='boot-retry')return initialize();
+      if(a==='reload-product-module'){
+        if(queue&&!await queue.flush())return toast('请先完成保存后再重新加载');
+        if(updateInstallBlocked())return toast('请先完成或关闭当前编辑后再重新加载');
+        location.reload();return;
+      }
       if(a==='recovery-points')return await recoveryPoints();
       if(a==='download-checkpoint'){await downloadState(await request('/api/backups/'+id),'地垫工作台-恢复点-'+id);return;}
       if(a==='download-draft'){await downloadState(pendingRecovery.state,'地垫工作台-未保存草稿-'+M.today());return;}
@@ -406,37 +341,19 @@
       if(a==='quit-and-install')return await quitAndInstall();
       if(a==='export')return startExport();
       if(a==='product-view'){setView('product');setupFileUI();render();await restorePendingProductSession();return;}if(a==='sales-import'){setupFileUI();if(!salesUI)return toast('销售导入模块尚未加载，请重新打开工作台');salesUI.open();return;}
-      if(a==='product-export')return exportProduct();
-      if(a==='product-retry')return analyzeProductFiles();
-      if(a==='product-page'){if(b.dataset.kind==='group')productGroupPage=Number(b.dataset.page);else productRowPage=Number(b.dataset.page);render();return;}
-      if(a==='product-add-weight-rule'||a==='product-delete-weight-rule')return;
-      if(a==='product-review-row'){
-        const row=Number(b.dataset.row), patch={};document.querySelectorAll(`[data-product-edit][data-row="${row}"]`).forEach(el=>patch[el.dataset.productEdit]=el.value);
-        productResult=P.applyReviews(productResult,{[row]:patch});delete productReviews[row];render();markProductErrors()?.focus();return;
-      }
-      if(a==='product-review-product'){
-        const row=Number(b.dataset.row), source=productResult?.rows?.find(item=>item.rowNumber===row), input=document.querySelector(`[data-product-group-edit="material"][data-product-row="${row}"]`);
-        const productId=source?.values?.[17], material=input?.value?.trim();
-        if(!productId)return toast('该商品缺少平台商品 ID，无法按商品批量复核');
-        if(!material)return toast('请先填写该商品的材质');
-        productResult=P.applyProductReview(productResult,productId,{material});render();return;
-      }
-      if(a==='product-batch-review'){
-        const reviews=M.clone(productReviews);document.querySelectorAll('[data-product-edit]').forEach(el=>{const row=Number(el.dataset.row);reviews[row]??={};reviews[row][el.dataset.productEdit]=el.value;});
-        const before=productResult?.exceptions?.length||0;productResult=P.applyBatchReviews(productResult,reviews);productReviews={};const after=productResult?.exceptions?.length||0;render();toast(after<before?'已按平台商品 ID 批量应用材质复核':'未找到可批量应用的同商品材质，请检查填写内容或组内冲突');return;
-      }
+
       if(a==='operating-range'){operating.range(view==='history',Number(b.dataset.days));render();return;}
       if(a==='operating-all'){operating.range(view==='history',0);render();return;}
       if(a==='operating-page'){operating.state.page=Math.max(0,Number(b.dataset.page)||0);render();return;}
       if(a==='operating-group'){operating.group(b.dataset.group);render();return;}
       if(a==='operating-shop'){operating.shop(id);render();return;}
       if(a==='operating-plan'){const target=state.plans.find(p=>p.id===id);if(target&&!target.deleted&&!state.shops.find(s=>s.id===target.shopId)?.deleted){state.active=target.id;state.activeShop=target.shopId;operating.drillPlan(id,true);setView('plan');tab='history';operating.state.page=0;commit();}else{operating.drillPlan(id,false);render();}return;}
-      if(a==='trend-demo')return open('trend-demo');
+
       if(a==='confirm-export')return exportExcel();
-      if(a==='export-chart')return startExport({...chartFilters,shopId:state.activeShop,planId:p.id});
+
       if(a==='scope-all'||a==='scope-none'){modal.scope.shopIds=a==='scope-all'?state.shops.map(s=>s.id):[];modal.scope.planIds=a==='scope-all'?state.plans.map(p=>p.id):[];paintModal();return;}
       if(a==='scope-dates-all'){modal.scope.from='';modal.scope.to='';paintModal();return;}
-      if(a==='chart-recent'){chartFilters.from=H.shift(M.today(),-29);chartFilters.to=M.today();render();return;}
+
       if(a==='export-ledger'){if(operating.state.ledger.from&&operating.state.ledger.to&&operating.state.ledger.from>operating.state.ledger.to)return toast('开始日期不能晚于结束日期');return startExport(view==='history'?operating.state.ledger:{...operating.state.operating,shopId:state.activeShop,planId:p?.id});}
       if(a==='download-raw'){downloadLink('/api/recovery/current/raw','workspace-original.json');return;}if(a==='download-checkpoint-raw'){downloadLink('/api/backups/'+encodeURIComponent(id)+'/raw','recovery-original.json');return;}
       if(a==='import'){document.querySelector('#backup-input').click();return;}
@@ -523,12 +440,10 @@ if(a==='sku-options'){skuOptionsOpen=!skuOptionsOpen;render();return;}if(a==='re
   function applyInlineDrafts(){for(const el of app.querySelectorAll('input[data-item],input[data-param],input[data-param-rate]')){const draft=inlineDrafts[inlineKey(el)];if(draft){el.value=draft.value;el.setAttribute('aria-invalid','true');el.title=draft.error;}}}
   function acceptInput(el,mutate){const next=M.clone(state),key=inlineKey(el);try{mutate(next,next.plans.find(x=>x.id===current()?.id));if(!M.validateBackup(next))throw Error('请输入有效数值');state=next;commitSerial++;if(key)delete inlineDrafts[key];rememberInline();el.removeAttribute?.('aria-invalid');save();refreshCalculation();paintSaveStatus();return true;}catch(error){if(key)inlineDrafts[key]={value:el.value,error:error.message};rememberInline();el.setAttribute?.('aria-invalid','true');el.title=error.message;paintSaveStatus();return false;}}
   function readInput(el){if(el.type==='checkbox')return el.checked;if(el.type==='number'||el.type==='range'){if(el.value==='')return '';const value=Number(el.value);if(!M.number(value)){el.value='';toast('数值超出支持范围，请重新填写');return '';}return el.dataset.unit==='g'?M.fromGrams(value):value;}return el.value;}
-  function inspectTrend(event){const el=event.target.closest('[data-trend-index]');if(!el)return;const detail=document.querySelector('#trend-detail');if(detail)detail.innerHTML=trendDetail(Number(el.dataset.trendIndex));const guide=document.querySelector('#trend-guide');if(guide){guide.setAttribute('x1',el.dataset.x);guide.setAttribute('x2',el.dataset.x);}}
-  document.addEventListener('pointerover',inspectTrend);
-  document.addEventListener('focusin',inspectTrend);
+
   document.addEventListener('input',event=>{
     const el=event.target,p=current();if(operationPending||modal?.committed&&dialog.contains?.(el))return;const value=readInput(el);
-    if(el.matches('[data-rank-tier]'))modal.draft.tiers[Number(el.dataset.rankTier)]=value;if(el.matches('[data-activity-value]')){const step=modal.draft.steps[Number(el.dataset.activityValue)];step[step.type==='discount'?'discount':'amount']=value;}if(el.matches('[data-product-edit]')){productReviews[el.dataset.row]??={};productReviews[el.dataset.row][el.dataset.productEdit]=el.value;}
+    if(el.matches('[data-rank-tier]'))modal.draft.tiers[Number(el.dataset.rankTier)]=value;if(el.matches('[data-activity-value]')){const step=modal.draft.steps[Number(el.dataset.activityValue)];step[step.type==='discount'?'discount':'amount']=value;}
     if(el.hasAttribute?.('aria-invalid')){el.removeAttribute('aria-invalid');el.removeAttribute('aria-describedby');}
     if(el.matches('[data-param]'))acceptInput(el,(_,plan)=>plan.params[el.dataset.param]=value);
     if(el.matches('[data-param-rate]'))acceptInput(el,(_,plan)=>plan.params.refundRates={...plan.params.refundRates,[el.dataset.paramRate]:value});
@@ -557,7 +472,7 @@ if(a==='sku-options'){skuOptionsOpen=!skuOptionsOpen;render();return;}if(a==='re
     if(el.matches('[data-show-deleted]')){showDeletedRules=value;render();return;}if(el.matches('[data-plan-strategy]')){try{commit(R.setStrategy(state,p.id,value));}catch(error){toast(error.message);render();}return;}if(el.matches('[data-size-scheme]')&&value){try{const r=R.applySizeScheme(state,p.id,value);commit(r.state);if(r.skipped)toast('已跳过 '+r.skipped+' 个不可用尺寸');}catch(error){toast(error.message);render();}return;}if(el.matches('[data-promotion-scheme]')){const next=M.clone(state);next.plans.find(x=>x.id===p.id).promotionSchemeId=value;commit(next);paintModal();return;}if(el.matches('[data-rule-size]')){modal.draft.sizeIds=value?[...new Set([...modal.draft.sizeIds,el.dataset.ruleSize])]:modal.draft.sizeIds.filter(x=>x!==el.dataset.ruleSize);return;}if(el.matches('[data-activity-type]')){modal.draft.steps[Number(el.dataset.activityType)]=value==='discount'?{type:'discount',discount:9}:{type:'reduction',amount:5};paintModal();return;}if(modal?.type==='sku-settings'&&el.matches('[data-field="materialId"]')){modal.draft.materialId=value;modal.draft.materialRuleId='';paintModal();return;}
     if(modal?.type==='plan'&&!modal.id&&el.matches('[data-field="materialId"]')){modal.draft.materialId=value;const rules=(state.materials.find(m=>m.id===value)?.weightRules||[]).filter(r=>M.selectable(r)&&materialRuleUsable(r));modal.draft.materialRuleId=(rules.find(r=>r.default)||rules[0])?.id||'';paintModal();return;}
     if(el.id==='active-shop'){state.activeShop=value;normalize();setView('plan');commit();}
-    if(el.matches('[data-product-file]')){const file=el.files?.[0];if(file)analyzeProductFiles(file);return;}
+
     if(el.matches('[data-plan-material]')){if(!value){toast('请选择材料，原选择已保留');render();return;}p.materialId=value;p.materialRuleId=M.materialRule(state.materials.find(m=>m.id===value),{} )?.id;save();render();}
     if(el.matches('[data-plan-material-rule]')){if(!value){toast('请选择有效厚度，原选择已保留');render();return;}p.materialRuleId=value;save();refreshCalculation();render();}
     if(el.matches('[data-plan-shipping]')){if(!value){toast('请选择运费模板，原选择已保留');render();return;}p.shippingId=value;save();render();}
@@ -567,8 +482,7 @@ if(a==='sku-options'){skuOptionsOpen=!skuOptionsOpen;render();return;}if(a==='re
     if(el.matches('[data-operating-metric]')){operating.state.metric=value;render();return;}
     if(el.matches('[data-operating-sort]')){operating.state.sort=value;render();return;}
     if(el.matches('[data-filter]')){operating.setFilter(true,el.dataset.filter,value);render();}
-    if(el.matches('[data-chart]')){chartFilters[el.dataset.chart]=value;render();}
-    if(el.matches('[data-ledger-unit]')){ledgerUnit=value;render();}
+
     if(modal?.type==='export'&&el.matches('[data-scope]')){modal.scope[el.dataset.scope]=value;paintModal();}
     if(modal?.type==='export'&&el.matches('[data-scope-shop]')){const id=el.dataset.scopeShop,plans=state.plans.filter(p=>p.shopId===id).map(p=>p.id);modal.scope.shopIds=value?[...new Set([...modal.scope.shopIds,id])]:modal.scope.shopIds.filter(x=>x!==id);modal.scope.planIds=value?[...new Set([...modal.scope.planIds,...plans])]:modal.scope.planIds.filter(x=>!plans.includes(x));paintModal();}
     if(modal?.type==='export'&&el.matches('[data-scope-plan]')){const id=el.dataset.scopePlan;modal.scope.planIds=value?[...new Set([...modal.scope.planIds,id])]:modal.scope.planIds.filter(x=>x!==id);paintModal();}
