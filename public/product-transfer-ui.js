@@ -6,6 +6,7 @@
   'use strict';
 
   const Recognition=typeof module==='object'&&module.exports?require('./product-recognition.js'):root.ProductRecognition;
+  const Commands=typeof module==='object'&&module.exports?require('./product-transfer/commands.js'):root.ProductTransferCommands;
   const Loader=typeof module==='object'&&module.exports?require('./lattice-loader.js'):root.LatticeLoader;
   const PAGE_SIZE=100;
   const BLANK='__blank__';
@@ -84,6 +85,8 @@
       sheetSelection:new Set(),sheetMappings:{},selectionInitialized:false,undo:null,active:false,destroyed:false,listeners:false
     };
 
+    const commands=Commands.create({request:call,waitForJob:waitForMutation,newId:mutationId});
+
     async function call(action,payload={}){
       if(typeof options.request==='function')return options.request(action,payload);
       const jobs=root.FileJobs;
@@ -93,6 +96,7 @@
       if(action==='status')return jobs.status(payload.sessionId);
       if(action==='selectSheet')return jobs.selectSheet(payload.sessionId,payload.options);
       if(action==='rows')return jobs.rows(payload.sessionId,payload.query);
+      if(action==='mutationStatus')return jobs.mutationStatus(payload.sessionId,payload.kind,payload.command);
       if(action==='review')return jobs.review(payload.sessionId,payload.command);
       if(action==='accept')return payload;
       if(action==='recompute')return jobs.recompute(payload.sessionId,payload.options);
@@ -253,14 +257,13 @@
     async function applyReview({type,rowIds,groupId,patch,overwrite=false}){
       if(!local.session||local.busy)return null;
       const session=local.session;
-      const command={mutationId:mutationId(),expectedSessionRevision:local.session.revision,ownerToken:local.session.ownerToken,action:{type,...(type==='selected-batch'?{overwrite:!!overwrite}:{})},patch};
+      const command={action:{type,...(type==='selected-batch'?{overwrite:!!overwrite}:{})},patch};
       if(rowIds)command.rowIds=rowIds;
       if(groupId)command.groupId=groupId;
       beginWaiting('正在保存复核结果');local.error='';scheduleRender();
       try{
-        let result=await call('review',{sessionId:local.session.sessionId,command});
+        const result=await commands.run('review',session,command);
         if(local.session!==session)return null;
-        if(result?.jobId){local.jobId=text(result.jobId);local.jobKind='review';result=await waitForMutation(result.jobId,session);}
         if(local.session!==session)return null;updateSessionRevision(result);
         local.undo=type==='group-unify'&&result?.undoable!==false?{revision:local.session.revision,label:'撤销上次同链接修改'}:null;
         await refreshPage({silent:true});
@@ -271,6 +274,7 @@
       finally{if(local.session===session){local.busy=false;local.jobId='';local.jobKind='';scheduleRender();}}
     }
     async function waitForMutation(jobId,session=local.session){
+      local.jobId=text(jobId);local.jobKind='review';
       const deadline=Date.now()+15*60*1000;
       for(;;){
         const status=await call('status',{sessionId:session.sessionId});
@@ -286,12 +290,12 @@
     }
     async function undo(){
       if(!local.session||!local.undo||local.busy)return;
-      beginWaiting('正在撤销修改');scheduleRender();
+      const session=local.session;beginWaiting('正在撤销修改');scheduleRender();
       try{
-        const result=await call('undo',{sessionId:local.session.sessionId,command:{mutationId:mutationId(),expectedSessionRevision:local.session.revision,ownerToken:local.session.ownerToken}});
+        const result=await commands.run('undo',session,{action:{type:'undo'}});if(local.session!==session||local.destroyed)return;
         updateSessionRevision(result);local.undo=null;await refreshPage({silent:true});notify('已撤销上次同链接修改');
-      }catch(error){local.error=safeMessage(error,'当前修改已经不能撤销。');local.undo=null;}
-      finally{local.busy=false;scheduleRender();}
+      }catch(error){if(local.session===session&&!local.destroyed)local.error=safeMessage(error,'撤销结果待核对。');}
+      finally{if(local.session===session&&!local.destroyed){local.busy=false;scheduleRender();}}
     }
 
     async function exportFile(){
@@ -465,7 +469,7 @@
     async function searchProducts(value){if(local.busy||!local.session)return;local.search=text(value).trim().slice(0,200);local.manual=true;local.filter='all';local.pageNumber=1;resetGroup();await refreshPage();}
     async function recompute(extra={}){
       if(local.busy||!local.session)return false;beginWaiting(extra.applyUniformThickness?'正在统一材质和厚度':'正在重新计算');local.error='';scheduleRender();const session=local.session;
-      try{const result=await call('recompute',{sessionId:session.sessionId,options:{...extra,ownerToken:session.ownerToken,expectedSessionRevision:session.revision}});if(local.session!==session)return false;local.jobId=result.jobId;local.jobKind='review';const finished=await waitForMutation(result.jobId,session);if(local.session!==session)return false;updateSessionRevision(finished);local.undo=null;await refreshPage({silent:true});return true;}
+      try{const finished=await commands.run('recompute',session,{...extra,action:{type:'recompute'}});if(local.session!==session)return false;updateSessionRevision(finished);local.undo=null;await refreshPage({silent:true});return true;}
       catch(error){if(local.session===session)local.error=safeMessage(error,'计算未完成，选择已保留，可重试。');return false;}
       finally{if(local.session===session){local.busy=false;local.jobId='';local.jobKind='';scheduleRender();}}
     }
@@ -624,20 +628,20 @@
     function refreshContext(context={},settings={}){
       const previousWorkspace=text(local.context.workspaceId),previousEpoch=text(local.context.storageEpoch);local.context={...local.context,...context};
       if((previousWorkspace&&text(local.context.workspaceId)!==previousWorkspace)||(previousEpoch&&text(local.context.storageEpoch)!==previousEpoch)){
-        clearPoll();local.contextSerial++;local.requestSerial++;resetGroup();closeDialog(true);local.setup=false;local.setupSession='';local.setupDirty=false;local.search='';local.session=null;local.candidate=null;local.candidateStatus=null;local.page=null;local.selected.clear();local.busy=false;local.jobId='';local.jobKind='';local.undo=null;local.error='工作区已切换，请重新选择商品规格文件。';
+        commands.reset();clearPoll();local.contextSerial++;local.requestSerial++;resetGroup();closeDialog(true);local.setup=false;local.setupSession='';local.setupDirty=false;local.search='';local.session=null;local.candidate=null;local.candidateStatus=null;local.page=null;local.selected.clear();local.busy=false;local.jobId='';local.jobKind='';local.undo=null;local.error='工作区已切换，请重新选择商品规格文件。';
       }
       loadPreferences();if(settings.render!==false)scheduleRender();return api;
     }
     async function restoreSession(session){
       if(!session?.sessionId||!session?.ownerToken)throw Error('文件会话信息不完整');
-      clearPoll();local.contextSerial++;local.requestSerial++;local.setup=false;local.setupSession='';local.setupDirty=false;local.manual=false;local.search='';resetGroup();local.offerAttention=false;local.busy=false;local.jobId='';local.session={...session};local.candidate=null;local.candidateStatus=null;local.page=null;local.pageNumber=1;local.filter='all';local.missingThickness=false;local.moreOpen=false;local.selected.clear();local.undo=null;local.error='';
+      commands.reset();clearPoll();local.contextSerial++;local.requestSerial++;local.setup=false;local.setupSession='';local.setupDirty=false;local.manual=false;local.search='';resetGroup();local.offerAttention=false;local.busy=false;local.jobId='';local.session={...session};local.candidate=null;local.candidateStatus=null;local.page=null;local.pageNumber=1;local.filter='all';local.missingThickness=false;local.moreOpen=false;local.selected.clear();local.undo=null;local.error='';
       await refreshPage();if(local.page?.rulesStale)await recompute();return api;
     }
     function isBusy(){return local.busy||!!local.jobId;}
-    function canQuit(){return !isBusy()&&!local.dialog&&!local.candidate&&!local.setupDirty;}
+    function canQuit(){return !commands.uncertain()&&!isBusy()&&!local.dialog&&!local.candidate&&!local.setupDirty;}
     function destroy(){
       waitingLoader.stop();resetDrop();
-      clearPoll();local.destroyed=true;local.active=false;
+      commands.reset();clearPoll();local.contextSerial++;local.requestSerial++;local.session=null;local.candidate=null;local.destroyed=true;local.active=false;
       if(local.listeners&&root.document){root.document.removeEventListener('click',documentClick);root.document.removeEventListener('change',documentChange);root.document.removeEventListener('submit',dialogSubmit);}
       if(local.listeners&&root.document){root.document.removeEventListener('dragenter',documentDragOver);root.document.removeEventListener('dragover',documentDragOver);root.document.removeEventListener('dragleave',documentDragLeave);root.document.removeEventListener('drop',documentDrop);root.document.removeEventListener('dragend',resetDrop);}
       local.dialog=null;root.document?.getElementById('product-v4-dialog')?.remove();

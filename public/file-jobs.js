@@ -15,6 +15,7 @@
   const salesReview=(id,input)=>request('POST',`/api/file-sessions/${encodeURIComponent(id)}/sales-reviews`,{...input,ownerToken:input.ownerToken||owner(id)});
   const salesReviews=salesReview;
   const review=(id,input)=>request('POST',`/api/file-sessions/${encodeURIComponent(id)}/reviews`,{...input,ownerToken:input.ownerToken||owner(id)});
+  const mutationStatus=(id,kind,command)=>request('POST',`/api/file-sessions/${encodeURIComponent(id)}/mutation-status`,{kind,command});
   const undo=(id,input)=>request('POST',`/api/file-sessions/${encodeURIComponent(id)}/undo`,{...input,ownerToken:input.ownerToken||owner(id)});
   const startExport=(id,input={})=>request('POST',`/api/file-sessions/${encodeURIComponent(id)}/export`,{...input,ownerToken:input.ownerToken||owner(id)});
   const recompute=(id,input={})=>request('POST',`/api/file-sessions/${encodeURIComponent(id)}/recompute`,{...input,ownerToken:input.ownerToken||owner(id)});
@@ -28,5 +29,5 @@
   const auxiliaryDownloadUrl=jobId=>`/api/file-jobs/${encodeURIComponent(jobId)}/download`;
   async function waitForJob(jobId,{signal,interval=250,onProgress}={}){while(true){if(signal?.aborted)throw new DOMException('Aborted','AbortError');const value=await job(jobId);onProgress?.(value.progress,value);if(['succeeded','failed','canceled'].includes(value.state)){if(value.state==='succeeded')return value;const error=Error(value.error?.message||'文件任务未完成');error.code=value.error?.code||value.state.toUpperCase();throw error;}await new Promise((resolve,reject)=>{const timer=setTimeout(resolve,interval);signal?.addEventListener('abort',()=>{clearTimeout(timer);reject(new DOMException('Aborted','AbortError'));},{once:true});});}}
   const reviews=review;
-  return {create,upload,status,sessions,selectSheet,rows,salesAggregates,salesCandidate,salesReview,salesReviews,review,reviews,undo,startExport,recompute,rescue,downloadUrl,cancel,discard,startAuxiliary,inspectBackup,job,auxiliaryDownloadUrl,waitForJob,owner};
+  return {create,upload,status,sessions,selectSheet,rows,salesAggregates,salesCandidate,salesReview,salesReviews,review,reviews,mutationStatus,undo,startExport,recompute,rescue,downloadUrl,cancel,discard,startAuxiliary,inspectBackup,job,auxiliaryDownloadUrl,waitForJob,owner};
 });

@@ -106,6 +106,21 @@ function createFileService({store,dataDir}){
     if(parts[3]==='sales-aggregates'&&request.method==='GET'){const session=openSession(id);try{assertCurrent(session.metadata());if(session.getMeta('kind')!=='sales')throw new SessionError(422,'该会话不是销售导入。','INVALID_SESSION_KIND');return json(response,200,session.salesPage({page:url.searchParams.get('page')||1,pageSize:url.searchParams.get('pageSize')||100})),true;}finally{session.close();}}
     if(parts[3]==='sales-candidate'&&request.method==='POST'){const input=await readJson(request),session=openSession(id);try{assertCurrent(session.metadata());if(session.getMeta('kind')!=='sales')throw new SessionError(422,'该会话不是销售导入。','INVALID_SESSION_KIND');assertIdle();session.assertContext(input);return json(response,200,session.salesCandidate(input)),true;}finally{session.close();}}
     if(parts[3]==='sales-reviews'&&request.method==='POST'){const input=await readJson(request),session=openSession(id);try{assertCurrent(session.metadata());if(session.getMeta('kind')!=='sales')throw new SessionError(422,'该会话不是销售导入。','INVALID_SESSION_KIND');assertIdle();return json(response,200,session.salesReview(input)),true;}finally{session.close();}}
+    // Read-only reconciliation: receipt and in-flight identity share the original command.
+    if(parts[3]==='mutation-status'&&request.method==='POST'){
+      const {kind,command}=await readJson(request),session=openSession(id);
+      try{
+        if(!['review','undo','recompute'].includes(kind)||!command?.mutationId)throw new SessionError(400,'Invalid mutation identity','INVALID_MUTATION');
+        const meta=assertCurrent(session.assertContext({...command,expectedSessionRevision:undefined}));
+        const receipt=session.checkedReceipt(command);if(receipt)return json(response,200,{state:'committed',result:receipt}),true;
+        const job=broker.active;
+        if(job?.sessionId===id&&job.payload?.command?.mutationId===command.mutationId){
+          if(digest(job.payload.command)!==digest(command))throw new SessionError(409,'Mutation content changed','MUTATION_CONFLICT');
+          return json(response,200,{state:'running',jobId:job.jobId}),true;
+        }
+        return json(response,200,{state:job?.sessionId===id?'unknown':Number(meta.revision)===Number(command.expectedSessionRevision)?'not-committed':'conflict',revision:meta.revision}),true;
+      }finally{session.close();}
+    }
     if(parts[3]==='reviews'&&request.method==='POST'){
       const input=await readJson(request),session=openSession(id);try{
         assertCurrent(session.metadata());const replay=session.checkedReceipt(input);if(replay)return json(response,200,replay),true;
@@ -114,9 +129,9 @@ function createFileService({store,dataDir}){
         return json(response,200,session.applyReview(input,rules)),true;
       }finally{session.close();}
     }
-    if(parts[3]==='undo'&&request.method==='POST'){const input=await readJson(request),session=openSession(id);try{const meta=assertCurrent(session.assertContext(input)),rules=assertRules(meta);assertIdle();return json(response,200,session.undo(input,rules)),true;}finally{session.close();}}
+    if(parts[3]==='undo'&&request.method==='POST'){const input=await readJson(request),session=openSession(id);try{assertCurrent(session.metadata());const replay=input.mutationId&&session.checkedReceipt(input);if(replay)return json(response,200,replay),true;const meta=assertCurrent(session.assertContext(input)),rules=assertRules(meta);assertIdle();return json(response,200,session.undo(input,rules)),true;}finally{session.close();}}
     if(parts[3]==='recompute'&&request.method==='POST'){
-      const input=await readJson(request),session=openSession(id);try{const meta=assertCurrent(session.assertContext(input));assertIdle();if(meta.kind!=='product'||!meta.generation)throw new SessionError(422,'请先读取商品规格。','IMPORT_NOT_READY');const job=startSessionJob(id,'recompute',{rules:currentRules(),applyUniformThickness:input.applyUniformThickness===true,materialAssignments:input.materialAssignments||{},fallbackMaterialId:input.fallbackMaterialId||'',...(Object.hasOwn(input,'thicknessDefaults')?{thicknessDefaults:Recognition.normalizeThicknessDefaults(input.thicknessDefaults,currentRules())}:{})});return json(response,202,{jobId:job.jobId}),true;}finally{session.close();}
+      const input=await readJson(request),session=openSession(id);try{assertCurrent(session.metadata());const replay=input.mutationId&&session.checkedReceipt(input);if(replay)return json(response,200,replay),true;const meta=assertCurrent(session.assertContext(input));assertIdle();if(meta.kind!=='product'||!meta.generation)throw new SessionError(422,'请先读取商品规格。','IMPORT_NOT_READY');const job=startSessionJob(id,'recompute',{command:input,rules:currentRules(),applyUniformThickness:input.applyUniformThickness===true,materialAssignments:input.materialAssignments||{},fallbackMaterialId:input.fallbackMaterialId||'',...(Object.hasOwn(input,'thicknessDefaults')?{thicknessDefaults:Recognition.normalizeThicknessDefaults(input.thicknessDefaults,currentRules())}:{})});return json(response,202,{jobId:job.jobId}),true;}finally{session.close();}
     }
     if(parts[3]==='export'&&request.method==='POST'){const input=await readJson(request),session=openSession(id);try{const meta=assertCurrent(session.assertContext(input));assertRules(meta);assertIdle();if(meta.requireThicknessSetup&&!meta.uniformConfirmed)throw new SessionError(422,'请先为已识别的材质选择统一厚度。','THICKNESS_SETUP_REQUIRED');if(!session.counts(meta.generation).ready)throw new SessionError(422,'仍有未确认规格，禁止导出。','SESSION_NOT_READY');const job=startSessionJob(id,'export-product',{});return json(response,202,{jobId:job.jobId}),true;}finally{session.close();}}
     if(parts[3]==='rescue'&&request.method==='POST'){const input=await readJson(request),session=openSession(id);try{session.assertContext(input);const job=startSessionJob(id,'export-rescue',{});return json(response,202,{jobId:job.jobId}),true;}finally{session.close();}}

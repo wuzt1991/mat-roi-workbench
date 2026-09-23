@@ -48,6 +48,7 @@ const RUNTIME_FILES = Object.freeze([
   'public/transfer-v3.js',
   'public/product-recognition.js',
   'public/product-transfer.js',
+  'public/product-transfer/commands.js',
   'public/product-transfer-ui.js',
   'public/product-transfer-ui.css',
   'public/lattice-loader.js',

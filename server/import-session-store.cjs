@@ -69,7 +69,8 @@ class ImportSessionStore{
   raw(rowId){const row=this.db.prepare('SELECT * FROM raw_rows WHERE row_id=?').get(rowId);if(!row)return null;return {rowId:row.row_id,sheetId:row.sheet_id,sourceRow:row.source_row,values:parse(row.raw_json,[]),sourceHash:row.source_hash,platform:row.platform,shop:row.shop,productId:row.product_id,skuId:row.sku_id,groupId:row.group_id,originalMissingThickness:!!row.original_missing_thickness,mapping:this.getMeta('sheetMappings',{})[row.sheet_id]||this.getMeta('mapping',{})};}
   review(rowId){return parse(this.db.prepare('SELECT review_json FROM reviews WHERE row_id=?').get(rowId)?.review_json,{});}
   putDerived(derived,generation){this.db.prepare('INSERT OR REPLACE INTO derived_rows(row_id,generation,group_id,status,original_missing_thickness,derived_json) VALUES(?,?,?,?,?,?)').run(derived.rowId,generation,derived.groupId,derived.status,derived.originalMissingThickness?1:0,JSON.stringify(derived));}
-  rebuildDerived(rules,{generation=this.getMeta('generation',0)+1,progress,canceled,thicknessDefaults=this.getMeta('thicknessDefaults',{}),thicknessMode=this.getMeta('thicknessMode','missing'),applyUniformThickness=false,materialAssignments={},fallbackMaterialId=''}={}){
+  rebuildDerived(rules,{generation=this.getMeta('generation',0)+1,progress,canceled,thicknessDefaults=this.getMeta('thicknessDefaults',{}),thicknessMode=this.getMeta('thicknessMode','missing'),applyUniformThickness=false,materialAssignments={},fallbackMaterialId='',command}={}){
+    if(command?.mutationId){const replay=this.checkedReceipt(command);if(replay)return replay;this.assertContext(command);}
     const select=this.db.prepare('SELECT row_id FROM raw_rows ORDER BY row_id'),rows=select.all(),batch=500;let done=0;
     if(applyUniformThickness){
       Recognition.normalizeThicknessDefaults(thicknessDefaults,rules);thicknessMode='uniform';
@@ -101,6 +102,7 @@ class ImportSessionStore{
     this.transaction(()=>{
       if(applyUniformThickness){const revision=this.getMeta('revision',0)+1;this.db.prepare('INSERT INTO reviews(row_id,review_json,revision) SELECT row_id,review_json,? FROM uniform_reviews WHERE true ON CONFLICT(row_id) DO UPDATE SET review_json=excluded.review_json,revision=excluded.revision').run(revision);this.setMeta('revision',revision);this.setMeta('uniformConfirmed',true);this.setMeta('lastOperation',null);}
       this.setMeta('generation',generation);this.setMeta('rules',rules);this.setMeta('thicknessDefaults',thicknessDefaults);this.setMeta('thicknessMode',thicknessMode);this.setMeta('rulesFingerprint',digest(rules));this.setMeta('derivationVersion',Recognition.DERIVATION_VERSION);this.setMeta('phase','reviewing');
+      if(command?.mutationId){this.setMeta('artifact',null);this.setMeta('lastOperation',null);this.saveReceipt(command,{generation,revision:this.getMeta('revision',0),...this.counts(generation),recomputed:true});}
     });return {generation,revision:this.getMeta('revision',0),...this.counts(generation)};
   }
 
@@ -203,6 +205,11 @@ class ImportSessionStore{
     if(receipt.digest!==digest(command))throw new SessionError(409,'同一操作编号已用于其他内容。','MUTATION_CONFLICT');
     return {...parse(receipt.result_json,{}),replayed:true};
   }
+  saveReceipt(command,result){
+    this.db.prepare('INSERT INTO receipts VALUES(?,?,?,?)').run(command.mutationId,digest(command),JSON.stringify(result),now());
+    this.db.prepare('DELETE FROM receipts WHERE mutation_id IN (SELECT mutation_id FROM receipts ORDER BY created DESC LIMIT -1 OFFSET 1000)').run();
+    return result;
+  }
   applyReview(command,rules){
     const replay=this.checkedReceipt(command);if(replay)return replay;
     return this.transaction(()=>{
@@ -232,6 +239,7 @@ class ImportSessionStore{
     });
   }
   undo(command,rules){
+    if(command.mutationId){const replay=this.checkedReceipt(command);if(replay)return replay;}
     return this.transaction(()=>{
       const meta=this.assertContext(command),last=meta.lastOperation;if(!last||last.revision!==meta.revision)throw new SessionError(409,'最近操作已无法撤销。','UNDO_EXPIRED');
       if(last.rulesFingerprint&&last.rulesFingerprint!==meta.rulesFingerprint)throw new SessionError(409,'规则已变更，最近操作已无法撤销。','RULES_CHANGED');
@@ -243,7 +251,8 @@ class ImportSessionStore{
       }
       if(!undone)throw new SessionError(409,'没有可撤销的操作。','UNDO_MISSING');
       this.finishMutationGroups(generation);this.setMeta('revision',revision);this.setMeta('lastOperation',null);this.db.prepare('DELETE FROM operation_changes WHERE operation_id=?').run(last.operationId);
-      return {revision,undone,counts:this.counts(generation)};
+      const result={revision,undone,counts:this.counts(generation)};
+      return command.mutationId?this.saveReceipt(command,result):result;
     });
   }
   registerArtifact(filename,name,fingerprint){const artifactId=crypto.randomUUID();this.db.prepare('INSERT INTO artifacts VALUES(?,?,?,?,?)').run(artifactId,filename,name,fingerprint,now());return {artifactId,name};}

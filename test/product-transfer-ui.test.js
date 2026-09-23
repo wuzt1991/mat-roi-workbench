@@ -66,7 +66,7 @@ function dragHarness(request,state={}){
   const zone={closest:()=>zone,contains:node=>node===zone||node===child,setAttribute:(key,value)=>attributes.set(key,value),removeAttribute:key=>attributes.delete(key)};
   const child={closest:()=>zone},dialog={open:false,remove(){},showModal(){this.open=true;},close(){this.open=false;},querySelector(){return null;}};
   const document={getElementById:()=>dialog,querySelector:selector=>selector==='[data-pv4-dropzone]'?zone:null,addEventListener:(type,handler)=>{bindings.set(type,(bindings.get(type)||0)+1);listeners.set(type,handler);},removeEventListener:(type,handler)=>{if(listeners.get(type)===handler)listeners.delete(type);}};
-  const context=vm.createContext({document,ProductRecognition:require('../public/product-recognition.js'),LatticeLoader:require('../public/lattice-loader.js'),setTimeout,clearTimeout});
+  const context=vm.createContext({document,ProductTransferCommands:require('../public/product-transfer/commands.js'),ProductRecognition:require('../public/product-recognition.js'),LatticeLoader:require('../public/lattice-loader.js'),setTimeout,clearTimeout});
   vm.runInContext(fs.readFileSync(path.join(__dirname,'../public/product-transfer-ui.js'),'utf8'),context);
   const controller=context.ProductTransferUI.create({getState:()=>state,toast:message=>messages.push(message),request:async(action,payload)=>{calls.push({action,payload});if(request)return request(action,payload);if(action==='create')return {sessionId:'candidate',ownerToken:'owner'};if(action==='upload')return {phase:'ready',counts:{total:1}};if(action==='rows')return {rows:[],total:1,ready:true,counts:{total:1,confirmed:1,pending:0}};return {};}});
   controller.activate();

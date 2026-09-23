@@ -24,6 +24,10 @@ function npmExecutable() {
 }
 
 async function main() {
+  const args=process.argv.slice(2),value=name=>{const i=args.indexOf(name);return i<0?undefined:args[i+1];};
+  const selected=value('--platform');
+  if(selected&&!['darwin','win32'].includes(selected))throw new Error('--platform must be darwin or win32');
+  const output=path.resolve(value('--output')||path.join(root,'dist',version));
   assertSource(root);
   const stage = fs.mkdtempSync(path.join(os.tmpdir(), 'mat-roi-package-'));
   try {
@@ -36,9 +40,10 @@ async function main() {
 
     const { packager } = await import('@electron/packager');
     for (const [platform, arch] of [['darwin', 'arm64'], ['win32', 'x64']]) {
+      if(selected&&platform!==selected)continue;
       const result = await packager({
         dir: stage,
-        out: path.join(root, 'dist', version),
+        out: output,
         name: productName,
         executableName: productName,
         platform,

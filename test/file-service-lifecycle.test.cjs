@@ -23,6 +23,48 @@ async function fixture(t,{kind='product'}={}){
   return {dataDir,state,workspace,service,request,created,id,directory,open,rules,command:{ownerToken:created.ownerToken,expectedSessionRevision:0,mutationId:'review-1',rowIds:[1],action:{type:'row-edit'},patch:{size:{mode:'blank'}}}};
 }
 const rejectedCode=(code)=>error=>error?.code===code;
+test('mutation outcome lookup is read-only, owner-bound and rejects changed request content',async t=>{
+ const f=await fixture(t),url=`/api/file-sessions/${f.id}/mutation-status`;
+ assert.equal((await f.request('POST',url,{kind:'review',command:f.command})).value.state,'not-committed');
+ let session=f.open();assert.equal(session.getMeta('revision'),0);session.close();
+ await f.request('POST',`/api/file-sessions/${f.id}/reviews`,f.command);
+ const found=(await f.request('POST',url,{kind:'review',command:f.command})).value;
+ assert.equal(found.state,'committed');assert.equal(found.result.revision,1);
+ await assert.rejects(f.request('POST',url,{kind:'review',command:{...f.command,patch:{size:{mode:'value',width:1,length:2}}}}),rejectedCode('MUTATION_CONFLICT'));
+ await assert.rejects(f.request('POST',url,{kind:'review',command:{...f.command,ownerToken:'another'}}));
+ f.workspace.storageEpoch++;await assert.rejects(f.request('POST',url,{kind:'review',command:f.command}),rejectedCode('WORKSPACE_CONTEXT_CHANGED'));
+});
+test('actual committed review with lost HTTP response is recovered without resubmission',async t=>{
+ const f=await fixture(t),Commands=require('../public/product-transfer/commands.js');let writes=0,probes=0;
+ const commands=Commands.create({newId:()=> 'lost-review',request:async(action,p)=>{
+  if(action==='review'){writes++;await f.request('POST',`/api/file-sessions/${f.id}/reviews`,p.command);throw new TypeError('connection lost');}
+  assert.equal(action,'mutationStatus');probes++;return (await f.request('POST',`/api/file-sessions/${f.id}/mutation-status`,p)).value;
+ }});
+ const result=await commands.run('review',f.created,{rowIds:[1],action:{type:'row-edit'},patch:{size:{mode:'blank'}}});
+ assert.equal(result.revision,1);assert.equal(writes,1);assert.equal(probes,1);assert.equal(commands.uncertain(),false);
+ const s=f.open();assert.equal(s.getMeta('revision'),1);assert.equal(s.db.prepare('SELECT count(*) n FROM receipts').get().n,1);s.close();
+});
+test('recompute receipt is published with the generation and prevents replayed uniform application',async t=>{
+ const f=await fixture(t),material=f.rules.materials.find(m=>m.name==='硅藻泥'),rule=material.weightRules.find(r=>Number(r.thickness)===5);
+ const command={ownerToken:f.created.ownerToken,expectedSessionRevision:0,mutationId:'recompute-lost',action:{type:'recompute'},applyUniformThickness:true,thicknessDefaults:{[material.id]:rule.id}};
+ const started=await f.request('POST',`/api/file-sessions/${f.id}/recompute`,command);
+ const running=(await f.request('POST',`/api/file-sessions/${f.id}/mutation-status`,{kind:'recompute',command})).value;
+ assert.ok(['running','committed'].includes(running.state));
+ const job=await completed(f.service,started.value.jobId);assert.equal(job.state,'succeeded',JSON.stringify(job.error));
+ const receipt=(await f.request('POST',`/api/file-sessions/${f.id}/mutation-status`,{kind:'recompute',command})).value;
+ assert.equal(receipt.state,'committed');assert.equal(receipt.result.revision,1);
+ const replay=(await f.request('POST',`/api/file-sessions/${f.id}/recompute`,command)).value;
+ assert.equal(replay.replayed,true);assert.equal(replay.generation,2);
+ const s=f.open();assert.equal(s.getMeta('generation'),2);assert.equal(s.getMeta('revision'),1);s.close();
+});
+test('undo lost response is replayed from its atomic receipt without a second change',async t=>{
+ const f=await fixture(t);await f.request('POST',`/api/file-sessions/${f.id}/reviews`,f.command);
+ const command={ownerToken:f.created.ownerToken,expectedSessionRevision:1,mutationId:'undo-response-lost',action:{type:'undo'}};
+ const first=await f.request('POST',`/api/file-sessions/${f.id}/undo`,command);
+ const replay=await f.request('POST',`/api/file-sessions/${f.id}/undo`,command);
+ assert.equal(first.value.revision,2);assert.equal(replay.value.replayed,true);assert.equal(replay.value.revision,2);
+ const session=f.open();assert.equal(session.getMeta('revision'),2);assert.equal(session.review(1).size,undefined);session.close();
+});
 async function completed(service,jobId){const end=Date.now()+10000;while(Date.now()<end){const job=service.broker.get(jobId);if(job&&job.state!=='running')return job;await new Promise(resolve=>setTimeout(resolve,20));}throw Error('Job timed out');}
 
 test('restored workspace fences stale session commands even when client omits epoch',async t=>{const f=await fixture(t);f.workspace.storageEpoch++;await assert.rejects(f.request('POST',`/api/file-sessions/${f.id}/reviews`,f.command),rejectedCode('WORKSPACE_CONTEXT_CHANGED'));await assert.rejects(f.request('GET',`/api/file-sessions/${f.id}/rows`),rejectedCode('WORKSPACE_CONTEXT_CHANGED'));});
