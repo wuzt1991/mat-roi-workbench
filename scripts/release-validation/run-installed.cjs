@@ -26,14 +26,14 @@ function runProcess(executable, args, { env = process.env, timeout = 30 * 60 * 1
 async function main() {
   const [artifact, mode, operation, count] = process.argv.slice(2);
   assert.equal(process.platform, 'win32', 'This entry point validates the installed Windows runtime');
-  assert.ok(artifact && ['fixtures', 'large', 'scroll', 'locks', 'lifecycle'].includes(mode), 'Expected installed directory and fixtures|large|scroll|locks|lifecycle');
+  assert.ok(artifact && ['fixtures', 'large', 'scroll', 'locks', 'lifecycle', 'business', 'performance'].includes(mode), 'Expected installed directory and fixtures|large|scroll|locks|lifecycle|business|performance');
   if (mode === 'large') {
     assert.ok(['build', 'verify'].includes(operation));
     assert.ok(['500000', '500001'].includes(count));
   }
   const out = path.resolve(process.env.MAT_VERIFY_OUTPUT);
-  const script = path.join(__dirname, mode === 'locks' ? '../../test/import-session-lock.test.cjs' : mode === 'lifecycle' ? 'stress-file-lifecycle.cjs' : mode === 'fixtures' ? 'verify-fixtures.cjs' : mode === 'scroll' ? 'verify-product-scroll.cjs' : 'verify-large.cjs');
-  const evidence = path.join(out, mode === 'locks' ? 'lock-report.json' : mode === 'lifecycle' ? 'lifecycle-report.json' : mode === 'fixtures' ? 'fixture-report.json' : mode === 'scroll' ? 'scroll-windows-installed.json' : operation === 'build' ? `synthetic-${count}.xlsx` : `report-${count}.json`);
+  const script = path.join(__dirname, mode === 'business' ? 'verify-stage3.cjs' : mode === 'performance' ? 'verify-product-performance.cjs' : mode === 'locks' ? '../../test/import-session-lock.test.cjs' : mode === 'lifecycle' ? 'stress-file-lifecycle.cjs' : mode === 'fixtures' ? 'verify-fixtures.cjs' : mode === 'scroll' ? 'verify-product-scroll.cjs' : 'verify-large.cjs');
+  const evidence = path.join(out, mode === 'business' ? 'stage3-native.json' : mode === 'performance' ? 'product-performance.json' : mode === 'locks' ? 'lock-report.json' : mode === 'lifecycle' ? 'lifecycle-report.json' : mode === 'fixtures' ? 'fixture-report.json' : mode === 'scroll' ? 'scroll-windows-installed.json' : operation === 'build' ? `synthetic-${count}.xlsx` : `report-${count}.json`);
   assert.ok(!fs.existsSync(evidence), `Refusing stale validation evidence: ${evidence}`);
   const args = mode === 'locks' ? ['--test', script, path.join(__dirname, '../../test/file-job-completion.test.cjs')] : [script, ...(mode === 'large' ? [operation, count] : [])];
   await runProcess(path.join(path.resolve(artifact), '地垫工作台.exe'), args, {
@@ -44,11 +44,13 @@ async function main() {
   if (!evidence.endsWith('.xlsx')) {
     const report = JSON.parse(fs.readFileSync(evidence, 'utf8'));
     assert.equal(report.passed, true, 'Validation report did not pass');
-    assert.equal(mode === 'fixtures' ? report.runtime.platform : ['scroll','lifecycle'].includes(mode) ? report.host : report.platform, 'win32');
+    assert.equal(mode === 'fixtures' ? report.runtime.platform : ['scroll','lifecycle','business'].includes(mode) ? report.host : report.platform, 'win32');
     if (mode === 'fixtures') assert.deepEqual(report.checks.map(check => check.businessRows), [1, 60, 99, 100, 139]);
     else if (mode === 'scroll') { assert.equal(report.installedWindow, true); assert.equal(report.paginationReached, true); }
     else if (mode === 'lifecycle') { assert.equal(report.runs, 100); assert.equal(report.failed, 0); }
     else if (mode === 'locks') assert.equal(report.tests, 8);
+    else if (mode === 'business') { assert.equal(report.isolatedData, true); assert.equal(report.label, 'native'); assert.ok(report.payloadHash); }
+    else if (mode === 'performance') { assert.equal(report.results.length, 3); assert.equal(report.withinPagingTarget, true); }
     else assert.equal(report.count, Number(count));
   }
   console.log(JSON.stringify({ installedValidation: 'passed', mode, operation, count, evidence }));
