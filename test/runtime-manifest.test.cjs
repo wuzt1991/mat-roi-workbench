@@ -49,3 +49,15 @@ test('asar payload lookup keeps package files readable after path normalization'
   assert.ok(payload.files.includes('LICENSE'));
   assert.equal(payload.read('LICENSE').toString('utf8').startsWith('A. HISTORY'), true);
 });
+
+test('package audit reads cross-platform ASAR symlink paths without skipping their contents',async t=>{
+  const asar=require('@electron/asar'),os=require('node:os');
+  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'mat-asar-links-'));t.after(()=>fs.rmSync(directory,{recursive:true,force:true}));
+  const source=path.join(directory,'source');fs.mkdirSync(path.join(source,'bin'),{recursive:true});fs.writeFileSync(path.join(source,'bin','tool.js'),'verified target');
+  const archive=path.join(directory,'fixture.asar');await asar.createPackage(source,archive);
+  // ASAR's cached header lets this fixture represent a link created on either OS.
+  const cached=asar.statFile(archive,'bin',false);cached.files.alias={link:'bin/tool.js'};
+  const payload=readPayload({type:'asar',path:archive});assert.equal(payload.read('bin/alias').toString(),'verified target');
+  cached.files.alias.link='bin\\tool.js';const windowsLink=readPayload({type:'asar',path:archive});assert.equal(windowsLink.read('bin/alias').toString(),'verified target');
+  cached.files.alias.link='bin/alias';const circular=readPayload({type:'asar',path:archive});assert.throws(()=>circular.read('bin/alias'),/Circular/);
+});
