@@ -46,3 +46,27 @@ test('failed refresh retains the last view but blocks writes and exports until i
  assert.equal(c.state.pageStale,true);assert.equal(await c.applyReview({type:'row-edit',rowIds:[1],patch:{size:{mode:'blank'}}}),null);await c.exportFile();assert.equal(writes,0);
  fail=false;await c.refreshPage();assert.equal(c.state.pageStale,false);c.destroy();
 });
+
+test('export shop selection follows workspace names without changing business state',async()=>{
+ const state={activeShop:'a',shops:[{id:'a',name:'华住'},{id:'b',name:'亚麻店'},{id:'gone',name:'旧店',deleted:true}]},before=JSON.stringify(state),requests=[];
+ const c=Controller.create({getState:()=>state,request:async(action,p)=>{requests.push([action,p]);if(action==='rows')return page();if(action==='startExport')return {artifactId:'new'};if(action==='downloadUrl')return '/download';}});
+ c.refreshContext({workspaceId:'one',storageEpoch:1});await c.restoreSession(session);
+ assert.equal(c.exportShop().id,'a');assert.equal(c.exportShops().length,2);assert.match(c.exportName(),/^华住-\d{4}-\d{2}-\d{2}\.xlsx$/);
+ c.selectExportShop('b');await c.exportFile();assert.equal(requests.find(([a])=>a==='startExport')[1].options.shopId,'b');assert.equal(JSON.stringify(state),before);
+ state.shops[1].name='新店名';assert.match(c.exportName(),/^新店名-/);state.shops[1].deleted=true;await c.exportFile();assert.match(c.state.error,/请选择/);assert.equal(requests.filter(([a])=>a==='startExport').length,1);
+ c.refreshContext({workspaceId:'two',storageEpoch:2});assert.equal(c.exportShop().id,'a');c.destroy();
+});
+test('repeat export waits for its own completed job instead of downloading an earlier artifact',async()=>{
+ const done=deferred();let polls=0;const downloaded=[];
+ const c=Controller.create({getState:()=>({activeShop:'a',shops:[{id:'a',name:'华住'}]}),request:async(action,p)=>{
+  if(action==='rows')return page();if(action==='startExport')return {jobId:'new-job'};
+  if(action==='status')return ++polls===1?{artifactId:'old',job:{jobId:'new-job',state:'running'}}:{artifactId:'new',job:{jobId:'new-job',state:'succeeded'}};
+  if(action==='downloadUrl'){downloaded.push(p.artifactId);return '/new';}
+ },ports:{download:()=>done.resolve()}});
+ try{await c.restoreSession(session);await c.exportFile();await done.promise;assert.deepEqual(downloaded,['new']);assert.equal(polls,2);}finally{c.destroy();}
+});
+test('export filename uses local calendar date and removes filesystem control characters',()=>{
+ assert.equal(Model.exportFilename('华住',new Date(2026,8,30,0,1)),'华住-2026-09-30.xlsx');
+ assert.equal(Model.exportFilename('华住/旗舰:店\n',new Date(2026,8,30)),'华住_旗舰_店-2026-09-30.xlsx');
+ assert.equal(Model.exportFilename(' . ',new Date(2026,8,30)),'商品转表-2026-09-30.xlsx');
+});

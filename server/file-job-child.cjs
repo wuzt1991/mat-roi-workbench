@@ -45,7 +45,7 @@ async function run(jobType,payload,context){
   if(jobType==='recompute'){
     const store=new ImportSessionStore(context.sessionDirectory);try{const rules=payload.rules,old=store.metadata();if(!rules)throw new SessionError(400,'缺少重算规则。','RULES_REQUIRED');const result=store.rebuildDerived(rules,{...common,command:payload.command,applyUniformThickness:payload.applyUniformThickness===true,materialAssignments:payload.materialAssignments||{},fallbackMaterialId:payload.fallbackMaterialId||'',...(Object.hasOwn(payload,'thicknessDefaults')?{thicknessDefaults:payload.thicknessDefaults}:{})});store.updateMeta({artifact:null,lastOperation:null,rulesFingerprint:digest(rules)});return {...result,revision:store.getMeta('revision',old.revision),recomputed:true};}finally{store.close();}
   }
-  if(jobType==='export-product')return exportProduct({sessionDirectory:context.sessionDirectory,templatePath:context.templatePath,outputPath:context.outputPath,...common});
+  if(jobType==='export-product')return exportProduct({sessionDirectory:context.sessionDirectory,templatePath:context.templatePath,outputPath:context.outputPath,artifactName:payload.artifactName,...common});
   if(jobType==='export-rescue')return rescue({sessionDirectory:context.sessionDirectory,outputPath:context.outputPath});
   if(['export-backup','inspect-backup','export-listing'].includes(jobType)){
     const auxiliary=require('./auxiliary-file-jobs.cjs'),handler=auxiliary.handlers?.[jobType];if(typeof handler!=='function')throw new SessionError(501,'该文件任务尚未接入。','AUXILIARY_JOB_MISSING');return handler(payload,{progress,isCanceled:canceled,outputDir:context.outputDir,inputPath:context.inputPath});

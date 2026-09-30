@@ -9,7 +9,7 @@
       setup:false,setupDirty:false,setupSession:'',uniformChoices:{},materialAssignments:{},assignmentCounts:{},unknownMaterial:'',materialPage:1,manual:false,offerAttention:false,contextSerial:0,context:{},session:null,candidate:null,candidateStatus:null,page:null,pageNumber:1,
       expandedGroupId:'',groupPage:1,groupRows:null,search:'',preferencesKey:'',thicknessDefaults:{},filter:'all',missingThickness:false,moreOpen:false,selected:new Set(),
       reading:false,busy:false,waitStartedAt:0,waitLabel:'',waitStatus:null,jobId:'',jobKind:'',error:'',requestSerial:0,pollTimer:0,dialog:null,lastFocus:null,
-      sheetSelection:new Set(),sheetMappings:{},selectionInitialized:false,undo:null,active:false,destroyed:false,listeners:false
+      sheetSelection:new Set(),sheetMappings:{},selectionInitialized:false,undo:null,active:false,destroyed:false,listeners:false,exportShopId:''
     };
 
     const commands=Commands.create({request:call,waitForJob:waitForMutation,newId:mutationId});
@@ -226,10 +226,11 @@
     }
     async function exportFile(){
       if(!local.session||local.busy||local.pageStale||!local.page?.ready)return;
+      const shop=exportShop();if(!shop){setError('请选择导出文件名使用的店铺。');return;}
       const session=local.session;
       beginWaiting('正在生成商品表');local.error='';scheduleRender();
       try{
-        const result=await call('startExport',{sessionId:local.session.sessionId,options:{ownerToken:local.session.ownerToken,expectedSessionRevision:local.session.revision}});
+        const result=await call('startExport',{sessionId:local.session.sessionId,options:{ownerToken:local.session.ownerToken,expectedSessionRevision:local.session.revision,shopId:shop.id}});
         if(local.session!==session)return;local.jobId=text(result?.jobId);local.jobKind='export';
         if(result?.artifactId)await download(result.artifactId);
         else queuePoll(pollExport,350);
@@ -243,7 +244,7 @@
         if(candidateFailed(status)){local.busy=false;local.jobId='';local.jobKind='';setError(status.error||status?.job?.error,'商品表生成失败。');return;}
         local.waitStatus=status;
         const artifactId=text(status?.artifactId||status?.exportArtifactId||status?.artifact?.id||status?.job?.artifactId);
-        if(artifactId){await download(artifactId);return;}
+        if(artifactId&&status?.job?.jobId===local.jobId&&status.job.state==='succeeded'){await download(artifactId);return;}
         scheduleRender();queuePoll(pollExport);
       }catch(error){if(local.session!==session)return;local.busy=false;local.jobId='';setError(error,'无法读取导出进度。');}
     }
@@ -255,6 +256,10 @@
       local.busy=false;local.jobId='';local.jobKind='';scheduleRender();notify('商品表已生成');
     }
     function materials(){return active(getState()?.materials);}
+    function exportShops(){return active(getState()?.shops);}
+    function exportShop(){const state=getState()||{},shops=exportShops();return shops.find(shop=>text(shop.id)===text(local.exportShopId||state.activeShop))||(!local.exportShopId?shops[0]:null);}
+    function exportName(){const shop=exportShop();return shop?Model.exportFilename(shop.name):'';}
+    function selectExportShop(id){if(isBusy())return;local.exportShopId=text(id);local.error='';scheduleRender();}
     function materialById(id){return array(getState()?.materials).find(item=>text(item.id)===text(id));}
     function thicknessSetup(){return !!local.session&&(local.setup||local.page?.thicknessConfigured===false);}
     function summary(){return local.page?.materialSummary||{materials:[],unknown:0,unknownGroups:[],groupCount:0,page:1,totalPages:1};}
@@ -294,6 +299,7 @@
     function refreshContext(context={},settings={}){
       const previousWorkspace=text(local.context.workspaceId),previousEpoch=text(local.context.storageEpoch);local.context={...local.context,...context};
       if((previousWorkspace&&text(local.context.workspaceId)!==previousWorkspace)||(previousEpoch&&text(local.context.storageEpoch)!==previousEpoch)){
+        local.exportShopId='';
         commands.reset();clearPoll();local.contextSerial++;local.requestSerial++;resetGroup();ports.closeDialog?.(true);local.setup=false;local.setupSession='';local.setupDirty=false;local.search='';local.session=null;local.candidate=null;local.candidateStatus=null;local.page=null;local.selected.clear();local.busy=false;local.jobId='';local.jobKind='';local.undo=null;local.error='工作区已切换，请重新选择商品规格文件。';
       }
       loadPreferences();if(settings.render!==false)scheduleRender();return api;
@@ -316,7 +322,7 @@
     function activate(context={}){if(local.destroyed)return api;local.active=true;refreshContext(context,{render:false});if(thicknessSetup())initializeSetup();ports.activate?.();if(local.session&&!local.page&&!local.busy)refreshPage();return api;}
     function deactivate(){ports.deactivate?.();if(local.reading){local.reading=false;local.busy=false;}local.active=false;local.requestSerial++;resetGroup();local.search='';local.filter='all';local.missingThickness=false;local.moreOpen=false;local.pageNumber=1;local.selected.clear();local.page=null;}
     function destroy(){commands.reset();clearPoll();local.contextSerial++;local.requestSerial++;local.session=null;local.candidate=null;local.destroyed=true;local.active=false;}
-    const api={state:local,checkPending,target,scheduleRender,refreshPage,resetGroup,candidateReady,needsSheet,startImport,candidateSheets,sheetMapping,sheetIssues,chooseSheet,useCandidate,discardCandidate,cancelJob,applyReview,undo,exportFile,download,materials,materialById,thicknessSetup,summary,setupMaterials,submitUniform,searchProducts,recompute,refreshContext,restoreSession,isBusy,canQuit,inspect,activate,deactivate,destroy};
+    const api={state:local,exportShops,exportShop,exportName,selectExportShop,checkPending,target,scheduleRender,refreshPage,resetGroup,candidateReady,needsSheet,startImport,candidateSheets,sheetMapping,sheetIssues,chooseSheet,useCandidate,discardCandidate,cancelJob,applyReview,undo,exportFile,download,materials,materialById,thicknessSetup,summary,setupMaterials,submitUniform,searchProducts,recompute,refreshContext,restoreSession,isBusy,canQuit,inspect,activate,deactivate,destroy};
     return api;
   }
   return {create};

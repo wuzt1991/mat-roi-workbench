@@ -92,3 +92,19 @@ test('新流程必须先确认材质厚度，再允许导出；确认后发布�
  const started=await f.request('POST',`/api/file-sessions/${f.id}/recompute`,{ownerToken:f.created.ownerToken,expectedSessionRevision:0,applyUniformThickness:true,thicknessDefaults:{[material.id]:rule.id}});const job=await completed(f.service,started.value.jobId);assert.equal(job.state,'succeeded',JSON.stringify(job.error));
  const after=await f.request('GET',`/api/file-sessions/${f.id}/rows`);assert.equal(after.value.ready,true);assert.equal(after.value.thicknessConfigured,true);assert.equal(after.value.revision,1);assert.equal(after.value.rows[0].derived.thickness.ruleId,rule.id);
 });
+
+test('product download carries the selected current shop name and preserves source shop cells',async t=>{
+ const f=await fixture(t);f.state.shops.push({id:'export-shop',name:'导出店'});const shop=f.state.shops[1],url=`/api/file-sessions/${f.id}/export`,body={ownerToken:f.created.ownerToken,expectedSessionRevision:0,shopId:shop.id};
+ const workspace=JSON.stringify(f.state);shop.name='华住/旗舰:店';
+ const started=await f.request('POST',url,body),job=await completed(f.service,started.value.jobId);assert.equal(job.state,'succeeded',JSON.stringify(job.error));
+ const {exportFilename}=require('../public/product-transfer/model.js');assert.equal(job.result.artifactName,exportFilename(shop.name));
+ const s=f.open(),artifact=s.metadata().artifact;s.close();
+ const req=Readable.from([]);req.method='GET';req.headers={};let headers;const chunks=[],res=new Writable({write(chunk,encoding,next){chunks.push(chunk);next();}});res.writeHead=(status,value)=>{assert.equal(status,200);headers=value;};
+ const finished=new Promise(resolve=>res.on('finish',resolve));await f.service.handle(req,res,new URL(`/api/file-sessions/${f.id}/download?artifactId=${artifact.artifactId}`,'http://localhost'));await finished;
+ assert.ok(decodeURIComponent(headers['Content-Disposition']).endsWith(exportFilename(shop.name)));
+ const Excel=require('../public/assets/exceljs.min.js'),book=new Excel.Workbook();await book.xlsx.load(Buffer.concat(chunks));assert.equal(book.worksheets[0].getCell('C2').value,'店铺');
+ await assert.rejects(f.request('POST',url,{...body,shopId:'missing'}),rejectedCode('EXPORT_SHOP_REQUIRED'));
+ const old=f.open();assert.equal(old.metadata().artifact.artifactId,artifact.artifactId);old.close();
+ shop.name='改名后的店';const next=await f.request('POST',url,body);const pending=f.open();assert.equal(pending.metadata().artifact,null);pending.close();const nextJob=await completed(f.service,next.value.jobId);assert.equal(nextJob.result.artifactName,exportFilename(shop.name));
+ const expected=JSON.parse(workspace);expected.shops[1].name=shop.name;assert.deepEqual(f.state,expected);
+});
