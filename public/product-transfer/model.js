@@ -17,6 +17,11 @@
   const number=Recognition.number;
   const array=value=>Array.isArray(value)?value:[];
   const active=list=>array(list).filter(item=>item&&!item.deleted&&item.active!==false);
+  function exportFilename(shopName,date=new Date()){
+    const name=text(shopName).trim().replace(/[<>:"/\\|?*\u0000-\u001f\u007f]/g,'_').replace(/[. ]+$/g,'').slice(0,80)||'商品转表';
+    const day=[date.getFullYear(),String(date.getMonth()+1).padStart(2,'0'),String(date.getDate()).padStart(2,'0')].join('-');
+    return `${name}-${day}.xlsx`;
+  }
   const mutationId=()=>root.crypto?.randomUUID?.()||`mutation-${Date.now()}-${Math.random().toString(36).slice(2)}`;
   const icon=name=>`<i data-lucide="${name}" class="icon" aria-hidden="true"></i>`;
   const truncateId=value=>{const id=text(value);return id.length>10?`${id.slice(0,6)}…${id.slice(-4)}`:id||'未提供商品 ID';};
@@ -84,5 +89,5 @@
     if(!Object.keys(patch).length)throw Error('请选择需要统一的材质或厚度。');
     return patch;
   }
-  return {rowPatch,groupPatch,Recognition,PAGE_SIZE,BLANK,CUSTOM,KEEP,CHOOSE,DERIVED,INLINE_OPTION_LIMIT,REQUIRED_PRODUCT_FIELDS,TERMINAL_PHASES,WAITING_SHEET_PHASES,FAILED_PHASES,htmlEscape,text,number,array,active,mutationId,icon,truncateId,safeMessage,fieldObject,fieldStatus,fieldId,outputIndexes,rawValue,isBlank,materialId,sizeId,thicknessId,money,countValue,sizeWidth,sizeHeight,sizeLabel,canonicalRules,thicknessLabel,normalizeGroupMap,currentMaterial};
+  return {exportFilename,rowPatch,groupPatch,Recognition,PAGE_SIZE,BLANK,CUSTOM,KEEP,CHOOSE,DERIVED,INLINE_OPTION_LIMIT,REQUIRED_PRODUCT_FIELDS,TERMINAL_PHASES,WAITING_SHEET_PHASES,FAILED_PHASES,htmlEscape,text,number,array,active,mutationId,icon,truncateId,safeMessage,fieldObject,fieldStatus,fieldId,outputIndexes,rawValue,isBlank,materialId,sizeId,thicknessId,money,countValue,sizeWidth,sizeHeight,sizeLabel,canonicalRules,thicknessLabel,normalizeGroupMap,currentMaterial};
 });

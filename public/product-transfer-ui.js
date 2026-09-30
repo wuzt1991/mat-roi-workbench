@@ -107,6 +107,7 @@
     }
     async function documentChange(event){
       const el=event.target;if(!el.closest?.('[data-product-v4]')||local.busy)return;
+      if(el.matches('[data-pv8-export-shop]')){controller.selectExportShop(el.value);return;}
       if(el.matches('[data-pv4-file]')){const file=el.files?.[0];if(file)await startImport(file);el.value='';return;}
       if(el.matches('[data-pv4-sheet]')){const id=text(el.dataset.pv4Sheet);el.checked?local.sheetSelection.add(id):local.sheetSelection.delete(id);scheduleRender();return;}
       if(el.matches('[data-pv5-uniform]')){local.uniformChoices[el.dataset.pv5Uniform]=el.value;local.setupDirty=true;return;}
