@@ -5,12 +5,20 @@ on:
 permissions:
   actions: read
   contents: write
+concurrency:
+  group: windows-production-update
+  cancel-in-progress: false
 jobs:
   promote:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Require final installer manual acceptance
+        run: node scripts/release-validation/check-release-acceptance.cjs
       - name: Find a successful candidate for exactly this source
         id: candidate
         uses: actions/github-script@v7
@@ -23,18 +31,33 @@ jobs:
             const {data} = await github.rest.actions.listWorkflowRuns({...context.repo, workflow_id: 'windows-candidate.yml', head_sha: commit.sha, status: 'success', per_page: 20});
             const run = data.workflow_runs.find(r => r.head_sha === commit.sha && r.conclusion === 'success');
             if (!run) throw new Error('No fully validated Windows candidate exists for this exact commit');
+            const {data: jobs} = await github.rest.actions.listJobsForWorkflowRun({...context.repo, run_id: run.id, per_page: 100});
+            for (const name of ['build-and-audit','install-current-windows','installed-lifecycle-stress','internal-upgrade-rollback']) {
+              if (!jobs.jobs.some(j => j.name === name && j.conclusion === 'success')) throw new Error('Candidate gate missing: ' + name);
+            }
             const {data: artifacts} = await github.rest.actions.listWorkflowRunArtifacts({...context.repo, run_id: run.id});
             if (!artifacts.artifacts.some(a => a.name === 'windows-candidate-' + run.id && !a.expired)) throw new Error('Validated installer artifact missing');
-            core.setOutput('run', String(run.id));
-            core.setOutput('version', version);
-            core.setOutput('sha', commit.sha);
+            core.setOutput('run', String(run.id)); core.setOutput('version', version); core.setOutput('sha', commit.sha);
       - uses: actions/download-artifact@v4
         with:
           name: windows-candidate-${{ steps.candidate.outputs.run }}
           run-id: ${{ steps.candidate.outputs.run }}
           github-token: ${{ github.token }}
           path: candidate
-      - name: Verify metadata and publish the same bytes
+      - name: Verify exact bytes and public feed before any publication
+        env:
+          OSS_ACCESS_KEY_ID: ${{ secrets.OSS_UPDATE_ACCESS_KEY_ID }}
+          OSS_ACCESS_KEY_SECRET: ${{ secrets.OSS_UPDATE_ACCESS_KEY_SECRET }}
+        run: |
+          node -e 'if(!process.env.OSS_ACCESS_KEY_ID || !process.env.OSS_ACCESS_KEY_SECRET) throw Error("OSS CI credentials are not configured"); const fs=require("fs"),c=require("crypto"),e=require("./validation/candidate/sha256.json"),b=fs.readFileSync("candidate/"+e.file); if(b.length!==e.bytes || c.createHash("sha256").update(b).digest("hex")!==e.sha256) throw Error("Candidate differs from approved installer")'
+          node scripts/publish-oss-update.cjs candidate --preflight
+      - name: Stage verified immutable files without changing latest
+        env:
+          OSS_ACCESS_KEY_ID: ${{ secrets.OSS_UPDATE_ACCESS_KEY_ID }}
+          OSS_ACCESS_KEY_SECRET: ${{ secrets.OSS_UPDATE_ACCESS_KEY_SECRET }}
+        run: node scripts/publish-oss-update.cjs candidate --stage-assets
+      - name: Create or resume draft with the same verified bytes
+        id: release
         uses: actions/github-script@v7
         env:
           RELEASE_VERSION: ${{ steps.candidate.outputs.version }}
@@ -43,28 +66,92 @@ jobs:
         with:
           script: |
             const fs = require('fs'), crypto = require('crypto');
+            const bundle = require('./scripts/publish-oss-update.cjs').inspect('candidate');
             const version = process.env.RELEASE_VERSION, tag = 'v' + version;
-            const name = 'mat-roi-workbench-setup-' + version + '.exe';
-            const metadata = fs.readFileSync('candidate/latest.yml', 'utf8'), bytes = fs.readFileSync('candidate/' + name);
-            if (!metadata.includes('version: ' + version + '\n') || !metadata.includes('path: ' + name + '\n') || !metadata.includes('url: ' + name + '\n')) throw new Error('Metadata filename/version mismatch');
-            if (crypto.createHash('sha512').update(bytes).digest('base64') !== /^sha512:\s*(.+)$/m.exec(metadata)?.[1]?.trim()) throw new Error('Installer SHA-512 mismatch');
-            if (Number(/^\s+size:\s*(\d+)$/m.exec(metadata)?.[1]) !== bytes.length) throw new Error('Installer size mismatch');
-            const names = ['latest.yml', name, name + '.blockmap'];
-            for (const file of names) if (!fs.statSync('candidate/' + file).isFile()) throw new Error('Missing asset');
-            const prior = await github.rest.repos.getReleaseByTag({...context.repo, tag}).catch(e => {if (e.status === 404) return null; throw e;});
-            if (prior) throw new Error('Release already exists; inspect before retrying');
-            const body = fs.readFileSync('docs/release-1.2.md', 'utf8') + '\n\nWindows candidate run ' + process.env.CANDIDATE_RUN + '；源码 ' + process.env.SOURCE_SHA + '。\n安装包 SHA-256：`' + crypto.createHash('sha256').update(bytes).digest('hex') + '`。';
-            const {data: release} = await github.rest.repos.createRelease({...context.repo, tag_name: tag, target_commitish: process.env.SOURCE_SHA, name: '地垫工作台 ' + tag, body, draft: true, prerelease: false});
-            for (const file of names) await github.rest.repos.uploadReleaseAsset({...context.repo, release_id: release.id, name: file, data: fs.readFileSync('candidate/' + file)});
+            if (bundle.version !== version) throw new Error('Version mismatch');
+            const names = ['latest.yml', bundle.name, bundle.name + '.blockmap'];
+            const body = fs.readFileSync('docs/release-' + version + '.md', 'utf8') + '\n\nWindows candidate run ' + process.env.CANDIDATE_RUN + '；源码 ' + process.env.SOURCE_SHA + '。\n安装包 SHA-256：`' + crypto.createHash('sha256').update(bundle.assets[0].bytes).digest('hex') + '`。';
+            const prior = await github.rest.repos.getReleaseByTag({...context.repo, tag}).catch(e => {if(e.status === 404)return null;throw e});
+            let release;
+            if (prior) {
+              release = prior.data;
+              if (release.target_commitish !== process.env.SOURCE_SHA) throw new Error('Existing release targets another source');
+            } else {
+              ({data:release} = await github.rest.repos.createRelease({...context.repo, tag_name: tag, target_commitish: process.env.SOURCE_SHA, name: '地垫工作台 ' + tag, body, draft: true, prerelease: false}));
+            }
             const {data: assets} = await github.rest.repos.listReleaseAssets({...context.repo, release_id: release.id});
-            if (assets.length !== 3 || names.some(f => !assets.some(a => a.name === f && a.size === fs.statSync('candidate/' + f).size))) throw new Error('Uploads incomplete; draft preserved');
-            await github.rest.repos.updateRelease({...context.repo, release_id: release.id, draft: false, prerelease: false, make_latest: 'true'});
-            core.notice('Published verified bytes: ' + release.html_url);
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-      - name: Publish verified installer to domestic update feed
+            if (assets.some(a => !names.includes(a.name))) throw new Error('Unexpected existing release asset');
+            for (const file of names) {
+              const bytes = fs.readFileSync('candidate/' + file), digest = 'sha256:' + crypto.createHash('sha256').update(bytes).digest('hex');
+              const existing = assets.find(a => a.name === file);
+              if (existing) {
+                if (existing.size !== bytes.length || existing.digest !== digest) throw new Error('Existing asset differs: ' + file);
+              } else {
+                if (!release.draft) throw new Error('Public release is incomplete; do not rewrite it');
+                const {data: asset} = await github.rest.repos.uploadReleaseAsset({...context.repo, release_id: release.id, name: file, data: bytes});
+                if (asset.size !== bytes.length || asset.digest !== digest) throw new Error('Uploaded asset digest mismatch');
+              }
+            }
+            core.setOutput('id', String(release.id));
+      - name: Commit domestic update manifest and verify anonymous downloads
         env:
           OSS_ACCESS_KEY_ID: ${{ secrets.OSS_UPDATE_ACCESS_KEY_ID }}
           OSS_ACCESS_KEY_SECRET: ${{ secrets.OSS_UPDATE_ACCESS_KEY_SECRET }}
         run: node scripts/publish-oss-update.cjs candidate --publish
+      - name: Publish GitHub channel after domestic feed is verified
+        uses: actions/github-script@v7
+        env:
+          RELEASE_ID: ${{ steps.release.outputs.id }}
+        with:
+          script: |
+            const {data: release} = await github.rest.repos.updateRelease({...context.repo, release_id:Number(process.env.RELEASE_ID), draft:false, prerelease:false, make_latest:'true'});
+            core.notice('Published verified Windows update: ' + release.html_url);
+  verify-live-upgrade:
+    needs: promote
+    runs-on: windows-2022
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        baseline: ['1.1.10', '1.2.10']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - name: Install old client with its unmodified real update source
+        shell: pwsh
+        env:
+          BASELINE: ${{ matrix.baseline }}
+        run: |
+          $old = Join-Path $env:RUNNER_TEMP 'old-installer.exe'
+          if ($env:BASELINE -eq '1.1.10') {
+            $url = 'https://github.com/wuzt1991/mat-roi-workbench/releases/download/v1.1.10/mat-roi-workbench-setup-1.1.10.exe'
+            $hash = '42dd061a3edf6af011f957dbdd30f63a04417f8b49277617459c5548de137303'
+          } else {
+            $url = 'https://raw.githubusercontent.com/wuzt1991/mat-roi-workbench/6beda281f9f5e2f041c48cc3f76b39915fbc5065/validation/candidate/mat-roi-workbench-setup-1.2.10.exe'
+            $hash = 'b41b39bebaa86b5536bbaaa76aa43b7ca131e442ea3040cb15c436ea02c65ea3'
+          }
+          Invoke-WebRequest $url -OutFile $old
+          if ((Get-FileHash $old -Algorithm SHA256).Hash.ToLowerInvariant() -ne $hash) { throw 'Baseline checksum mismatch' }
+          $dest = Join-Path $env:RUNNER_TEMP 'mat-upgrade-validation/installed/mat-roi-workbench'
+          New-Item -ItemType Directory -Force (Split-Path $dest) | Out-Null
+          $process = Start-Process -FilePath $old -ArgumentList @('/S', "/D=$dest") -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw 'Baseline installation failed' }
+      - name: Exercise real check, download, restart and preserved data
+        env:
+          MAT_PREVIOUS_VERSION: ${{ matrix.baseline }}
+          CANDIDATE_RUN: ${{ github.run_id }}
+          CANDIDATE_SHA: ${{ github.sha }}
+        run: node scripts/release-validation/audit-windows-upgrade.cjs validation/candidate --production-feed
+      - name: Emit complete live upgrade evidence
+        if: always()
+        shell: pwsh
+        run: python scripts/release-validation/emit-ci-evidence.py (Join-Path $env:RUNNER_TEMP 'mat-upgrade-validation') liveupgrade
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: online-upgrade-${{ matrix.baseline }}-${{ github.run_id }}
+          path: ${{ runner.temp }}/mat-upgrade-validation/report.json

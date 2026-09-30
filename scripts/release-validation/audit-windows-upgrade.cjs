@@ -13,6 +13,10 @@ assert.equal(process.env.RUNNER_ENVIRONMENT, 'github-hosted', 'Upgrade validatio
 assert.ok(process.env.RUNNER_TEMP && process.env.LOCALAPPDATA, 'Runner paths are required');
 const root = path.resolve(process.env.RUNNER_TEMP, 'mat-upgrade-validation');
 const artifacts = path.resolve(process.argv[2]);
+const productionFeed = process.argv.includes('--production-feed');
+const previousVersion = process.env.MAT_PREVIOUS_VERSION || '1.1.10';
+assert.ok(['1.1.10', '1.2.10'].includes(previousVersion), 'Unverified baseline');
+assert.ok(productionFeed || previousVersion === '1.1.10', 'Candidate fixture requires the public legacy baseline');
 const installDir = path.join(root, 'installed', 'mat-roi-workbench');
 const dataDir = path.resolve(process.env.LOCALAPPDATA, 'MatROIWorkbench');
 const executable = path.join(installDir, '地垫工作台.exe');
@@ -23,7 +27,7 @@ const env = { ...process.env };
 for (const key of Object.keys(env)) {
   if (/^(?:ELECTRON_RUN_AS_NODE|MAT_DATA_DIR|MAT_PORT|MAT_UPDATE_OWNER|MAT_UPDATE_REPO|GH_REPO_OWNER|GH_REPO_NAME)$/i.test(key)) delete env[key];
 }
-const report = { candidateRun: process.env.CANDIDATE_RUN, source: process.env.CANDIDATE_SHA, steps: [] };
+const report = { candidateRun: process.env.CANDIDATE_RUN, source: process.env.CANDIDATE_SHA, productionFeed, previousVersion, steps: [] };
 let feed, socket;
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 function record(name, details = {}) { report.steps.push({ name, ...details }); console.log(JSON.stringify({ name, ...details })); }
@@ -101,30 +105,37 @@ async function main() {
   assert.ok(fs.existsSync(executable));
   const configPath = path.join(installDir, 'resources', 'app-update.yml');
   const productionConfig = fs.readFileSync(configPath, 'utf8');
-  assertProductionFeed(productionConfig, true);
-  // Only the disposable OLD installation's external feed is changed. ASAR and the candidate stay byte-identical.
-  fs.writeFileSync(configPath, 'provider: generic\nurl: http://127.0.0.1:4199/\nupdaterCacheDirName: mat-upgrade-validation\n');
+  assertProductionFeed(productionConfig, previousVersion === '1.1.10');
+  // Candidate validation changes only the disposable old external feed.
+  // Production validation preserves both the installed feed and all application bytes.
   const requests = [];
-  feed = http.createServer((req, res) => { const name = decodeURIComponent(new URL(req.url, 'http://localhost').pathname).slice(1); requests.push(name); if (!['latest.yml', file, file + '.blockmap'].includes(name)) { res.writeHead(404); return res.end(); } const input = path.join(artifacts, name); res.writeHead(200, { 'Content-Length': fs.statSync(input).size, 'Content-Type': 'application/octet-stream' }); fs.createReadStream(input).pipe(res); });
-  await new Promise((resolve, reject) => { feed.once('error', reject); feed.listen(4199, '127.0.0.1', resolve); });
-  await startApp('1.1.10');
+  if (!productionFeed) {
+    fs.writeFileSync(configPath, 'provider: generic\nurl: http://127.0.0.1:4199/\nupdaterCacheDirName: mat-upgrade-validation\n');
+    feed = http.createServer((req, res) => { const name = decodeURIComponent(new URL(req.url, 'http://localhost').pathname).slice(1); requests.push(name); if (!['latest.yml', file, file + '.blockmap'].includes(name)) { res.writeHead(404); return res.end(); } const input = path.join(artifacts, name); res.writeHead(200, { 'Content-Length': fs.statSync(input).size, 'Content-Type': 'application/octet-stream' }); fs.createReadStream(input).pipe(res); });
+    await new Promise((resolve, reject) => { feed.once('error', reject); feed.listen(4199, '127.0.0.1', resolve); });
+  }
+  await startApp(previousVersion);
   // v1.1.10 initializes its first workspace from the renderer after the HTTP server becomes healthy.
   const state = await until(async () => { const value = await json(base + '/api/state'); return value.state?.shops?.length > 0 && value; }, 'initial workspace saved');
   state.state.shops[0].name = 'CI-UPGRADE-DATA-PRESERVED';
-  const fixtureEval = await connectRenderer();
-  state.state = await fixtureEval(`(${addLegacyLedgerFixture.toString()})(window.MatModel,${JSON.stringify(state.state)})`);
-  socket.close();
-  const saved = await json(base + '/api/state', { method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-Workbench': '1', Origin: base }, body: JSON.stringify({ state: state.state, revision: state.revision, reason: 'save' }) });
+  if (previousVersion === '1.1.10') {
+    const fixtureEval = await connectRenderer();
+    state.state = await fixtureEval(`(${addLegacyLedgerFixture.toString()})(window.MatModel,${JSON.stringify(state.state)})`);
+    socket.close();
+  }
+  const saved = await json(base + '/api/state', { method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-Workbench': '1', Origin: base }, body: JSON.stringify({ state: state.state, revision: state.revision, workspaceId: state.workspaceId, storageEpoch: state.storageEpoch, reason: 'save' }) });
   const baseline = await json(base + '/api/state');
-  assert.equal(baseline.state.records.length, 2);
-  for (const key of ['netMargin', 'netRoi', 'netRevenue']) {
-    assert.ok(!Object.hasOwn(baseline.state.records[0].result, key));
-    assert.ok(Object.hasOwn(baseline.state.records[1].result, key));
+  if (previousVersion === '1.1.10') {
+    assert.equal(baseline.state.records.length, 2);
+    for (const key of ['netMargin', 'netRoi', 'netRevenue']) {
+      assert.ok(!Object.hasOwn(baseline.state.records[0].result, key));
+      assert.ok(Object.hasOwn(baseline.state.records[1].result, key));
+  }
   }
   const baselineRecords = JSON.stringify(baseline.state.records);
-  record('old-installed-and-saved', { version: '1.1.10', revision: saved.revision, mixedAgeRecords: 2 });
+  record('old-installed-and-saved', { version: previousVersion, revision: saved.revision, mixedAgeRecords: baseline.state.records.length });
   // Relaunch ensures the renderer has the saved revision, with no injected bypass of the quit guard.
-  await stopForRelaunch(); await startApp('1.1.10');
+  await stopForRelaunch(); await startApp(previousVersion);
   const evaluate = await connectRenderer();
   await until(() => evaluate("typeof window.__matUpdateCanQuit === 'function' && window.__matUpdateCanQuit()"), 'saved renderer');
   const available = await evaluate('window.matUpdates.checkForUpdates()');
@@ -132,8 +143,9 @@ async function main() {
   record('old-client-detects-candidate', available);
   const downloaded = await evaluate('window.matUpdates.downloadUpdate()');
   assert.equal(downloaded.state, 'downloaded'); assert.equal(downloaded.version, version);
-  assert.ok(requests.includes(file));
-  record('old-client-downloads-candidate', { version, sha512: expected, requests });
+  if (!productionFeed) assert.ok(requests.includes(file));
+  if (productionFeed) assert.equal(fs.readFileSync(configPath, 'utf8'), productionConfig, 'Production feed must stay unmodified');
+  record('old-client-downloads-candidate', { version, sha512: expected, requests, productionFeedUnmodified: productionFeed });
   // Invoke the unmodified v1.1.10 IPC method (quitAndInstall(false, true)).
   // The candidate installer handles its --updated flag, enters silent mode,
   // and honors --force-run. Do not inject candidate JS into the old client.
@@ -150,9 +162,10 @@ async function main() {
   assert.equal(JSON.stringify(after.state.records), baselineRecords, 'Frozen legacy ledger must remain byte-identical');
   assert.ok(after.revision >= saved.revision);
   const backups = await json(base + '/api/backups');
-  assert.ok(backups.items.some(x => x.reason === 'schema-upgrade-original'));
+  if (previousVersion === '1.1.10') assert.ok(backups.items.some(x => x.reason === 'schema-upgrade-original'));
+  if (productionFeed) assert.equal(crypto.createHash('sha256').update(fs.readFileSync(path.join(installDir, 'resources', 'app.asar'))).digest('hex'), require('../../validation/candidate/sha256.json').payloadSha256, 'Online installation payload mismatch');
   assertProductionFeed(fs.readFileSync(configPath, 'utf8'));
-  record('production-restart-install-and-migration', { version: upgraded.version, dataDir: upgraded.dataDir, executable, schemaVersion: after.state.version, revision: after.revision, preservedShop: after.state.shops[0].name, preservedMixedAgeRecords: 2, originalCheckpoint: true, domesticFeedRetained: true });
+  record('production-restart-install-and-migration', { version: upgraded.version, dataDir: upgraded.dataDir, executable, schemaVersion: after.state.version, revision: after.revision, preservedShop: after.state.shops[0].name, preservedMixedAgeRecords: baseline.state.records.length, originalCheckpoint: previousVersion === '1.1.10', domesticFeedRetained: true });
   socket?.close();
   // The genuine NSIS relaunch only passes --updated, not a DevTools port.
   // A separate, explicitly reported launch is used solely for renderer diagnostics.
@@ -164,7 +177,7 @@ async function main() {
   record('updated-renderer', await finalEval("({version:WorkbenchConfig.version,dpr:devicePixelRatio,screen:[screen.width,screen.height],webgl:!!document.createElement('canvas').getContext('webgl2'),canQuit:window.__matUpdateCanQuit()})"));
   fs.writeFileSync(path.join(root, 'installed-path.txt'), installDir);
   fs.writeFileSync(path.join(root, 'report.json'), JSON.stringify(report, null, 2));
-  annotation('notice', { candidateRun: report.candidateRun, source: report.source, installer: report.installer, automaticRestart: true, schemaVersion: after.state.version, preservedShop: after.state.shops[0].name, originalCheckpoint: true, domesticFeedRetained: true, renderer: report.steps.at(-1), wizard: report.wizard });
+  annotation('notice', { candidateRun: report.candidateRun, source: report.source, installer: report.installer, automaticRestart: true, schemaVersion: after.state.version, preservedShop: after.state.shops[0].name, originalCheckpoint: previousVersion === '1.1.10', domesticFeedRetained: true, renderer: report.steps.at(-1), wizard: report.wizard });
 }
 main().catch(async error => {
   report.error = error.stack;

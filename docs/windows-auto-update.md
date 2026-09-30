@@ -1,78 +1,38 @@
-# Windows 自动更新
+# Windows 在线更新维护
 
-这份说明面向维护公开 GitHub 仓库的发布者。当前版本只支持 Windows x64；macOS 不参与自动更新。
+适用于 Windows x64 安装版。macOS 不使用此更新通道。
 
-每次正式发布前，先完成 [下次正式版待发布修复](next-release.md) 中的检查；本机热修复不会自动进入发布安装包。
+## 客户端行为
 
-## 更新行为
+1.2.x 客户端使用 `common/update-config.cjs` 固定的阿里云 OSS 地址；早期 1.1.x 使用 GitHub Releases。正式发布要同时维护两个通道，不能只推送代码或上传测试附件。
 
-工作台顶部的“检查更新”按钮连接固定的 GitHub Releases 源。应用不会在启动时自动检查，也不会自动下载或打断当前工作。
+用户点击“检查更新 → 下载更新 → 重启安装”。启动时不自动检查，不自动下载，不因普通退出自动安装。未保存、保存失败、版本冲突或未完成文件任务时，退出保护阻止安装。数据目录位于应用目录之外，安装器只替换应用文件。
 
-| 状态 | 工作台显示 | 用户操作 |
-| --- | --- | --- |
-| 检查中 | 正在检查更新… | 等待请求完成 |
-| 无新版本 | 当前已是最新版 | 继续使用当前版本 |
-| 有新版本 | 发现新版本 vX.Y.Z | 点击下载更新 |
-| 下载中 | 正在后台下载 XX% | 继续编辑工作台 |
-| 已下载 | 已下载，重启安装 | 保存完成后点击重启安装 |
-| 失败 | 更新失败，继续使用当前版本 | 继续使用当前版本，稍后重试 |
+## 候选与正式发布
 
-只有主进程调用 `electron-updater`。渲染页面只能通过 preload 暴露的四个固定动作触发检查、下载、安装和状态监听，不能传入 URL 或命令。
+1. 检查当前版本发布记录和 `validation/release-acceptance.json`，完成所要求的环境与 Office 验收。
+2. 在发布分支运行 `windows-candidate.yml`。所有任务必须通过，报告对应同一安装程序及业务载荷。
+3. `update-readiness.yml` 只读取更新源并检查 CI 凭据是否配置，不上传文件，也不输出凭据。
+4. 把 `v<package.json版本>` 标签指向已通过正式候选的准确源码提交。标签触发 `release.yml`，发布期间串行执行。
+5. 发布程序校验既定安装包，先暂存国内不可变附件、匿名下载校验，再创建或续传 GitHub 草稿，最后切换国内 latest.yml 并公开 GitHub Release。发布不重新构建。
+6. 发布后两个 Windows 旧客户端使用未修改的真实更新地址完成检查、下载、重启和数据保留验证；公共文件下载结果必须与候选哈希一致。
 
-重启安装前，应用会向当前渲染窗口询问是否可以退出。存在未保存修改、保存队列 pending、正在保存、保存失败、版本冲突或打开编辑对话框时，按钮保持禁用。SQLite 数据目录位于应用安装目录之外，更新只替换应用文件，不迁移或删除 `workbench.sqlite`。
+`npm run package:win` 使用 `--publish never`；`npm run release` 禁用。不要用本地重建包覆盖已验收的同版本文件，不强推标签或覆盖不同的已发布附件。
 
-## 配置 GitHub 仓库
-
-首次发布前，先创建公开仓库并把本项目源码推送到默认分支。不要把个人访问令牌写入源码或安装包。
-
-1. 在 GitHub 创建公开仓库，例如 `mat-roi-workbench`。
-2. 在仓库 `Settings > Actions > General` 将工作流权限设为允许读写仓库内容，或保留工作流顶部的 `contents: write` 权限声明。
-3. 确认 `.github/workflows/release.yml` 已进入默认分支。
-4. 确认 `package.json` 的 `version` 与准备发布的 tag 一致。
-
-构建配置从环境变量读取 owner 和仓库名：
+## 更新源检查
 
 ```sh
-MAT_UPDATE_OWNER=your-github-owner \
-MAT_UPDATE_REPO=your-public-repo \
-npm run package:win
+node scripts/publish-oss-update.cjs validation/candidate
+node scripts/publish-oss-update.cjs validation/candidate --preflight
+node scripts/publish-oss-update.cjs validation/candidate --verify-public
 ```
 
-本地 `package:win` 永远使用 `--publish never`，产物写入 `dist-builder/`。配置了 owner 和 repo 后，electron-builder 会生成 NSIS 安装包、`latest.yml` 和 blockmap 元数据。未设置这两个变量时不会写入虚构仓库，构建仍可用于静态检查，但不能发布更新源。
+第一条只校验本地文件；第二条读取当前线上清单并拒绝降级；第三条要求线上已经是本次候选，并完整下载校验安装包及 blockmap。`--stage-assets` 和 `--publish` 仅在授权发布工作流使用现有 CI secrets。
 
-## v1.2.0 候选产物
+`UserDisable` 是 OSS 服务端错误，先检查阿里云账号或服务状态。更新清单被禁用时，不先公开另一通道并宣称全部在线更新成功。若发布中途失败，按记录检查每个通道的实际状态；同字节附件可安全续传，已有不同内容必须停止调查。
 
-在 Windows runner 上创建与 `package.json` 完全一致的 tag（如 `v1.2.0`）会运行锁定安装、测试、语法和资源清单检查、NSIS 构建、包内审计以及隔离数据目录的健康检查。工作流只保留候选产物，不创建 GitHub Release，也不发布更新：
+## 数据与旧版迁移
 
-```sh
-npm version 1.2.0 --no-git-tag-version
-git add package.json package-lock.json
-git commit -m "release candidate: v1.2.0"
-git tag v1.2.0
-git push origin main v1.2.0
-```
+Windows 数据路径：`%LOCALAPPDATA%\MatROIWorkbench\workbench.sqlite`。旧 ZIP 版需先手动安装 NSIS 包。旧版卡在恢复页时可直接运行新版安装包覆盖安装，不要删除原数据目录排查。
 
-工作流从 `github.repository_owner` 和 `github.event.repository.name` 设置 `MAT_UPDATE_OWNER`、`MAT_UPDATE_REPO`，因此仓库名称不需要硬编码。候选工作流产物至少包含：
-
-- `地垫工作台-1.2.0-windows-x64.exe`
-- `latest.yml`
-- 对应的 `.blockmap`
-
-候选流程会执行 `npm test`、`npm run check`、`npm run package:win` 和成品审计。`npm run release` 已被禁用，避免在验收后又重新构建一份未测试的产物。Windows 安装升级、真实大表、G62、旧库迁移和视觉性能须对同一候选产物完成 S7 验收；在此之前不发布。macOS 本机不能替代 Windows 实机或 runner 验证。
-
-## 旧 ZIP 版迁移
-
-旧 ZIP/解压版没有安装器，也没有自动更新元数据。用户首次迁移时需要手动运行 v1.1.8 NSIS 安装包，并选择原来的安装位置或新的位置。应用数据目录保持原路径：
-
-- Windows：`%LOCALAPPDATA%\MatROIWorkbench\workbench.sqlite`
-- macOS（仅保留既有数据，不提供自动更新）：`~/Library/Application Support/MatROIWorkbench/workbench.sqlite`
-
-安装器覆盖应用文件不会覆盖上述 SQLite 文件。首次启动后检查店铺、计划、账目和商品转表规则；之后从 GitHub Releases 下载的版本会在后台下载，只有点击“重启安装”才会退出并安装。
-
-## 未签名包限制
-
-首版不购买 Windows 代码签名证书。Windows SmartScreen 可能显示“未知发布者”或拦截首次运行；用户需要在确认来源后选择“更多信息 > 仍要运行”。签名证书不能通过 GitHub Actions 内置 token 代替，后续购买证书后再增加签名步骤。
-
-## 故障处理
-
-网络失败、GitHub 不可用、源配置缺失或下载校验失败时，工作台只显示错误状态并继续使用当前版本。不要删除数据目录来排查更新问题；先导出 Excel 备份，再重试检查更新或手动安装新的 NSIS 包。
+当前 Windows 安装包未购买商业代码签名，SmartScreen 可能显示未知发布者。任何发布说明都不能把构建日志中的签名工具步骤写成已取得签名证书。

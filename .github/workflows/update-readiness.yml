@@ -1,0 +1,42 @@
+name: Online update readiness
+on:
+  push:
+    branches: [codex/release-1.2.18-20260930]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  public-feed:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Check configured publisher credentials without exposing values
+        env:
+          OSS_ACCESS_KEY_ID: ${{ secrets.OSS_UPDATE_ACCESS_KEY_ID }}
+          OSS_ACCESS_KEY_SECRET: ${{ secrets.OSS_UPDATE_ACCESS_KEY_SECRET }}
+        run: |
+          node -e 'const missing=["OSS_ACCESS_KEY_ID","OSS_ACCESS_KEY_SECRET"].filter(k=>!process.env[k]); if(missing.length) {console.log("::error::Missing CI secret configuration: "+missing.join(", "));process.exit(1)} console.log("::notice::Both OSS publisher secrets are configured")'
+      - name: Check existing clients can read production feed
+        if: always()
+        shell: bash
+        run: |
+          set -o pipefail
+          node scripts/publish-oss-update.cjs validation/candidate --preflight 2>&1 | tee feed-readiness.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: online-update-readiness-${{ github.run_id }}
+          path: feed-readiness.log
+  manual-acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node scripts/release-validation/check-release-acceptance.cjs

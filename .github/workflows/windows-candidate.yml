@@ -3,7 +3,7 @@ name: Windows candidate validation
 on:
   push:
     branches:
-      - codex/production-20260919
+      - codex/release-1.2.18-20260930
   workflow_dispatch:
 
 permissions:
@@ -52,7 +52,11 @@ jobs:
         run: npm run check
 
       - name: Build Windows package without publishing
-        run: npm run package:win
+        shell: pwsh
+        run: |
+          $version = node -p "require('./package.json').version"
+          npm run package:win -- "--config.win.artifactName=mat-roi-workbench-setup-$version.exe"
+          if ($LASTEXITCODE -ne 0) { throw 'Windows test build failed' }
         env:
           MAT_UPDATE_OWNER: ${{ github.repository_owner }}
           MAT_UPDATE_REPO: ${{ github.event.repository.name }}
@@ -90,6 +94,16 @@ jobs:
             $global:LASTEXITCODE = 0
           }
 
+      - name: Select the exact installer prepared for delivery
+        shell: pwsh
+        run: |
+          $expected = Get-Content validation/candidate/sha256.json -Raw | ConvertFrom-Json
+          $installer = Join-Path $PWD ('validation/candidate/' + $expected.file)
+          if ((Get-FileHash $installer -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected.sha256) { throw 'Delivery installer SHA-256 mismatch' }
+          if ((Get-Item $installer).Length -ne $expected.bytes) { throw 'Delivery installer size mismatch' }
+          Copy-Item validation/candidate/*.exe, validation/candidate/*.blockmap, validation/candidate/latest.yml dist-builder -Force
+          Write-Host ('::notice::Exact delivery installer: ' + ($expected | ConvertTo-Json -Compress))
+
       - name: Match release filenames and retrieve previous installer
         shell: pwsh
         run: |
@@ -97,8 +111,8 @@ jobs:
           $exe = @(Get-ChildItem dist-builder -Filter *.exe)
           $map = @(Get-ChildItem dist-builder -Filter *.blockmap)
           if ($exe.Count -ne 1 -or $map.Count -ne 1) { throw 'Unexpected candidate files' }
-          Rename-Item $exe[0].FullName "mat-roi-workbench-setup-$version.exe"
-          Rename-Item $map[0].FullName "mat-roi-workbench-setup-$version.exe.blockmap"
+          if ($exe[0].Name -ne "mat-roi-workbench-setup-$version.exe") { throw 'Installer filename mismatch' }
+          if ($map[0].Name -ne "mat-roi-workbench-setup-$version.exe.blockmap") { throw 'Blockmap filename mismatch' }
           Invoke-WebRequest 'https://github.com/wuzt1991/mat-roi-workbench/releases/download/v1.1.10/mat-roi-workbench-setup-1.1.10.exe' -OutFile (Join-Path $env:RUNNER_TEMP 'old-installer.exe')
           $oldInstaller = Join-Path $env:RUNNER_TEMP 'old-installer.exe'
           if ((Get-FileHash $oldInstaller -Algorithm SHA256).Hash.ToLowerInvariant() -ne '42dd061a3edf6af011f957dbdd30f63a04417f8b49277617459c5548de137303') { throw 'Previous installer checksum mismatch' }
@@ -120,14 +134,55 @@ jobs:
         shell: pwsh
         run: |
           $installed = Get-Content (Join-Path $env:RUNNER_TEMP 'mat-upgrade-validation/installed-path.txt')
-          node scripts/audit-release-package.cjs --artifact $installed
-          if ($LASTEXITCODE -ne 0) { throw 'Installed payload audit failed' }
+          $expected = Get-Content validation/candidate/sha256.json -Raw | ConvertFrom-Json
+          if ((Get-FileHash (Join-Path $installed 'resources/app.asar') -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected.payloadSha256) { throw 'Installed payload differs from final candidate' }
+          $audit = node scripts/audit-release-package.cjs --artifact $installed 2>&1
+          $auditExit = $LASTEXITCODE
+          $audit | Write-Output
+          if ($auditExit -ne 0) { Write-Host ('::error::' + (($audit -join "`n").Replace('%','%25').Replace("`r",'%0D').Replace("`n",'%0A'))) }
+          if ($auditExit -ne 0) { throw 'Installed payload audit failed' }
           node scripts/audit-packaged-child.cjs --artifact $installed
           if ($LASTEXITCODE -ne 0) { throw 'Installed child-process audit failed' }
           $env:MAT_VERIFY_ROOT = Join-Path $installed 'resources/app.asar'
           $env:MAT_VERIFY_OUTPUT = Join-Path $env:RUNNER_TEMP 'mat-upgrade-validation/fixtures'
           node scripts/release-validation/run-installed.cjs $installed fixtures
           if ($LASTEXITCODE -ne 0) { throw 'Installed G62 validation failed' }
+          $env:MAT_VERIFY_OUTPUT = Join-Path $env:RUNNER_TEMP 'mat-upgrade-validation/locks'
+          node scripts/release-validation/run-installed.cjs $installed locks
+          if ($LASTEXITCODE -ne 0) { throw 'Installed lock regression failed' }
+
+      - name: Verify scrolling in the actual installed Windows window
+        shell: pwsh
+        run: |
+          $installed = Get-Content (Join-Path $env:RUNNER_TEMP 'mat-upgrade-validation/installed-path.txt')
+          $tools = Join-Path $env:RUNNER_TEMP 'mat-browser-tools'
+          npm install --prefix $tools --no-save --ignore-scripts playwright@1.56.1
+          if ($LASTEXITCODE -ne 0) { throw 'Browser driver setup failed' }
+          $env:MAT_PLAYWRIGHT_MODULE = Join-Path $tools 'node_modules/playwright'
+          $env:MAT_SCROLL_INSTALLED = Join-Path $installed '地垫工作台.exe'
+          $env:MAT_VERIFY_ROOT = Join-Path $installed 'resources/app.asar'
+          $env:MAT_VERIFY_OUTPUT = Join-Path $env:RUNNER_TEMP 'mat-upgrade-validation/scroll'
+          $env:MAT_VERIFY_LABEL = 'windows-installed'
+          node scripts/release-validation/run-installed.cjs $installed scroll
+          if ($LASTEXITCODE -ne 0) { throw 'Installed Windows scrolling validation failed' }
+
+      - name: Verify rules, sales, ledger and backups in installed window
+        shell: pwsh
+        run: |
+          $installed = Get-Content (Join-Path $env:RUNNER_TEMP 'mat-upgrade-validation/installed-path.txt')
+          $env:MAT_STAGE3_INSTALLED = Join-Path $installed '地垫工作台.exe'
+          $env:MAT_PLAYWRIGHT_MODULE = Join-Path $env:RUNNER_TEMP 'mat-browser-tools/node_modules/playwright'
+          $env:MAT_VERIFY_OUTPUT = Join-Path $env:RUNNER_TEMP 'mat-upgrade-validation/business'
+          node scripts/release-validation/run-installed.cjs $installed business
+          if ($LASTEXITCODE -ne 0) { throw 'Installed business regression failed' }
+
+      - name: Measure grouped product queries in installed runtime
+        shell: pwsh
+        run: |
+          $installed = Get-Content (Join-Path $env:RUNNER_TEMP 'mat-upgrade-validation/installed-path.txt')
+          $env:MAT_VERIFY_OUTPUT = Join-Path $env:RUNNER_TEMP 'mat-upgrade-validation/performance'
+          node scripts/release-validation/run-installed.cjs $installed performance
+          if ($LASTEXITCODE -ne 0) { throw 'Installed grouped performance verification failed' }
 
       - name: Validate 500000 row boundary using installed runtime
         shell: pwsh
@@ -142,6 +197,11 @@ jobs:
             if ($LASTEXITCODE -ne 0) { throw 'Large boundary verification failed' }
           }
 
+      - name: Emit complete verifiable JSON evidence
+        if: always()
+        shell: pwsh
+        run: python scripts/release-validation/emit-ci-evidence.py (Join-Path $env:RUNNER_TEMP 'mat-upgrade-validation') upgrade
+
       - name: Retain validation evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -151,12 +211,17 @@ jobs:
             ${{ runner.temp }}/mat-upgrade-validation/report.json
             ${{ runner.temp }}/mat-upgrade-validation/fixtures/fixture-report.json
             ${{ runner.temp }}/mat-upgrade-validation/large/report-*.json
+            ${{ runner.temp }}/mat-upgrade-validation/scroll/*
+            ${{ runner.temp }}/mat-upgrade-validation/locks/lock-report.json
+            ${{ runner.temp }}/mat-upgrade-validation/business/*
+            ${{ runner.temp }}/mat-upgrade-validation/performance/*.json
+            dist-builder/builder-effective-config.yaml
           if-no-files-found: warn
 
       - name: Summarize verified data boundaries
         shell: pwsh
         run: |
-          Get-ChildItem (Join-Path $env:RUNNER_TEMP 'mat-upgrade-validation') -Recurse -Filter '*report*.json' | ForEach-Object {
+          @(Get-ChildItem (Join-Path $env:RUNNER_TEMP 'mat-upgrade-validation') -Recurse -Filter '*report*.json') + @(Get-ChildItem (Join-Path $env:RUNNER_TEMP 'mat-upgrade-validation/scroll') -Filter 'scroll-*.json') | ForEach-Object {
             $summary = (Get-Content $_.FullName -Raw | ConvertFrom-Json | ConvertTo-Json -Depth 12 -Compress)
             Write-Host ("::notice::" + $_.Name + ': ' + $summary.Replace('%','%25').Replace("`r",'%0D').Replace("`n",'%0A'))
           }
@@ -214,3 +279,78 @@ jobs:
             taskkill /PID $app.Id /T /F 2>$null
             $global:LASTEXITCODE = 0
           }
+
+  installed-lifecycle-stress:
+    runs-on: windows-2022
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Install and stress the exact delivery package 100 times
+        shell: pwsh
+        run: |
+          $expected = Get-Content validation/candidate/sha256.json -Raw | ConvertFrom-Json
+          $installer = Join-Path $PWD ('validation/candidate/' + $expected.file)
+          if ((Get-FileHash $installer -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected.sha256) { throw 'Delivery installer SHA-256 mismatch' }
+          $installed = Join-Path $env:RUNNER_TEMP 'mat-stress-installed'
+          $process = Start-Process -FilePath $installer -ArgumentList @('/S', "/D=$installed") -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw 'Stress installation failed' }
+          $expected = Get-Content validation/candidate/sha256.json -Raw | ConvertFrom-Json
+          if ((Get-FileHash (Join-Path $installed 'resources/app.asar') -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected.payloadSha256) { throw 'Installed payload differs from final candidate' }
+          $audit = node scripts/audit-release-package.cjs --artifact $installed 2>&1
+          $auditExit = $LASTEXITCODE
+          $audit | Write-Output
+          if ($auditExit -ne 0) { Write-Host ('::error::' + (($audit -join "`n").Replace('%','%25').Replace("`r",'%0D').Replace("`n",'%0A'))) }
+          if ($auditExit -ne 0) { throw 'Stress installed payload audit failed' }
+          $env:MAT_VERIFY_OUTPUT = Join-Path $env:RUNNER_TEMP 'mat-stress-evidence'
+          node scripts/release-validation/run-installed.cjs $installed locks
+          if ($LASTEXITCODE -ne 0) { throw 'Stress installed lock regression failed' }
+          node scripts/release-validation/run-installed.cjs $installed lifecycle
+          if ($LASTEXITCODE -ne 0) { throw 'Installed lifecycle stress failed' }
+      - name: Emit complete lifecycle evidence
+        if: always()
+        shell: pwsh
+        run: python scripts/release-validation/emit-ci-evidence.py (Join-Path $env:RUNNER_TEMP 'mat-stress-evidence') lifecycle
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: installed-lifecycle-${{ github.run_id }}
+          path: ${{ runner.temp }}/mat-stress-evidence/*.json
+          if-no-files-found: error
+
+  internal-upgrade-rollback:
+    runs-on: windows-2022
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Upgrade 1.2.10 to exact 1.2.18 and roll back with latest data
+        shell: pwsh
+        run: |
+          $previous = Join-Path $env:RUNNER_TEMP 'previous-internal.exe'
+          Invoke-WebRequest 'https://raw.githubusercontent.com/wuzt1991/mat-roi-workbench/6beda281f9f5e2f041c48cc3f76b39915fbc5065/validation/candidate/mat-roi-workbench-setup-1.2.10.exe' -OutFile $previous
+          $tools = Join-Path $env:RUNNER_TEMP 'mat-browser-tools'
+          npm install --prefix $tools --no-save --ignore-scripts playwright@1.56.1
+          if ($LASTEXITCODE -ne 0) { throw 'Browser driver setup failed' }
+          $env:MAT_PLAYWRIGHT_MODULE = Join-Path $tools 'node_modules/playwright'
+          $env:MAT_VERIFY_OUTPUT = Join-Path $env:RUNNER_TEMP 'mat-internal-upgrade-evidence'
+          node scripts/release-validation/verify-windows-rollback.cjs $previous validation/candidate/mat-roi-workbench-setup-1.2.18.exe
+          if ($LASTEXITCODE -ne 0) { throw 'Internal upgrade or rollback failed' }
+      - name: Emit complete internal upgrade evidence
+        if: always()
+        shell: pwsh
+        run: python scripts/release-validation/emit-ci-evidence.py (Join-Path $env:RUNNER_TEMP 'mat-internal-upgrade-evidence') rollback
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-internal-upgrade-${{ github.run_id }}
+          path: ${{ runner.temp }}/mat-internal-upgrade-evidence/*
+          if-no-files-found: error
