@@ -56,7 +56,7 @@ function readPayload(payload) {
     let lastError;
     for (const archivePath of [...new Set(candidates)]) {
       try {
-        return { normalizedPath, archivePath, stat: asar.statFile(payload.path, archivePath) };
+        return { normalizedPath, archivePath, stat: asar.statFile(payload.path, archivePath, false) };
       } catch (error) {
         lastError = error;
       }
@@ -65,9 +65,23 @@ function readPayload(payload) {
   }).filter(entry => !entry.stat.files);
   const files = entries.map(entry => entry.normalizedPath);
   const archivePaths = new Map(entries.map(entry => [entry.normalizedPath, entry.archivePath]));
+  const links = new Map(entries.filter(entry => entry.stat.link).map(entry => [entry.normalizedPath, normalize(entry.stat.link)]));
+  function resolveFile(file) {
+    let target = normalize(file);
+    const visited = new Set();
+    while (links.has(target)) {
+      if (visited.has(target)) throw new Error(`Circular archive link: ${file}`);
+      visited.add(target);
+      target = links.get(target);
+    }
+    if (!archivePaths.has(target)) throw new Error(`Archive link target missing: ${file}`);
+    return archivePaths.get(target);
+  }
   return {
     files,
-    read: file => asar.extractFile(payload.path, archivePaths.get(normalize(file)) || file)
+    // ASAR link strings use the build host's separator. Resolve them through
+    // the normalized archive index before passing a native path to ASAR.
+    read: file => asar.extractFile(payload.path, resolveFile(file), false)
   };
 }
 
