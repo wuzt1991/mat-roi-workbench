@@ -136,8 +136,11 @@ jobs:
           $installed = Get-Content (Join-Path $env:RUNNER_TEMP 'mat-upgrade-validation/installed-path.txt')
           $expected = Get-Content validation/candidate/sha256.json -Raw | ConvertFrom-Json
           if ((Get-FileHash (Join-Path $installed 'resources/app.asar') -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected.payloadSha256) { throw 'Installed payload differs from final candidate' }
-          node scripts/audit-release-package.cjs --artifact $installed
-          if ($LASTEXITCODE -ne 0) { throw 'Installed payload audit failed' }
+          $audit = node scripts/audit-release-package.cjs --artifact $installed 2>&1
+          $auditExit = $LASTEXITCODE
+          $audit | Write-Output
+          if ($auditExit -ne 0) { Write-Host ('::error::' + (($audit -join "`n").Replace('%','%25').Replace("`r",'%0D').Replace("`n",'%0A'))) }
+          if ($auditExit -ne 0) { throw 'Installed payload audit failed' }
           node scripts/audit-packaged-child.cjs --artifact $installed
           if ($LASTEXITCODE -ne 0) { throw 'Installed child-process audit failed' }
           $env:MAT_VERIFY_ROOT = Join-Path $installed 'resources/app.asar'
@@ -298,8 +301,11 @@ jobs:
           if ($process.ExitCode -ne 0) { throw 'Stress installation failed' }
           $expected = Get-Content validation/candidate/sha256.json -Raw | ConvertFrom-Json
           if ((Get-FileHash (Join-Path $installed 'resources/app.asar') -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected.payloadSha256) { throw 'Installed payload differs from final candidate' }
-          node scripts/audit-release-package.cjs --artifact $installed
-          if ($LASTEXITCODE -ne 0) { throw 'Stress installed payload audit failed' }
+          $audit = node scripts/audit-release-package.cjs --artifact $installed 2>&1
+          $auditExit = $LASTEXITCODE
+          $audit | Write-Output
+          if ($auditExit -ne 0) { Write-Host ('::error::' + (($audit -join "`n").Replace('%','%25').Replace("`r",'%0D').Replace("`n",'%0A'))) }
+          if ($auditExit -ne 0) { throw 'Stress installed payload audit failed' }
           $env:MAT_VERIFY_OUTPUT = Join-Path $env:RUNNER_TEMP 'mat-stress-evidence'
           node scripts/release-validation/run-installed.cjs $installed locks
           if ($LASTEXITCODE -ne 0) { throw 'Stress installed lock regression failed' }
