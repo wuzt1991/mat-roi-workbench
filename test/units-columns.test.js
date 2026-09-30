@@ -28,7 +28,7 @@ test('新版 Excel 规格、入账规格和全部运费重量都显示 g，恢�
   assert.equal(book.getWorksheet('入账规格').getCell('K1').value,'发货重量（g）');assert.equal(book.getWorksheet('入账规格').getCell('K2').value,500);
   const freight=book.getWorksheet('运费模板');assert.equal(freight.getCell('D3').value,500);assert.equal(freight.getCell('E3').value,1.35);assert.equal(freight.getCell('F6').value,1000);assert.equal(freight.getCell('H6').value,500);
   const visible=book.worksheets.filter(s=>s.name!=='恢复数据').flatMap(s=>s.getSheetValues()).flat(2).filter(v=>typeof v==='string');assert.ok(visible.every(v=>!v.includes('kg')));
-  const settings=book.getWorksheet('显示设置').getSheetValues().filter(Boolean).slice(1).map(row=>row.slice(1));assert.ok(settings.some(row=>row[0]==='商品规格'&&row[1]===1&&row[2]==='每单总成本'));assert.ok(settings.some(row=>row[2]==='售价'&&row[3]==='否'));
+  const settings=book.getWorksheet('显示设置').getSheetValues().filter(Boolean).slice(1).map(row=>row.slice(1));assert.ok(settings.some(row=>row[0]==='商品规格'&&row[1]===1&&row[2]==='每支付单成本'));assert.ok(settings.some(row=>row[2]==='售价'&&row[3]==='否'));
   assert.deepEqual(await W.importWorkbook(bytes),before);assert.deepEqual(s,original);
 });
 test('v0.5 和 v0.6 的 kg 备份仍能恢复，转导出只换可见单位',async()=>{

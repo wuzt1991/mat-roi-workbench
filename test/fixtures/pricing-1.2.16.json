@@ -1,0 +1,4705 @@
+{
+  "producer": "1.2.16",
+  "state": {
+    "version": 4,
+    "shops": [
+      {
+        "id": "shop-original",
+        "name": "示例店铺一",
+        "deleted": false
+      },
+      {
+        "id": "shop-second",
+        "name": "示例店铺二",
+        "deleted": false
+      }
+    ],
+    "activeShop": "shop-original",
+    "active": "capture-plan-0",
+    "materials": [
+      {
+        "id": "mat-silica",
+        "name": "硅藻泥基础料",
+        "price": 10.2,
+        "description": "",
+        "active": true,
+        "history": [
+          {
+            "id": "quote-mat-silica-0",
+            "date": "2026-09-07",
+            "price": 10.2,
+            "note": "初始材料价"
+          }
+        ],
+        "weightRules": [],
+        "deleted": false,
+        "legacyCostFallback": true
+      },
+      {
+        "id": "mat-pvc",
+        "name": "PVC 防滑底",
+        "price": 12.8,
+        "description": "",
+        "active": true,
+        "history": [
+          {
+            "id": "quote-mat-pvc-0",
+            "date": "2026-09-07",
+            "price": 12.8,
+            "note": "初始材料价"
+          }
+        ],
+        "weightRules": [],
+        "deleted": false,
+        "legacyCostFallback": true
+      },
+      {
+        "id": "mat-custom",
+        "name": "定制加厚料",
+        "price": 16.5,
+        "description": "",
+        "active": true,
+        "history": [
+          {
+            "id": "quote-mat-custom-0",
+            "date": "2026-09-07",
+            "price": 16.5,
+            "note": "初始材料价"
+          }
+        ],
+        "weightRules": [],
+        "deleted": false,
+        "legacyCostFallback": true
+      },
+      {
+        "id": "mat-builtin-0",
+        "name": "硅藻泥",
+        "builtinKey": 0,
+        "price": 9.5,
+        "description": "",
+        "active": true,
+        "history": [
+          {
+            "id": "quote-builtin-0",
+            "date": "2026-09-29",
+            "price": 9.5,
+            "note": "内置材料规则"
+          }
+        ],
+        "weightRules": [
+          {
+            "id": "rule-784585fb6ce5-2.7-base",
+            "thickness": 2.7,
+            "variant": "",
+            "coefficient": 0.83,
+            "costPerSqm": 9.3,
+            "default": false,
+            "deleted": false
+          },
+          {
+            "id": "rule-784585fb6ce5-3-base",
+            "thickness": 3,
+            "variant": "",
+            "coefficient": 0.9,
+            "costPerSqm": 9.5,
+            "default": true,
+            "deleted": false
+          },
+          {
+            "id": "rule-784585fb6ce5-5-base",
+            "thickness": 5,
+            "variant": "",
+            "coefficient": 1.3,
+            "costPerSqm": 11.2,
+            "default": false,
+            "deleted": false
+          }
+        ],
+        "deleted": false
+      },
+      {
+        "id": "mat-builtin-1",
+        "name": "亚麻",
+        "builtinKey": 1,
+        "price": 16.2,
+        "description": "",
+        "active": true,
+        "history": [
+          {
+            "id": "quote-builtin-1",
+            "date": "2026-09-29",
+            "price": 16.2,
+            "note": "内置材料规则"
+          }
+        ],
+        "weightRules": [
+          {
+            "id": "rule-4e9a9ebb-3.5-base",
+            "thickness": 3.5,
+            "variant": "",
+            "coefficient": 0.96,
+            "costPerSqm": 15,
+            "default": false,
+            "deleted": false
+          },
+          {
+            "id": "rule-4e9a9ebb-5-base",
+            "thickness": 5,
+            "variant": "",
+            "coefficient": 1.26,
+            "costPerSqm": 16.2,
+            "default": true,
+            "deleted": false
+          }
+        ],
+        "deleted": false
+      },
+      {
+        "id": "mat-builtin-2",
+        "name": "水晶绒",
+        "builtinKey": 2,
+        "price": 8,
+        "description": "",
+        "active": true,
+        "history": [
+          {
+            "id": "quote-builtin-2",
+            "date": "2026-09-29",
+            "price": 8,
+            "note": "内置材料规则"
+          }
+        ],
+        "weightRules": [
+          {
+            "id": "rule-6c3466767ed2-base-base",
+            "thickness": "",
+            "variant": "",
+            "coefficient": 0.65,
+            "costPerSqm": 8,
+            "default": true,
+            "deleted": false
+          },
+          {
+            "id": "rule-6c3466767ed2-base-53058fb9",
+            "thickness": "",
+            "variant": "包边",
+            "coefficient": 0.7,
+            "costPerSqm": 9,
+            "default": false,
+            "deleted": false
+          }
+        ],
+        "deleted": false
+      },
+      {
+        "id": "mat-builtin-3",
+        "name": "丝圈",
+        "builtinKey": 3,
+        "price": 21,
+        "description": "",
+        "active": true,
+        "history": [
+          {
+            "id": "quote-builtin-3",
+            "date": "2026-09-29",
+            "price": 21,
+            "note": "内置材料规则"
+          }
+        ],
+        "weightRules": [
+          {
+            "id": "rule-4e1d5708-base-base",
+            "thickness": "",
+            "variant": "",
+            "coefficient": 2.8,
+            "costPerSqm": 21,
+            "default": true,
+            "deleted": false
+          }
+        ],
+        "deleted": false
+      },
+      {
+        "id": "mat-builtin-4",
+        "name": "皮革",
+        "builtinKey": 4,
+        "price": 15,
+        "description": "",
+        "active": true,
+        "history": [
+          {
+            "id": "quote-builtin-4",
+            "date": "2026-09-29",
+            "price": 15,
+            "note": "内置材料规则"
+          }
+        ],
+        "weightRules": [
+          {
+            "id": "rule-76ae9769-3.5-base",
+            "thickness": 3.5,
+            "variant": "",
+            "coefficient": 1.3,
+            "costPerSqm": 15,
+            "default": true,
+            "deleted": false
+          }
+        ],
+        "deleted": false
+      },
+      {
+        "id": "mat-builtin-5",
+        "name": "仿羊绒",
+        "builtinKey": 5,
+        "price": 17,
+        "description": "",
+        "active": true,
+        "history": [
+          {
+            "id": "quote-builtin-5",
+            "date": "2026-09-29",
+            "price": 17,
+            "note": "内置材料规则"
+          }
+        ],
+        "weightRules": [
+          {
+            "id": "rule-4eff7f8a7ed2-base-base",
+            "thickness": "",
+            "variant": "",
+            "coefficient": 1.45,
+            "costPerSqm": 17,
+            "default": true,
+            "deleted": false
+          }
+        ],
+        "deleted": false
+      },
+      {
+        "id": "mat-builtin-6",
+        "name": "冰藤",
+        "builtinKey": 6,
+        "price": 18,
+        "description": "",
+        "active": true,
+        "history": [
+          {
+            "id": "quote-builtin-6",
+            "date": "2026-09-29",
+            "price": 18,
+            "note": "内置材料规则"
+          }
+        ],
+        "weightRules": [
+          {
+            "id": "rule-51b085e4-4.15-base",
+            "thickness": 4.15,
+            "variant": "",
+            "coefficient": 1.2,
+            "costPerSqm": 18,
+            "default": true,
+            "deleted": false
+          }
+        ],
+        "deleted": false
+      },
+      {
+        "id": "mat-builtin-7",
+        "name": "冰丝",
+        "builtinKey": 7,
+        "price": 17,
+        "description": "",
+        "active": true,
+        "history": [
+          {
+            "id": "quote-builtin-7",
+            "date": "2026-09-29",
+            "price": 17,
+            "note": "内置材料规则"
+          }
+        ],
+        "weightRules": [
+          {
+            "id": "rule-51b04e1d-3.36-base",
+            "thickness": 3.36,
+            "variant": "",
+            "coefficient": 0.95,
+            "costPerSqm": 17,
+            "default": true,
+            "deleted": false
+          },
+          {
+            "id": "rule-51b04e1d-3.36-5e267ed15e26",
+            "thickness": 3.36,
+            "variant": "带绑带",
+            "coefficient": 0.95,
+            "costPerSqm": 19,
+            "default": false,
+            "deleted": false
+          }
+        ],
+        "deleted": false
+      },
+      {
+        "id": "mat-builtin-8",
+        "name": "冰丝水洗底",
+        "builtinKey": 8,
+        "price": 18,
+        "description": "",
+        "active": true,
+        "history": [
+          {
+            "id": "quote-builtin-8",
+            "date": "2026-09-29",
+            "price": 18,
+            "note": "内置材料规则"
+          }
+        ],
+        "weightRules": [
+          {
+            "id": "rule-51b04e1d6c346d175e95-1.9-base",
+            "thickness": 1.9,
+            "variant": "",
+            "coefficient": 1,
+            "costPerSqm": 18,
+            "default": true,
+            "deleted": false
+          },
+          {
+            "id": "rule-51b04e1d6c346d175e95-1.9-7ed15e26",
+            "thickness": 1.9,
+            "variant": "绑带",
+            "coefficient": 1,
+            "costPerSqm": 19,
+            "default": false,
+            "deleted": false
+          }
+        ],
+        "deleted": false
+      },
+      {
+        "id": "mat-builtin-9",
+        "name": "菠萝圈",
+        "builtinKey": 9,
+        "price": 19.5,
+        "description": "",
+        "active": true,
+        "history": [
+          {
+            "id": "quote-builtin-9",
+            "date": "2026-09-29",
+            "price": 19.5,
+            "note": "内置材料规则"
+          }
+        ],
+        "weightRules": [
+          {
+            "id": "rule-83e0841d5708-base-base",
+            "thickness": "",
+            "variant": "",
+            "coefficient": 1.25,
+            "costPerSqm": 19.5,
+            "default": true,
+            "deleted": false
+          }
+        ],
+        "deleted": false
+      },
+      {
+        "id": "mat-builtin-10",
+        "name": "天鹅绒",
+        "builtinKey": 10,
+        "price": 12.5,
+        "description": "",
+        "active": true,
+        "history": [
+          {
+            "id": "quote-builtin-10",
+            "date": "2026-09-29",
+            "price": 12.5,
+            "note": "内置材料规则"
+          }
+        ],
+        "weightRules": [
+          {
+            "id": "rule-59299e457ed2-base-base",
+            "thickness": "",
+            "variant": "",
+            "coefficient": 0.85,
+            "costPerSqm": 12.5,
+            "default": true,
+            "deleted": false
+          }
+        ],
+        "deleted": false
+      },
+      {
+        "id": "mat-builtin-11",
+        "name": "金钻绒",
+        "builtinKey": 11,
+        "price": 11.5,
+        "description": "",
+        "active": true,
+        "history": [
+          {
+            "id": "quote-builtin-11",
+            "date": "2026-09-29",
+            "price": 11.5,
+            "note": "内置材料规则"
+          }
+        ],
+        "weightRules": [
+          {
+            "id": "rule-91d194bb7ed2-base-base",
+            "thickness": "",
+            "variant": "",
+            "coefficient": 0.8,
+            "costPerSqm": 11.5,
+            "default": true,
+            "deleted": false
+          }
+        ],
+        "deleted": false
+      },
+      {
+        "id": "mat-builtin-12",
+        "name": "圈绒",
+        "builtinKey": 12,
+        "price": 18.5,
+        "description": "",
+        "active": true,
+        "history": [
+          {
+            "id": "quote-builtin-12",
+            "date": "2026-09-29",
+            "price": 18.5,
+            "note": "内置材料规则"
+          }
+        ],
+        "weightRules": [
+          {
+            "id": "rule-57087ed2-8-base",
+            "thickness": 8,
+            "variant": "",
+            "coefficient": 2.6,
+            "costPerSqm": 18.5,
+            "default": true,
+            "deleted": false
+          }
+        ],
+        "deleted": false
+      }
+    ],
+    "sizes": [
+      {
+        "id": "s0",
+        "name": "",
+        "salesW": 30,
+        "salesH": 40,
+        "irregular": false,
+        "productionW": "",
+        "productionH": "",
+        "active": true,
+        "needsReview": false,
+        "legacySize": {
+          "id": "s0",
+          "w": 30,
+          "h": 40,
+          "active": true
+        },
+        "deleted": false
+      },
+      {
+        "id": "s1",
+        "name": "",
+        "salesW": 40,
+        "salesH": 60,
+        "irregular": false,
+        "productionW": "",
+        "productionH": "",
+        "active": true,
+        "needsReview": false,
+        "legacySize": {
+          "id": "s1",
+          "w": 40,
+          "h": 60,
+          "active": true
+        },
+        "deleted": false
+      },
+      {
+        "id": "s2",
+        "name": "",
+        "salesW": 50,
+        "salesH": 80,
+        "irregular": false,
+        "productionW": "",
+        "productionH": "",
+        "active": true,
+        "needsReview": false,
+        "legacySize": {
+          "id": "s2",
+          "w": 50,
+          "h": 80,
+          "active": true
+        },
+        "deleted": false
+      },
+      {
+        "id": "s3",
+        "name": "",
+        "salesW": 60,
+        "salesH": 90,
+        "irregular": false,
+        "productionW": "",
+        "productionH": "",
+        "active": true,
+        "needsReview": false,
+        "legacySize": {
+          "id": "s3",
+          "w": 60,
+          "h": 90,
+          "active": true
+        },
+        "deleted": false
+      },
+      {
+        "id": "s4",
+        "name": "",
+        "salesW": 80,
+        "salesH": 100,
+        "irregular": false,
+        "productionW": "",
+        "productionH": "",
+        "active": true,
+        "needsReview": false,
+        "legacySize": {
+          "id": "s4",
+          "w": 80,
+          "h": 100,
+          "active": true
+        },
+        "deleted": false
+      },
+      {
+        "id": "s5",
+        "name": "",
+        "salesW": 80,
+        "salesH": 120,
+        "irregular": false,
+        "productionW": "",
+        "productionH": "",
+        "active": true,
+        "needsReview": false,
+        "legacySize": {
+          "id": "s5",
+          "w": 80,
+          "h": 120,
+          "active": true
+        },
+        "deleted": false
+      }
+    ],
+    "shippingTemplates": [
+      {
+        "id": "shipping-mumqu1wu-z3t6pnmh",
+        "name": "固定运费 1.35 元",
+        "type": "fixed",
+        "fee": 1.35,
+        "active": true,
+        "deleted": false
+      },
+      {
+        "id": "shipping-tier",
+        "name": "重量分档（示例）",
+        "type": "tiers",
+        "tiers": [
+          {
+            "upTo": 0.5,
+            "fee": 1.35
+          },
+          {
+            "upTo": 1,
+            "fee": 1.8
+          },
+          {
+            "upTo": 2,
+            "fee": 2.8
+          }
+        ],
+        "active": true,
+        "deleted": false
+      },
+      {
+        "id": "shipping-step",
+        "name": "首重续重（示例）",
+        "type": "step",
+        "firstWeight": 1,
+        "firstFee": 2,
+        "stepWeight": 0.5,
+        "stepFee": 0.8,
+        "maxWeight": 10,
+        "active": true,
+        "deleted": false
+      }
+    ],
+    "plans": [
+      {
+        "id": "capture-plan-0",
+        "shopId": "shop-original",
+        "name": "统一毛利",
+        "note": "低价款 20%，主销款 80%",
+        "materialId": "mat-silica",
+        "shippingId": "shipping-mumqu1wu-z3t6pnmh",
+        "params": {
+          "refund": 10,
+          "fee": 5,
+          "tax": 2,
+          "recovery": 0,
+          "other": 0,
+          "returnCost": 0,
+          "spend": 1000,
+          "actualRoi": 3,
+          "refundRates": {
+            "unshipped": 0,
+            "shippedOnly": 0,
+            "returnRefund": 10,
+            "firstHour": ""
+          },
+          "otherFeeScope": "all"
+        },
+        "items": [
+          {
+            "sizeId": "s0",
+            "price": 4.19,
+            "share": 20,
+            "weight": "",
+            "id": "capture-item-0-0",
+            "productId": "",
+            "skuId": "",
+            "sales": null,
+            "priceMode": "plan"
+          },
+          {
+            "sizeId": "s1",
+            "price": 8.99,
+            "share": 80,
+            "weight": "",
+            "id": "capture-item-0-1",
+            "productId": "",
+            "skuId": "",
+            "sales": null,
+            "priceMode": "plan"
+          }
+        ],
+        "deleted": false,
+        "needsMaterialReview": false,
+        "strategyId": "capture-uniform",
+        "promotionSchemeId": "",
+        "salesSource": null
+      },
+      {
+        "id": "capture-plan-1",
+        "shopId": "shop-original",
+        "name": "成本阶梯",
+        "note": "低价款 20%，主销款 80%",
+        "materialId": "mat-silica",
+        "shippingId": "shipping-mumqu1wu-z3t6pnmh",
+        "params": {
+          "refund": 10,
+          "fee": 5,
+          "tax": 2,
+          "recovery": 0,
+          "other": 0,
+          "returnCost": 0,
+          "spend": 1000,
+          "actualRoi": 3,
+          "refundRates": {
+            "unshipped": 0,
+            "shippedOnly": 0,
+            "returnRefund": 10,
+            "firstHour": ""
+          },
+          "otherFeeScope": "all"
+        },
+        "items": [
+          {
+            "sizeId": "s0",
+            "price": 4.19,
+            "share": 20,
+            "weight": "",
+            "id": "capture-item-1-0",
+            "productId": "",
+            "skuId": "",
+            "sales": null,
+            "priceMode": "plan"
+          },
+          {
+            "sizeId": "s1",
+            "price": 8.99,
+            "share": 80,
+            "weight": "",
+            "id": "capture-item-1-1",
+            "productId": "",
+            "skuId": "",
+            "sales": null,
+            "priceMode": "plan"
+          }
+        ],
+        "deleted": false,
+        "needsMaterialReview": false,
+        "strategyId": "capture-rank",
+        "promotionSchemeId": "",
+        "salesSource": null
+      },
+      {
+        "id": "capture-plan-2",
+        "shopId": "shop-original",
+        "name": "面积递增",
+        "note": "低价款 20%，主销款 80%",
+        "materialId": "mat-silica",
+        "shippingId": "shipping-mumqu1wu-z3t6pnmh",
+        "params": {
+          "refund": 10,
+          "fee": 5,
+          "tax": 2,
+          "recovery": 0,
+          "other": 0,
+          "returnCost": 0,
+          "spend": 1000,
+          "actualRoi": 3,
+          "refundRates": {
+            "unshipped": 0,
+            "shippedOnly": 0,
+            "returnRefund": 10,
+            "firstHour": ""
+          },
+          "otherFeeScope": "all"
+        },
+        "items": [
+          {
+            "sizeId": "s0",
+            "price": 4.19,
+            "share": 20,
+            "weight": "",
+            "id": "capture-item-2-0",
+            "productId": "",
+            "skuId": "",
+            "sales": null,
+            "priceMode": "plan"
+          },
+          {
+            "sizeId": "s1",
+            "price": 8.99,
+            "share": 80,
+            "weight": "",
+            "id": "capture-item-2-1",
+            "productId": "",
+            "skuId": "",
+            "sales": null,
+            "priceMode": "plan"
+          }
+        ],
+        "deleted": false,
+        "needsMaterialReview": false,
+        "strategyId": "capture-area",
+        "promotionSchemeId": "",
+        "salesSource": null
+      }
+    ],
+    "records": [
+      {
+        "id": "record-mumqu1x3-8ggg2bo8",
+        "kind": "daily",
+        "status": "confirmed",
+        "date": "2026-09-29",
+        "note": "",
+        "reason": "",
+        "previousId": null,
+        "planId": "capture-plan-0",
+        "shopId": "shop-original",
+        "planName": "统一毛利",
+        "shopName": "示例店铺一",
+        "createdAt": "2026-09-29T14:00:08.247Z",
+        "frame": {
+          "calculationVersion": 4,
+          "formulaVersion": 5,
+          "plan": {
+            "id": "capture-plan-0",
+            "shopId": "shop-original",
+            "name": "统一毛利",
+            "note": "低价款 20%，主销款 80%",
+            "materialId": "mat-silica",
+            "shippingId": "shipping-mumqu1wu-z3t6pnmh",
+            "params": {
+              "refund": 10,
+              "fee": 5,
+              "tax": 2,
+              "recovery": 0,
+              "other": 0,
+              "returnCost": 0,
+              "spend": 1000,
+              "actualRoi": 3,
+              "refundRates": {
+                "unshipped": 0,
+                "shippedOnly": 0,
+                "returnRefund": 10,
+                "firstHour": ""
+              },
+              "otherFeeScope": "all"
+            },
+            "items": [
+              {
+                "sizeId": "s0",
+                "price": 7.8,
+                "share": 20,
+                "weight": "",
+                "id": "capture-item-0-0",
+                "productId": "",
+                "skuId": "",
+                "sales": null,
+                "priceMode": "plan",
+                "materialId": "mat-silica",
+                "materialRuleId": ""
+              },
+              {
+                "sizeId": "s1",
+                "price": 11.51,
+                "share": 80,
+                "weight": "",
+                "id": "capture-item-0-1",
+                "productId": "",
+                "skuId": "",
+                "sales": null,
+                "priceMode": "plan",
+                "materialId": "mat-silica",
+                "materialRuleId": ""
+              }
+            ],
+            "deleted": false,
+            "needsMaterialReview": false,
+            "strategyId": "capture-uniform",
+            "promotionSchemeId": "",
+            "salesSource": null
+          },
+          "materials": [
+            {
+              "id": "mat-silica",
+              "name": "硅藻泥基础料",
+              "price": 10.2,
+              "description": "",
+              "active": true,
+              "history": [
+                {
+                  "id": "quote-mat-silica-0",
+                  "date": "2026-09-07",
+                  "price": 10.2,
+                  "note": "初始材料价"
+                }
+              ],
+              "weightRules": [],
+              "deleted": false,
+              "legacyCostFallback": true
+            }
+          ],
+          "sizes": [
+            {
+              "id": "s0",
+              "name": "",
+              "salesW": 30,
+              "salesH": 40,
+              "irregular": false,
+              "productionW": "",
+              "productionH": "",
+              "active": true,
+              "needsReview": false,
+              "legacySize": {
+                "id": "s0",
+                "w": 30,
+                "h": 40,
+                "active": true
+              },
+              "deleted": false
+            },
+            {
+              "id": "s1",
+              "name": "",
+              "salesW": 40,
+              "salesH": 60,
+              "irregular": false,
+              "productionW": "",
+              "productionH": "",
+              "active": true,
+              "needsReview": false,
+              "legacySize": {
+                "id": "s1",
+                "w": 40,
+                "h": 60,
+                "active": true
+              },
+              "deleted": false
+            }
+          ],
+          "shippingTemplates": [
+            {
+              "id": "shipping-mumqu1wu-z3t6pnmh",
+              "name": "固定运费 1.35 元",
+              "type": "fixed",
+              "fee": 1.35,
+              "active": true,
+              "deleted": false
+            }
+          ],
+          "pricingStrategies": [
+            {
+              "id": "capture-uniform",
+              "name": "统一毛利",
+              "type": "uniform",
+              "margin": 60,
+              "deleted": false
+            }
+          ],
+          "promotionSchemes": []
+        },
+        "result": {
+          "price": 10.768,
+          "cost": 4.231584,
+          "margin": 5.459616,
+          "netMargin": 5.459616,
+          "roi": 1.9722998833617604,
+          "netRoi": 1.7750698950255843,
+          "gmv": 3000,
+          "profit": 521.0668647845464,
+          "investment": 2178.933135215453,
+          "orders": 278.60326894502225,
+          "revenue": 9.6912,
+          "netRevenue": 9.6912,
+          "goods": 2.2032000000000003,
+          "shipping": 1.35,
+          "fees": 0.48456000000000005,
+          "tax": 0.193824,
+          "other": 0
+        }
+      }
+    ],
+    "prefs": {
+      "ids": [
+        "roi",
+        "profit"
+      ]
+    },
+    "pricingStrategies": [
+      {
+        "id": "capture-uniform",
+        "name": "统一毛利",
+        "type": "uniform",
+        "margin": 60,
+        "deleted": false
+      },
+      {
+        "id": "capture-rank",
+        "name": "成本阶梯",
+        "type": "rank",
+        "tiers": [
+          30,
+          50,
+          70
+        ],
+        "fallback": 80,
+        "deleted": false
+      },
+      {
+        "id": "capture-area",
+        "name": "面积递增",
+        "type": "area",
+        "baseArea": 0.12,
+        "baseMargin": 60,
+        "stepArea": 0.1,
+        "stepPoints": 10,
+        "cap": 90,
+        "deleted": false
+      }
+    ],
+    "sizeSchemes": [],
+    "promotionSchemes": []
+  },
+  "tables": {
+    "5": [
+      [
+        "使用说明",
+        [
+          [
+            "项目",
+            "说明"
+          ],
+          [
+            "文件用途",
+            "运营查看与工作台恢复；整份或按范围导出均可在其他电脑导入。"
+          ],
+          [
+            "恢复要求",
+            "使用未改动的原始导出文件恢复。需要加工分析时请另存副本，避免表格与冻结账目不一致。"
+          ],
+          [
+            "费用口径",
+            "每单总成本按退款类型分摊商品和运费，含平台费、税及其他费用，不含广告；总投入包含广告。"
+          ],
+          [
+            "历史合计",
+            "只有“已入账”的每日记录计入合计；已更正、已作废和旧版试算不累计。"
+          ],
+          [
+            "备份范围",
+            "全部店铺、计划、公共资料、冻结账目及显示设置。"
+          ]
+        ]
+      ],
+      [
+        "导出范围",
+        [
+          [
+            "项目",
+            "内容"
+          ],
+          [
+            "导出类型",
+            "完整工作区"
+          ],
+          [
+            "店铺",
+            "示例店铺一；示例店铺二"
+          ],
+          [
+            "计划",
+            "示例店铺一 / 统一毛利；示例店铺一 / 成本阶梯；示例店铺一 / 面积递增"
+          ],
+          [
+            "开始日期",
+            "不限"
+          ],
+          [
+            "结束日期",
+            "不限"
+          ],
+          [
+            "范围内有效入账",
+            1
+          ],
+          [
+            "范围内利润（元）",
+            521.0668647845464
+          ],
+          [
+            "额外关联更正版本",
+            0
+          ],
+          [
+            "公共资料",
+            "当前计划使用的材料、尺寸和运费规则；历史用料与费用另存于各笔账目。"
+          ],
+          [
+            "日期口径",
+            "日期只筛选历史账目，计划参数和公共资料均为导出时的当前值。"
+          ],
+          [
+            "恢复方式",
+            "可合并恢复，或确认后替换整个工作区。"
+          ],
+          [
+            "冲突处理",
+            "重复账目不累计；存在分支或同日不同账目时，保留本机该计划的全部账目，并显示未导入清单。"
+          ],
+          [
+            "更正关系",
+            "相关更正版本可能在日期范围外，一并保存以保证账目完整；合计只统计日期范围内有效版本。"
+          ]
+        ]
+      ],
+      [
+        "店铺",
+        [
+          [
+            "店铺",
+            "状态",
+            "使用中计划数"
+          ],
+          [
+            "示例店铺一",
+            "使用中",
+            3
+          ],
+          [
+            "示例店铺二",
+            "使用中",
+            0
+          ]
+        ]
+      ],
+      [
+        "计划",
+        [
+          [
+            "店铺",
+            "计划",
+            "状态",
+            "材料",
+            "运费模板",
+            "广告消耗（元）",
+            "支付ROI",
+            "退款率（兼容）（%）",
+            "未发货仅退款率（%）",
+            "已发货仅退款率（%）",
+            "退货退款率（%）",
+            "1 小时内退款率（%）",
+            "其他费用发生范围",
+            "平台费（%）",
+            "税率（%）",
+            "回收比例（%）",
+            "其他费用（元/单）",
+            "每退货单额外费用（元）",
+            "整体支付 ROI 保本线",
+            "预估盈亏（元）",
+            "备注"
+          ],
+          [
+            "示例店铺一",
+            "统一毛利",
+            "使用中",
+            "硅藻泥基础料",
+            "固定运费 1.35 元",
+            1000,
+            3,
+            10,
+            0,
+            0,
+            10,
+            "",
+            "all",
+            5,
+            2,
+            0,
+            0,
+            0,
+            1.98,
+            521.0668647845464,
+            "低价款 20%，主销款 80%"
+          ],
+          [
+            "示例店铺一",
+            "成本阶梯",
+            "使用中",
+            "硅藻泥基础料",
+            "固定运费 1.35 元",
+            1000,
+            3,
+            10,
+            0,
+            0,
+            10,
+            "",
+            "all",
+            5,
+            2,
+            0,
+            0,
+            0,
+            2.59,
+            159.9733840304184,
+            "低价款 20%，主销款 80%"
+          ],
+          [
+            "示例店铺一",
+            "面积递增",
+            "使用中",
+            "硅藻泥基础料",
+            "固定运费 1.35 元",
+            1000,
+            3,
+            10,
+            0,
+            0,
+            10,
+            "",
+            "all",
+            5,
+            2,
+            0,
+            0,
+            0,
+            1.68,
+            789.5868976719005,
+            "低价款 20%，主销款 80%"
+          ]
+        ]
+      ],
+      [
+        "商品规格",
+        [
+          [
+            "店铺",
+            "计划",
+            "商品规格",
+            "销售长（cm）",
+            "销售宽（cm）",
+            "异形",
+            "生产长（cm）",
+            "生产宽（cm）",
+            "发货重量（g）",
+            "售价（元）",
+            "订单占比（%）",
+            "材料成本（元）",
+            "运费（元）",
+            "每单总成本（未含广告）",
+            "SKU 行编号",
+            "商品 ID",
+            "SKU ID",
+            "材料",
+            "厚度规则",
+            "定价模式",
+            "毛利率（%）",
+            "销售数量"
+          ],
+          [
+            "示例店铺一",
+            "统一毛利",
+            "30 × 40 cm",
+            30,
+            40,
+            "否",
+            30,
+            40,
+            "",
+            7.8,
+            20,
+            1.224,
+            1.35,
+            3.0654000000000003,
+            "capture-item-0-0",
+            "",
+            "",
+            "硅藻泥基础料",
+            "",
+            "跟随方案",
+            60.00000000000001,
+            ""
+          ],
+          [
+            "示例店铺一",
+            "统一毛利",
+            "40 × 60 cm",
+            40,
+            60,
+            "否",
+            40,
+            60,
+            "",
+            11.51,
+            80,
+            2.448,
+            1.35,
+            4.52313,
+            "capture-item-0-1",
+            "",
+            "",
+            "硅藻泥基础料",
+            "",
+            "跟随方案",
+            60.002606429192,
+            ""
+          ],
+          [
+            "示例店铺一",
+            "成本阶梯",
+            "30 × 40 cm",
+            30,
+            40,
+            "否",
+            30,
+            40,
+            "",
+            4.09,
+            20,
+            1.224,
+            1.35,
+            2.83167,
+            "capture-item-1-0",
+            "",
+            "",
+            "硅藻泥基础料",
+            "",
+            "跟随方案",
+            30.06601466992665,
+            ""
+          ],
+          [
+            "示例店铺一",
+            "成本阶梯",
+            "40 × 60 cm",
+            40,
+            60,
+            "否",
+            40,
+            60,
+            "",
+            8.84,
+            80,
+            2.448,
+            1.35,
+            4.35492,
+            "capture-item-1-1",
+            "",
+            "",
+            "硅藻泥基础料",
+            "",
+            "跟随方案",
+            50.03619909502262,
+            ""
+          ],
+          [
+            "示例店铺一",
+            "面积递增",
+            "30 × 40 cm",
+            30,
+            40,
+            "否",
+            30,
+            40,
+            "",
+            7.8,
+            20,
+            1.224,
+            1.35,
+            3.0654000000000003,
+            "capture-item-2-0",
+            "",
+            "",
+            "硅藻泥基础料",
+            "",
+            "跟随方案",
+            60.00000000000001,
+            ""
+          ],
+          [
+            "示例店铺一",
+            "面积递增",
+            "40 × 60 cm",
+            40,
+            60,
+            "否",
+            40,
+            60,
+            "",
+            16.52,
+            80,
+            2.448,
+            1.35,
+            4.83876,
+            "capture-item-2-1",
+            "",
+            "",
+            "硅藻泥基础料",
+            "",
+            "跟随方案",
+            70.00968523002422,
+            ""
+          ]
+        ]
+      ],
+      [
+        "材料",
+        [
+          [
+            "材料",
+            "厚度或说明",
+            "单价（元/㎡）",
+            "状态"
+          ],
+          [
+            "硅藻泥基础料",
+            "",
+            10.2,
+            "启用"
+          ],
+          [
+            "PVC 防滑底",
+            "",
+            12.8,
+            "启用"
+          ],
+          [
+            "定制加厚料",
+            "",
+            16.5,
+            "启用"
+          ],
+          [
+            "硅藻泥",
+            "",
+            9.5,
+            "启用"
+          ],
+          [
+            "亚麻",
+            "",
+            16.2,
+            "启用"
+          ],
+          [
+            "水晶绒",
+            "",
+            8,
+            "启用"
+          ],
+          [
+            "丝圈",
+            "",
+            21,
+            "启用"
+          ],
+          [
+            "皮革",
+            "",
+            15,
+            "启用"
+          ],
+          [
+            "仿羊绒",
+            "",
+            17,
+            "启用"
+          ],
+          [
+            "冰藤",
+            "",
+            18,
+            "启用"
+          ],
+          [
+            "冰丝",
+            "",
+            17,
+            "启用"
+          ],
+          [
+            "冰丝水洗底",
+            "",
+            18,
+            "启用"
+          ],
+          [
+            "菠萝圈",
+            "",
+            19.5,
+            "启用"
+          ],
+          [
+            "天鹅绒",
+            "",
+            12.5,
+            "启用"
+          ],
+          [
+            "金钻绒",
+            "",
+            11.5,
+            "启用"
+          ],
+          [
+            "圈绒",
+            "",
+            18.5,
+            "启用"
+          ]
+        ]
+      ],
+      [
+        "报价记录",
+        [
+          [
+            "材料",
+            "报价日期",
+            "单价（元/㎡）",
+            "备注"
+          ],
+          [
+            "硅藻泥基础料",
+            "2026-09-07",
+            10.2,
+            "初始材料价"
+          ],
+          [
+            "PVC 防滑底",
+            "2026-09-07",
+            12.8,
+            "初始材料价"
+          ],
+          [
+            "定制加厚料",
+            "2026-09-07",
+            16.5,
+            "初始材料价"
+          ],
+          [
+            "硅藻泥",
+            "2026-09-29",
+            9.5,
+            "内置材料规则"
+          ],
+          [
+            "亚麻",
+            "2026-09-29",
+            16.2,
+            "内置材料规则"
+          ],
+          [
+            "水晶绒",
+            "2026-09-29",
+            8,
+            "内置材料规则"
+          ],
+          [
+            "丝圈",
+            "2026-09-29",
+            21,
+            "内置材料规则"
+          ],
+          [
+            "皮革",
+            "2026-09-29",
+            15,
+            "内置材料规则"
+          ],
+          [
+            "仿羊绒",
+            "2026-09-29",
+            17,
+            "内置材料规则"
+          ],
+          [
+            "冰藤",
+            "2026-09-29",
+            18,
+            "内置材料规则"
+          ],
+          [
+            "冰丝",
+            "2026-09-29",
+            17,
+            "内置材料规则"
+          ],
+          [
+            "冰丝水洗底",
+            "2026-09-29",
+            18,
+            "内置材料规则"
+          ],
+          [
+            "菠萝圈",
+            "2026-09-29",
+            19.5,
+            "内置材料规则"
+          ],
+          [
+            "天鹅绒",
+            "2026-09-29",
+            12.5,
+            "内置材料规则"
+          ],
+          [
+            "金钻绒",
+            "2026-09-29",
+            11.5,
+            "内置材料规则"
+          ],
+          [
+            "圈绒",
+            "2026-09-29",
+            18.5,
+            "内置材料规则"
+          ]
+        ]
+      ],
+      [
+        "尺寸库",
+        [
+          [
+            "规格名称",
+            "销售长（cm）",
+            "销售宽（cm）",
+            "异形",
+            "生产长（cm）",
+            "生产宽（cm）",
+            "生产面积（㎡）",
+            "状态"
+          ],
+          [
+            "30 × 40 cm",
+            30,
+            40,
+            "否",
+            30,
+            40,
+            0.12,
+            "启用"
+          ],
+          [
+            "40 × 60 cm",
+            40,
+            60,
+            "否",
+            40,
+            60,
+            0.24,
+            "启用"
+          ],
+          [
+            "50 × 80 cm",
+            50,
+            80,
+            "否",
+            50,
+            80,
+            0.4,
+            "启用"
+          ],
+          [
+            "60 × 90 cm",
+            60,
+            90,
+            "否",
+            60,
+            90,
+            0.54,
+            "启用"
+          ],
+          [
+            "80 × 100 cm",
+            80,
+            100,
+            "否",
+            80,
+            100,
+            0.8,
+            "启用"
+          ],
+          [
+            "80 × 120 cm",
+            80,
+            120,
+            "否",
+            80,
+            120,
+            0.96,
+            "启用"
+          ]
+        ]
+      ],
+      [
+        "运费模板",
+        [
+          [
+            "模板",
+            "类型",
+            "重量下限（不含，g）",
+            "重量上限（含，g）",
+            "固定或分档费用（元）",
+            "首重（g）",
+            "首重费用（元）",
+            "续重（g）",
+            "每续重费用（元）",
+            "计费说明",
+            "状态"
+          ],
+          [
+            "固定运费 1.35 元",
+            "固定运费",
+            "",
+            "",
+            1.35,
+            "",
+            "",
+            "",
+            "",
+            "每单固定收取",
+            "启用"
+          ],
+          [
+            "重量分档（示例）",
+            "重量分档",
+            0,
+            500,
+            1.35,
+            "",
+            "",
+            "",
+            "",
+            "按重量所在档收取整单运费",
+            "启用"
+          ],
+          [
+            "重量分档（示例）",
+            "重量分档",
+            500,
+            1000,
+            1.8,
+            "",
+            "",
+            "",
+            "",
+            "按重量所在档收取整单运费",
+            "启用"
+          ],
+          [
+            "重量分档（示例）",
+            "重量分档",
+            1000,
+            2000,
+            2.8,
+            "",
+            "",
+            "",
+            "",
+            "按重量所在档收取整单运费",
+            "启用"
+          ],
+          [
+            "首重续重（示例）",
+            "首重续重",
+            0,
+            10000,
+            "",
+            1000,
+            2,
+            500,
+            0.8,
+            "不足一个续重按一个计费",
+            "启用"
+          ]
+        ]
+      ],
+      [
+        "历史账目",
+        [
+          [
+            "记录编号",
+            "日期",
+            "店铺",
+            "计划",
+            "状态",
+            "材料",
+            "当时单价（元/㎡）",
+            "广告费（元）",
+            "整体成交金额（元）",
+            "整体支付 ROI 保本线",
+            "预估盈亏（元）",
+            "入账备注",
+            "更正原因",
+            "原记录编号",
+            "总投入（元，含广告）",
+            "范围归属"
+          ],
+          [
+            "record-mumqu1x3-8ggg2bo8",
+            "2026-09-29",
+            "示例店铺一",
+            "统一毛利",
+            "已入账",
+            "硅藻泥基础料",
+            10.2,
+            1000,
+            3000,
+            1.98,
+            521.0668647845464,
+            "",
+            "",
+            "",
+            2178.933135215453,
+            "所选范围"
+          ]
+        ]
+      ],
+      [
+        "入账规格",
+        [
+          [
+            "记录编号",
+            "日期",
+            "店铺",
+            "计划",
+            "状态",
+            "规格",
+            "生产面积（㎡）",
+            "售价（元）",
+            "订单占比（%）",
+            "材料成本（元）",
+            "发货重量（g）",
+            "运费（元）",
+            "每单总成本（未含广告）"
+          ],
+          [
+            "record-mumqu1x3-8ggg2bo8",
+            "2026-09-29",
+            "示例店铺一",
+            "统一毛利",
+            "已入账",
+            "30 × 40 cm",
+            0.12,
+            7.8,
+            20,
+            1.224,
+            "",
+            1.35,
+            3.0654000000000003
+          ],
+          [
+            "record-mumqu1x3-8ggg2bo8",
+            "2026-09-29",
+            "示例店铺一",
+            "统一毛利",
+            "已入账",
+            "40 × 60 cm",
+            0.24,
+            11.51,
+            80,
+            2.448,
+            "",
+            1.35,
+            4.52313
+          ]
+        ]
+      ],
+      [
+        "显示设置",
+        [
+          [
+            "区域",
+            "顺序",
+            "字段",
+            "显示"
+          ],
+          [
+            "当前测算",
+            1,
+            "整体支付 ROI 保本线",
+            "是"
+          ],
+          [
+            "当前测算",
+            2,
+            "预估盈亏",
+            "是"
+          ],
+          [
+            "商品规格",
+            "固定首列",
+            "规格名称",
+            "是"
+          ],
+          [
+            "商品规格",
+            1,
+            "售价",
+            "是"
+          ],
+          [
+            "商品规格",
+            2,
+            "订单占比",
+            "是"
+          ],
+          [
+            "商品规格",
+            3,
+            "材料成本",
+            "是"
+          ],
+          [
+            "商品规格",
+            4,
+            "每单总成本",
+            "是"
+          ],
+          [
+            "商品规格",
+            5,
+            "保本 ROI",
+            "是"
+          ],
+          [
+            "商品规格",
+            "",
+            "毛利率",
+            "否"
+          ],
+          [
+            "商品规格",
+            "",
+            "销售数量",
+            "否"
+          ],
+          [
+            "商品规格",
+            "",
+            "发货重量",
+            "否"
+          ],
+          [
+            "商品规格",
+            "",
+            "运费",
+            "否"
+          ],
+          [
+            "商品规格",
+            "固定末列",
+            "操作",
+            "是"
+          ]
+        ]
+      ],
+      [
+        "定价策略",
+        [
+          [
+            "编号",
+            "名称",
+            "类型",
+            "细则",
+            "状态"
+          ],
+          [
+            "capture-uniform",
+            "统一毛利",
+            "uniform",
+            "{\"id\":\"capture-uniform\",\"name\":\"统一毛利\",\"type\":\"uniform\",\"margin\":60,\"deleted\":false}",
+            "可用"
+          ],
+          [
+            "capture-rank",
+            "成本阶梯",
+            "rank",
+            "{\"id\":\"capture-rank\",\"name\":\"成本阶梯\",\"type\":\"rank\",\"tiers\":[30,50,70],\"fallback\":80,\"deleted\":false}",
+            "可用"
+          ],
+          [
+            "capture-area",
+            "面积递增",
+            "area",
+            "{\"id\":\"capture-area\",\"name\":\"面积递增\",\"type\":\"area\",\"baseArea\":0.12,\"baseMargin\":60,\"stepArea\":0.1,\"stepPoints\":10,\"cap\":90,\"deleted\":false}",
+            "可用"
+          ]
+        ]
+      ],
+      [
+        "尺寸组合",
+        [
+          [
+            "编号",
+            "名称",
+            "尺寸编号",
+            "状态"
+          ]
+        ]
+      ],
+      [
+        "活动方案",
+        [
+          [
+            "编号",
+            "名称",
+            "活动顺序",
+            "状态"
+          ]
+        ]
+      ],
+      [
+        "厚度规则",
+        [
+          [
+            "材料编号",
+            "材料",
+            "规则编号",
+            "厚度（mm）",
+            "变体",
+            "重量系数（g/㎡）",
+            "材料成本（元/㎡）",
+            "默认",
+            "状态"
+          ],
+          [
+            "mat-builtin-0",
+            "硅藻泥",
+            "rule-784585fb6ce5-2.7-base",
+            2.7,
+            "",
+            0.83,
+            9.3,
+            "否",
+            "可用"
+          ],
+          [
+            "mat-builtin-0",
+            "硅藻泥",
+            "rule-784585fb6ce5-3-base",
+            3,
+            "",
+            0.9,
+            9.5,
+            "是",
+            "可用"
+          ],
+          [
+            "mat-builtin-0",
+            "硅藻泥",
+            "rule-784585fb6ce5-5-base",
+            5,
+            "",
+            1.3,
+            11.2,
+            "否",
+            "可用"
+          ],
+          [
+            "mat-builtin-1",
+            "亚麻",
+            "rule-4e9a9ebb-3.5-base",
+            3.5,
+            "",
+            0.96,
+            15,
+            "否",
+            "可用"
+          ],
+          [
+            "mat-builtin-1",
+            "亚麻",
+            "rule-4e9a9ebb-5-base",
+            5,
+            "",
+            1.26,
+            16.2,
+            "是",
+            "可用"
+          ],
+          [
+            "mat-builtin-2",
+            "水晶绒",
+            "rule-6c3466767ed2-base-base",
+            "",
+            "",
+            0.65,
+            8,
+            "是",
+            "可用"
+          ],
+          [
+            "mat-builtin-2",
+            "水晶绒",
+            "rule-6c3466767ed2-base-53058fb9",
+            "",
+            "包边",
+            0.7,
+            9,
+            "否",
+            "可用"
+          ],
+          [
+            "mat-builtin-3",
+            "丝圈",
+            "rule-4e1d5708-base-base",
+            "",
+            "",
+            2.8,
+            21,
+            "是",
+            "可用"
+          ],
+          [
+            "mat-builtin-4",
+            "皮革",
+            "rule-76ae9769-3.5-base",
+            3.5,
+            "",
+            1.3,
+            15,
+            "是",
+            "可用"
+          ],
+          [
+            "mat-builtin-5",
+            "仿羊绒",
+            "rule-4eff7f8a7ed2-base-base",
+            "",
+            "",
+            1.45,
+            17,
+            "是",
+            "可用"
+          ],
+          [
+            "mat-builtin-6",
+            "冰藤",
+            "rule-51b085e4-4.15-base",
+            4.15,
+            "",
+            1.2,
+            18,
+            "是",
+            "可用"
+          ],
+          [
+            "mat-builtin-7",
+            "冰丝",
+            "rule-51b04e1d-3.36-base",
+            3.36,
+            "",
+            0.95,
+            17,
+            "是",
+            "可用"
+          ],
+          [
+            "mat-builtin-7",
+            "冰丝",
+            "rule-51b04e1d-3.36-5e267ed15e26",
+            3.36,
+            "带绑带",
+            0.95,
+            19,
+            "否",
+            "可用"
+          ],
+          [
+            "mat-builtin-8",
+            "冰丝水洗底",
+            "rule-51b04e1d6c346d175e95-1.9-base",
+            1.9,
+            "",
+            1,
+            18,
+            "是",
+            "可用"
+          ],
+          [
+            "mat-builtin-8",
+            "冰丝水洗底",
+            "rule-51b04e1d6c346d175e95-1.9-7ed15e26",
+            1.9,
+            "绑带",
+            1,
+            19,
+            "否",
+            "可用"
+          ],
+          [
+            "mat-builtin-9",
+            "菠萝圈",
+            "rule-83e0841d5708-base-base",
+            "",
+            "",
+            1.25,
+            19.5,
+            "是",
+            "可用"
+          ],
+          [
+            "mat-builtin-10",
+            "天鹅绒",
+            "rule-59299e457ed2-base-base",
+            "",
+            "",
+            0.85,
+            12.5,
+            "是",
+            "可用"
+          ],
+          [
+            "mat-builtin-11",
+            "金钻绒",
+            "rule-91d194bb7ed2-base-base",
+            "",
+            "",
+            0.8,
+            11.5,
+            "是",
+            "可用"
+          ],
+          [
+            "mat-builtin-12",
+            "圈绒",
+            "rule-57087ed2-8-base",
+            8,
+            "",
+            2.6,
+            18.5,
+            "是",
+            "可用"
+          ]
+        ]
+      ]
+    ],
+    "6": [
+      [
+        "使用说明",
+        [
+          [
+            "项目",
+            "说明"
+          ],
+          [
+            "文件用途",
+            "运营查看与工作台恢复；整份或按范围导出均可在其他电脑导入。"
+          ],
+          [
+            "恢复要求",
+            "使用未改动的原始导出文件恢复。需要加工分析时请另存副本，避免表格与冻结账目不一致。"
+          ],
+          [
+            "费用口径",
+            "每单总成本按退款类型分摊商品和运费，含平台费、税及其他费用，不含广告；总投入包含广告。"
+          ],
+          [
+            "历史合计",
+            "只有“已入账”的每日记录计入合计；已更正、已作废和旧版试算不累计。"
+          ],
+          [
+            "备份范围",
+            "全部店铺、计划、公共资料、冻结账目及显示设置。"
+          ]
+        ]
+      ],
+      [
+        "导出范围",
+        [
+          [
+            "项目",
+            "内容"
+          ],
+          [
+            "导出类型",
+            "完整工作区"
+          ],
+          [
+            "店铺",
+            "示例店铺一；示例店铺二"
+          ],
+          [
+            "计划",
+            "示例店铺一 / 统一毛利；示例店铺一 / 成本阶梯；示例店铺一 / 面积递增"
+          ],
+          [
+            "开始日期",
+            "不限"
+          ],
+          [
+            "结束日期",
+            "不限"
+          ],
+          [
+            "范围内有效入账",
+            1
+          ],
+          [
+            "范围内利润（元）",
+            521.0668647845464
+          ],
+          [
+            "额外关联更正版本",
+            0
+          ],
+          [
+            "公共资料",
+            "当前计划使用的材料、尺寸和运费规则；历史用料与费用另存于各笔账目。"
+          ],
+          [
+            "日期口径",
+            "日期只筛选历史账目，计划参数和公共资料均为导出时的当前值。"
+          ],
+          [
+            "恢复方式",
+            "可合并恢复，或确认后替换整个工作区。"
+          ],
+          [
+            "冲突处理",
+            "重复账目不累计；存在分支或同日不同账目时，保留本机该计划的全部账目，并显示未导入清单。"
+          ],
+          [
+            "更正关系",
+            "相关更正版本可能在日期范围外，一并保存以保证账目完整；合计只统计日期范围内有效版本。"
+          ]
+        ]
+      ],
+      [
+        "店铺",
+        [
+          [
+            "店铺",
+            "状态",
+            "使用中计划数"
+          ],
+          [
+            "示例店铺一",
+            "使用中",
+            3
+          ],
+          [
+            "示例店铺二",
+            "使用中",
+            0
+          ]
+        ]
+      ],
+      [
+        "计划",
+        [
+          [
+            "店铺",
+            "计划",
+            "状态",
+            "材料",
+            "运费模板",
+            "广告消耗（元）",
+            "支付ROI",
+            "退款率（兼容）（%）",
+            "未发货仅退款率（%）",
+            "已发货仅退款率（%）",
+            "退货退款率（%）",
+            "1 小时内退款率（%）",
+            "其他费用发生范围",
+            "平台费（%）",
+            "税率（%）",
+            "回收比例（%）",
+            "其他费用（元/单）",
+            "每退货单额外费用（元）",
+            "整体支付 ROI 保本线",
+            "预估盈亏（元）",
+            "备注"
+          ],
+          [
+            "示例店铺一",
+            "统一毛利",
+            "使用中",
+            "硅藻泥基础料",
+            "固定运费 1.35 元",
+            1000,
+            3,
+            10,
+            0,
+            0,
+            10,
+            "",
+            "all",
+            5,
+            2,
+            0,
+            0,
+            0,
+            1.98,
+            521.0668647845464,
+            "低价款 20%，主销款 80%"
+          ],
+          [
+            "示例店铺一",
+            "成本阶梯",
+            "使用中",
+            "硅藻泥基础料",
+            "固定运费 1.35 元",
+            1000,
+            3,
+            10,
+            0,
+            0,
+            10,
+            "",
+            "all",
+            5,
+            2,
+            0,
+            0,
+            0,
+            2.59,
+            159.9733840304184,
+            "低价款 20%，主销款 80%"
+          ],
+          [
+            "示例店铺一",
+            "面积递增",
+            "使用中",
+            "硅藻泥基础料",
+            "固定运费 1.35 元",
+            1000,
+            3,
+            10,
+            0,
+            0,
+            10,
+            "",
+            "all",
+            5,
+            2,
+            0,
+            0,
+            0,
+            1.68,
+            789.5868976719005,
+            "低价款 20%，主销款 80%"
+          ]
+        ]
+      ],
+      [
+        "商品规格",
+        [
+          [
+            "店铺",
+            "计划",
+            "商品规格",
+            "生产长（cm）",
+            "生产宽（cm）",
+            "发货重量（g）",
+            "售价（元）",
+            "订单占比（%）",
+            "材料成本（元）",
+            "运费（元）",
+            "每单总成本（未含广告）",
+            "SKU 行编号",
+            "商品 ID",
+            "SKU ID",
+            "材料",
+            "厚度规则",
+            "定价模式",
+            "毛利率（%）",
+            "销售数量"
+          ],
+          [
+            "示例店铺一",
+            "统一毛利",
+            "30 × 40 cm",
+            30,
+            40,
+            "",
+            7.8,
+            20,
+            1.224,
+            1.35,
+            3.0654000000000003,
+            "capture-item-0-0",
+            "",
+            "",
+            "硅藻泥基础料",
+            "",
+            "跟随方案",
+            60.00000000000001,
+            ""
+          ],
+          [
+            "示例店铺一",
+            "统一毛利",
+            "40 × 60 cm",
+            40,
+            60,
+            "",
+            11.51,
+            80,
+            2.448,
+            1.35,
+            4.52313,
+            "capture-item-0-1",
+            "",
+            "",
+            "硅藻泥基础料",
+            "",
+            "跟随方案",
+            60.002606429192,
+            ""
+          ],
+          [
+            "示例店铺一",
+            "成本阶梯",
+            "30 × 40 cm",
+            30,
+            40,
+            "",
+            4.09,
+            20,
+            1.224,
+            1.35,
+            2.83167,
+            "capture-item-1-0",
+            "",
+            "",
+            "硅藻泥基础料",
+            "",
+            "跟随方案",
+            30.06601466992665,
+            ""
+          ],
+          [
+            "示例店铺一",
+            "成本阶梯",
+            "40 × 60 cm",
+            40,
+            60,
+            "",
+            8.84,
+            80,
+            2.448,
+            1.35,
+            4.35492,
+            "capture-item-1-1",
+            "",
+            "",
+            "硅藻泥基础料",
+            "",
+            "跟随方案",
+            50.03619909502262,
+            ""
+          ],
+          [
+            "示例店铺一",
+            "面积递增",
+            "30 × 40 cm",
+            30,
+            40,
+            "",
+            7.8,
+            20,
+            1.224,
+            1.35,
+            3.0654000000000003,
+            "capture-item-2-0",
+            "",
+            "",
+            "硅藻泥基础料",
+            "",
+            "跟随方案",
+            60.00000000000001,
+            ""
+          ],
+          [
+            "示例店铺一",
+            "面积递增",
+            "40 × 60 cm",
+            40,
+            60,
+            "",
+            16.52,
+            80,
+            2.448,
+            1.35,
+            4.83876,
+            "capture-item-2-1",
+            "",
+            "",
+            "硅藻泥基础料",
+            "",
+            "跟随方案",
+            70.00968523002422,
+            ""
+          ]
+        ]
+      ],
+      [
+        "材料",
+        [
+          [
+            "材料",
+            "厚度或说明",
+            "单价（元/㎡）",
+            "状态"
+          ],
+          [
+            "硅藻泥基础料",
+            "",
+            10.2,
+            "启用"
+          ],
+          [
+            "PVC 防滑底",
+            "",
+            12.8,
+            "启用"
+          ],
+          [
+            "定制加厚料",
+            "",
+            16.5,
+            "启用"
+          ],
+          [
+            "硅藻泥",
+            "",
+            9.5,
+            "启用"
+          ],
+          [
+            "亚麻",
+            "",
+            16.2,
+            "启用"
+          ],
+          [
+            "水晶绒",
+            "",
+            8,
+            "启用"
+          ],
+          [
+            "丝圈",
+            "",
+            21,
+            "启用"
+          ],
+          [
+            "皮革",
+            "",
+            15,
+            "启用"
+          ],
+          [
+            "仿羊绒",
+            "",
+            17,
+            "启用"
+          ],
+          [
+            "冰藤",
+            "",
+            18,
+            "启用"
+          ],
+          [
+            "冰丝",
+            "",
+            17,
+            "启用"
+          ],
+          [
+            "冰丝水洗底",
+            "",
+            18,
+            "启用"
+          ],
+          [
+            "菠萝圈",
+            "",
+            19.5,
+            "启用"
+          ],
+          [
+            "天鹅绒",
+            "",
+            12.5,
+            "启用"
+          ],
+          [
+            "金钻绒",
+            "",
+            11.5,
+            "启用"
+          ],
+          [
+            "圈绒",
+            "",
+            18.5,
+            "启用"
+          ]
+        ]
+      ],
+      [
+        "报价记录",
+        [
+          [
+            "材料",
+            "报价日期",
+            "单价（元/㎡）",
+            "备注"
+          ],
+          [
+            "硅藻泥基础料",
+            "2026-09-07",
+            10.2,
+            "初始材料价"
+          ],
+          [
+            "PVC 防滑底",
+            "2026-09-07",
+            12.8,
+            "初始材料价"
+          ],
+          [
+            "定制加厚料",
+            "2026-09-07",
+            16.5,
+            "初始材料价"
+          ],
+          [
+            "硅藻泥",
+            "2026-09-29",
+            9.5,
+            "内置材料规则"
+          ],
+          [
+            "亚麻",
+            "2026-09-29",
+            16.2,
+            "内置材料规则"
+          ],
+          [
+            "水晶绒",
+            "2026-09-29",
+            8,
+            "内置材料规则"
+          ],
+          [
+            "丝圈",
+            "2026-09-29",
+            21,
+            "内置材料规则"
+          ],
+          [
+            "皮革",
+            "2026-09-29",
+            15,
+            "内置材料规则"
+          ],
+          [
+            "仿羊绒",
+            "2026-09-29",
+            17,
+            "内置材料规则"
+          ],
+          [
+            "冰藤",
+            "2026-09-29",
+            18,
+            "内置材料规则"
+          ],
+          [
+            "冰丝",
+            "2026-09-29",
+            17,
+            "内置材料规则"
+          ],
+          [
+            "冰丝水洗底",
+            "2026-09-29",
+            18,
+            "内置材料规则"
+          ],
+          [
+            "菠萝圈",
+            "2026-09-29",
+            19.5,
+            "内置材料规则"
+          ],
+          [
+            "天鹅绒",
+            "2026-09-29",
+            12.5,
+            "内置材料规则"
+          ],
+          [
+            "金钻绒",
+            "2026-09-29",
+            11.5,
+            "内置材料规则"
+          ],
+          [
+            "圈绒",
+            "2026-09-29",
+            18.5,
+            "内置材料规则"
+          ]
+        ]
+      ],
+      [
+        "尺寸库",
+        [
+          [
+            "规格名称",
+            "生产长（cm）",
+            "生产宽（cm）",
+            "生产面积（㎡）",
+            "状态"
+          ],
+          [
+            "30 × 40 cm",
+            30,
+            40,
+            0.12,
+            "启用"
+          ],
+          [
+            "40 × 60 cm",
+            40,
+            60,
+            0.24,
+            "启用"
+          ],
+          [
+            "50 × 80 cm",
+            50,
+            80,
+            0.4,
+            "启用"
+          ],
+          [
+            "60 × 90 cm",
+            60,
+            90,
+            0.54,
+            "启用"
+          ],
+          [
+            "80 × 100 cm",
+            80,
+            100,
+            0.8,
+            "启用"
+          ],
+          [
+            "80 × 120 cm",
+            80,
+            120,
+            0.96,
+            "启用"
+          ]
+        ]
+      ],
+      [
+        "运费模板",
+        [
+          [
+            "模板",
+            "类型",
+            "重量下限（不含，g）",
+            "重量上限（含，g）",
+            "固定或分档费用（元）",
+            "首重（g）",
+            "首重费用（元）",
+            "续重（g）",
+            "每续重费用（元）",
+            "计费说明",
+            "状态"
+          ],
+          [
+            "固定运费 1.35 元",
+            "固定运费",
+            "",
+            "",
+            1.35,
+            "",
+            "",
+            "",
+            "",
+            "每单固定收取",
+            "启用"
+          ],
+          [
+            "重量分档（示例）",
+            "重量分档",
+            0,
+            500,
+            1.35,
+            "",
+            "",
+            "",
+            "",
+            "按重量所在档收取整单运费",
+            "启用"
+          ],
+          [
+            "重量分档（示例）",
+            "重量分档",
+            500,
+            1000,
+            1.8,
+            "",
+            "",
+            "",
+            "",
+            "按重量所在档收取整单运费",
+            "启用"
+          ],
+          [
+            "重量分档（示例）",
+            "重量分档",
+            1000,
+            2000,
+            2.8,
+            "",
+            "",
+            "",
+            "",
+            "按重量所在档收取整单运费",
+            "启用"
+          ],
+          [
+            "首重续重（示例）",
+            "首重续重",
+            0,
+            10000,
+            "",
+            1000,
+            2,
+            500,
+            0.8,
+            "不足一个续重按一个计费",
+            "启用"
+          ]
+        ]
+      ],
+      [
+        "历史账目",
+        [
+          [
+            "记录编号",
+            "日期",
+            "店铺",
+            "计划",
+            "状态",
+            "材料",
+            "当时单价（元/㎡）",
+            "广告费（元）",
+            "整体成交金额（元）",
+            "整体支付 ROI 保本线",
+            "预估盈亏（元）",
+            "入账备注",
+            "更正原因",
+            "原记录编号",
+            "总投入（元，含广告）",
+            "范围归属"
+          ],
+          [
+            "record-mumqu1x3-8ggg2bo8",
+            "2026-09-29",
+            "示例店铺一",
+            "统一毛利",
+            "已入账",
+            "硅藻泥基础料",
+            10.2,
+            1000,
+            3000,
+            1.98,
+            521.0668647845464,
+            "",
+            "",
+            "",
+            2178.933135215453,
+            "所选范围"
+          ]
+        ]
+      ],
+      [
+        "入账规格",
+        [
+          [
+            "记录编号",
+            "日期",
+            "店铺",
+            "计划",
+            "状态",
+            "规格",
+            "生产面积（㎡）",
+            "售价（元）",
+            "订单占比（%）",
+            "材料成本（元）",
+            "发货重量（g）",
+            "运费（元）",
+            "每单总成本（未含广告）"
+          ],
+          [
+            "record-mumqu1x3-8ggg2bo8",
+            "2026-09-29",
+            "示例店铺一",
+            "统一毛利",
+            "已入账",
+            "30 × 40 cm",
+            0.12,
+            7.8,
+            20,
+            1.224,
+            "",
+            1.35,
+            3.0654000000000003
+          ],
+          [
+            "record-mumqu1x3-8ggg2bo8",
+            "2026-09-29",
+            "示例店铺一",
+            "统一毛利",
+            "已入账",
+            "40 × 60 cm",
+            0.24,
+            11.51,
+            80,
+            2.448,
+            "",
+            1.35,
+            4.52313
+          ]
+        ]
+      ],
+      [
+        "显示设置",
+        [
+          [
+            "区域",
+            "顺序",
+            "字段",
+            "显示"
+          ],
+          [
+            "当前测算",
+            1,
+            "整体支付 ROI 保本线",
+            "是"
+          ],
+          [
+            "当前测算",
+            2,
+            "预估盈亏",
+            "是"
+          ],
+          [
+            "商品规格",
+            "固定首列",
+            "规格名称",
+            "是"
+          ],
+          [
+            "商品规格",
+            1,
+            "售价",
+            "是"
+          ],
+          [
+            "商品规格",
+            2,
+            "订单占比",
+            "是"
+          ],
+          [
+            "商品规格",
+            3,
+            "材料成本",
+            "是"
+          ],
+          [
+            "商品规格",
+            4,
+            "每单总成本",
+            "是"
+          ],
+          [
+            "商品规格",
+            5,
+            "保本 ROI",
+            "是"
+          ],
+          [
+            "商品规格",
+            "",
+            "毛利率",
+            "否"
+          ],
+          [
+            "商品规格",
+            "",
+            "销售数量",
+            "否"
+          ],
+          [
+            "商品规格",
+            "",
+            "发货重量",
+            "否"
+          ],
+          [
+            "商品规格",
+            "",
+            "运费",
+            "否"
+          ],
+          [
+            "商品规格",
+            "固定末列",
+            "操作",
+            "是"
+          ]
+        ]
+      ],
+      [
+        "定价策略",
+        [
+          [
+            "编号",
+            "名称",
+            "类型",
+            "细则",
+            "状态"
+          ],
+          [
+            "capture-uniform",
+            "统一毛利",
+            "uniform",
+            "{\"id\":\"capture-uniform\",\"name\":\"统一毛利\",\"type\":\"uniform\",\"margin\":60,\"deleted\":false}",
+            "可用"
+          ],
+          [
+            "capture-rank",
+            "成本阶梯",
+            "rank",
+            "{\"id\":\"capture-rank\",\"name\":\"成本阶梯\",\"type\":\"rank\",\"tiers\":[30,50,70],\"fallback\":80,\"deleted\":false}",
+            "可用"
+          ],
+          [
+            "capture-area",
+            "面积递增",
+            "area",
+            "{\"id\":\"capture-area\",\"name\":\"面积递增\",\"type\":\"area\",\"baseArea\":0.12,\"baseMargin\":60,\"stepArea\":0.1,\"stepPoints\":10,\"cap\":90,\"deleted\":false}",
+            "可用"
+          ]
+        ]
+      ],
+      [
+        "尺寸组合",
+        [
+          [
+            "编号",
+            "名称",
+            "尺寸编号",
+            "状态"
+          ]
+        ]
+      ],
+      [
+        "活动方案",
+        [
+          [
+            "编号",
+            "名称",
+            "活动顺序",
+            "状态"
+          ]
+        ]
+      ],
+      [
+        "厚度规则",
+        [
+          [
+            "材料编号",
+            "材料",
+            "规则编号",
+            "厚度（mm）",
+            "变体",
+            "重量系数（g/㎡）",
+            "材料成本（元/㎡）",
+            "默认",
+            "状态"
+          ],
+          [
+            "mat-builtin-0",
+            "硅藻泥",
+            "rule-784585fb6ce5-2.7-base",
+            2.7,
+            "",
+            0.83,
+            9.3,
+            "否",
+            "可用"
+          ],
+          [
+            "mat-builtin-0",
+            "硅藻泥",
+            "rule-784585fb6ce5-3-base",
+            3,
+            "",
+            0.9,
+            9.5,
+            "是",
+            "可用"
+          ],
+          [
+            "mat-builtin-0",
+            "硅藻泥",
+            "rule-784585fb6ce5-5-base",
+            5,
+            "",
+            1.3,
+            11.2,
+            "否",
+            "可用"
+          ],
+          [
+            "mat-builtin-1",
+            "亚麻",
+            "rule-4e9a9ebb-3.5-base",
+            3.5,
+            "",
+            0.96,
+            15,
+            "否",
+            "可用"
+          ],
+          [
+            "mat-builtin-1",
+            "亚麻",
+            "rule-4e9a9ebb-5-base",
+            5,
+            "",
+            1.26,
+            16.2,
+            "是",
+            "可用"
+          ],
+          [
+            "mat-builtin-2",
+            "水晶绒",
+            "rule-6c3466767ed2-base-base",
+            "",
+            "",
+            0.65,
+            8,
+            "是",
+            "可用"
+          ],
+          [
+            "mat-builtin-2",
+            "水晶绒",
+            "rule-6c3466767ed2-base-53058fb9",
+            "",
+            "包边",
+            0.7,
+            9,
+            "否",
+            "可用"
+          ],
+          [
+            "mat-builtin-3",
+            "丝圈",
+            "rule-4e1d5708-base-base",
+            "",
+            "",
+            2.8,
+            21,
+            "是",
+            "可用"
+          ],
+          [
+            "mat-builtin-4",
+            "皮革",
+            "rule-76ae9769-3.5-base",
+            3.5,
+            "",
+            1.3,
+            15,
+            "是",
+            "可用"
+          ],
+          [
+            "mat-builtin-5",
+            "仿羊绒",
+            "rule-4eff7f8a7ed2-base-base",
+            "",
+            "",
+            1.45,
+            17,
+            "是",
+            "可用"
+          ],
+          [
+            "mat-builtin-6",
+            "冰藤",
+            "rule-51b085e4-4.15-base",
+            4.15,
+            "",
+            1.2,
+            18,
+            "是",
+            "可用"
+          ],
+          [
+            "mat-builtin-7",
+            "冰丝",
+            "rule-51b04e1d-3.36-base",
+            3.36,
+            "",
+            0.95,
+            17,
+            "是",
+            "可用"
+          ],
+          [
+            "mat-builtin-7",
+            "冰丝",
+            "rule-51b04e1d-3.36-5e267ed15e26",
+            3.36,
+            "带绑带",
+            0.95,
+            19,
+            "否",
+            "可用"
+          ],
+          [
+            "mat-builtin-8",
+            "冰丝水洗底",
+            "rule-51b04e1d6c346d175e95-1.9-base",
+            1.9,
+            "",
+            1,
+            18,
+            "是",
+            "可用"
+          ],
+          [
+            "mat-builtin-8",
+            "冰丝水洗底",
+            "rule-51b04e1d6c346d175e95-1.9-7ed15e26",
+            1.9,
+            "绑带",
+            1,
+            19,
+            "否",
+            "可用"
+          ],
+          [
+            "mat-builtin-9",
+            "菠萝圈",
+            "rule-83e0841d5708-base-base",
+            "",
+            "",
+            1.25,
+            19.5,
+            "是",
+            "可用"
+          ],
+          [
+            "mat-builtin-10",
+            "天鹅绒",
+            "rule-59299e457ed2-base-base",
+            "",
+            "",
+            0.85,
+            12.5,
+            "是",
+            "可用"
+          ],
+          [
+            "mat-builtin-11",
+            "金钻绒",
+            "rule-91d194bb7ed2-base-base",
+            "",
+            "",
+            0.8,
+            11.5,
+            "是",
+            "可用"
+          ],
+          [
+            "mat-builtin-12",
+            "圈绒",
+            "rule-57087ed2-8-base",
+            8,
+            "",
+            2.6,
+            18.5,
+            "是",
+            "可用"
+          ]
+        ]
+      ]
+    ],
+    "7": [
+      [
+        "使用说明",
+        [
+          [
+            "项目",
+            "说明"
+          ],
+          [
+            "文件用途",
+            "运营查看与工作台恢复；整份或按范围导出均可在其他电脑导入。"
+          ],
+          [
+            "恢复要求",
+            "使用未改动的原始导出文件恢复。需要加工分析时请另存副本，避免表格与冻结账目不一致。"
+          ],
+          [
+            "费用口径",
+            "每单总成本按退款类型分摊商品和运费，含平台费、税及其他费用，不含广告；总投入包含广告。"
+          ],
+          [
+            "历史合计",
+            "只有“已入账”的每日记录计入合计；已更正、已作废和旧版试算不累计。"
+          ],
+          [
+            "备份范围",
+            "全部店铺、计划、公共资料、冻结账目及显示设置。"
+          ],
+          [
+            "毛利率（成本口径）",
+            "利润 ÷ 成本 × 100%；利润 = 售价 − 成本；成本含原材料、单次运费、按售价计算的平台费及税。未计退款、其他费用及广告；成本为零时不计算。"
+          ],
+          [
+            "定价策略目标（销售口径）",
+            "策略目标沿用利润 ÷ 售价的定价规则，规格表显示利润 ÷ 成本。"
+          ],
+          [
+            "退款后结余率",
+            "广告前结余除以退款后收入；收入为零时不计算。支付结余率改用退款前支付金额为分母。"
+          ],
+          [
+            "退款回收",
+            "新版仅退货退款抵扣回收材料；已发货仅退款无材料回收，已发出运费不退。旧入账保持当时公式。"
+          ],
+          [
+            "净成交 ROI 保本线",
+            "退款后收入除以广告前结余；1 小时内退款为退款子集，仅作参考，不加回收入。"
+          ],
+          [
+            "订单模型",
+            "一单一件估算；各规格先按订单占比加权金额，再计算整体 ROI。"
+          ]
+        ]
+      ],
+      [
+        "导出范围",
+        [
+          [
+            "项目",
+            "内容"
+          ],
+          [
+            "导出类型",
+            "完整工作区"
+          ],
+          [
+            "店铺",
+            "示例店铺一；示例店铺二"
+          ],
+          [
+            "计划",
+            "示例店铺一 / 统一毛利；示例店铺一 / 成本阶梯；示例店铺一 / 面积递增"
+          ],
+          [
+            "开始日期",
+            "不限"
+          ],
+          [
+            "结束日期",
+            "不限"
+          ],
+          [
+            "范围内有效入账",
+            1
+          ],
+          [
+            "范围内利润（元）",
+            521.0668647845464
+          ],
+          [
+            "额外关联更正版本",
+            0
+          ],
+          [
+            "公共资料",
+            "当前计划使用的材料、尺寸和运费规则；历史用料与费用另存于各笔账目。"
+          ],
+          [
+            "日期口径",
+            "日期只筛选历史账目，计划参数和公共资料均为导出时的当前值。"
+          ],
+          [
+            "恢复方式",
+            "可合并恢复，或确认后替换整个工作区。"
+          ],
+          [
+            "冲突处理",
+            "重复账目不累计；存在分支或同日不同账目时，保留本机该计划的全部账目，并显示未导入清单。"
+          ],
+          [
+            "更正关系",
+            "相关更正版本可能在日期范围外，一并保存以保证账目完整；合计只统计日期范围内有效版本。"
+          ]
+        ]
+      ],
+      [
+        "店铺",
+        [
+          [
+            "店铺",
+            "状态",
+            "使用中计划数"
+          ],
+          [
+            "示例店铺一",
+            "使用中",
+            3
+          ],
+          [
+            "示例店铺二",
+            "使用中",
+            0
+          ]
+        ]
+      ],
+      [
+        "计划",
+        [
+          [
+            "店铺",
+            "计划",
+            "状态",
+            "材料",
+            "运费模板",
+            "广告消耗（元）",
+            "支付ROI",
+            "退款率（兼容）（%）",
+            "未发货仅退款率（%）",
+            "已发货仅退款率（%）",
+            "退货退款率（%）",
+            "1 小时内退款率（%）",
+            "其他费用发生范围",
+            "平台费（%）",
+            "税率（%）",
+            "回收比例（%）",
+            "其他费用（元/单）",
+            "每退货单额外费用（元）",
+            "整体支付 ROI 保本线",
+            "预估盈亏（元）",
+            "备注"
+          ],
+          [
+            "示例店铺一",
+            "统一毛利",
+            "使用中",
+            "硅藻泥基础料",
+            "固定运费 1.35 元",
+            1000,
+            3,
+            10,
+            0,
+            0,
+            10,
+            "",
+            "all",
+            5,
+            2,
+            0,
+            0,
+            0,
+            1.98,
+            521.0668647845464,
+            "低价款 20%，主销款 80%"
+          ],
+          [
+            "示例店铺一",
+            "成本阶梯",
+            "使用中",
+            "硅藻泥基础料",
+            "固定运费 1.35 元",
+            1000,
+            3,
+            10,
+            0,
+            0,
+            10,
+            "",
+            "all",
+            5,
+            2,
+            0,
+            0,
+            0,
+            2.59,
+            159.9733840304184,
+            "低价款 20%，主销款 80%"
+          ],
+          [
+            "示例店铺一",
+            "面积递增",
+            "使用中",
+            "硅藻泥基础料",
+            "固定运费 1.35 元",
+            1000,
+            3,
+            10,
+            0,
+            0,
+            10,
+            "",
+            "all",
+            5,
+            2,
+            0,
+            0,
+            0,
+            1.68,
+            789.5868976719005,
+            "低价款 20%，主销款 80%"
+          ]
+        ]
+      ],
+      [
+        "商品规格",
+        [
+          [
+            "店铺",
+            "计划",
+            "商品规格",
+            "生产长（cm）",
+            "生产宽（cm）",
+            "发货重量（g）",
+            "售价（元）",
+            "订单占比（%）",
+            "材料成本（元）",
+            "分摊运费（元/支付单）",
+            "每支付单成本（未含广告）",
+            "SKU 行编号",
+            "商品 ID",
+            "SKU ID",
+            "材料",
+            "厚度规则",
+            "定价模式",
+            "毛利率（利润÷成本，%）",
+            "销售数量",
+            "单次运费（元/包裹）",
+            "退款后收入（元/支付单）",
+            "广告前结余（元/支付单）",
+            "退款后结余率（%）",
+            "支付结余率（%）",
+            "支付 ROI 保本线",
+            "净成交 ROI 保本线",
+            "毛利计算成本（元）",
+            "毛利计算利润（元）"
+          ],
+          [
+            "示例店铺一",
+            "统一毛利",
+            "30 × 40 cm",
+            30,
+            40,
+            "",
+            7.8,
+            20,
+            1.224,
+            1.35,
+            3.0654000000000003,
+            "capture-item-0-0",
+            "",
+            "",
+            "硅藻泥基础料",
+            "",
+            "跟随方案",
+            150,
+            "",
+            1.35,
+            7.02,
+            3.9545999999999992,
+            56.33333333333332,
+            50.69999999999999,
+            1.98,
+            1.78,
+            3.12,
+            4.68
+          ],
+          [
+            "示例店铺一",
+            "统一毛利",
+            "40 × 60 cm",
+            40,
+            60,
+            "",
+            11.51,
+            80,
+            2.448,
+            1.35,
+            4.52313,
+            "capture-item-0-1",
+            "",
+            "",
+            "硅藻泥基础料",
+            "",
+            "跟随方案",
+            150.0162912439994,
+            "",
+            1.35,
+            10.359,
+            5.83587,
+            56.3362293657689,
+            50.70260642919201,
+            1.98,
+            1.78,
+            4.6037,
+            6.9063
+          ],
+          [
+            "示例店铺一",
+            "成本阶梯",
+            "30 × 40 cm",
+            30,
+            40,
+            "",
+            4.09,
+            20,
+            1.224,
+            1.35,
+            2.83167,
+            "capture-item-1-0",
+            "",
+            "",
+            "硅藻泥基础料",
+            "",
+            "跟随方案",
+            42.99199384679929,
+            "",
+            1.35,
+            3.681,
+            0.8493300000000001,
+            23.073349633251837,
+            20.766014669926655,
+            4.82,
+            4.34,
+            2.8603,
+            1.2297
+          ],
+          [
+            "示例店铺一",
+            "成本阶梯",
+            "40 × 60 cm",
+            40,
+            60,
+            "",
+            8.84,
+            80,
+            2.448,
+            1.35,
+            4.35492,
+            "capture-item-1-1",
+            "",
+            "",
+            "硅藻泥基础料",
+            "",
+            "跟随方案",
+            100.14490128599891,
+            "",
+            1.35,
+            7.956,
+            3.6010800000000005,
+            45.262443438914026,
+            40.73619909502263,
+            2.46,
+            2.21,
+            4.4168,
+            4.4232
+          ],
+          [
+            "示例店铺一",
+            "面积递增",
+            "30 × 40 cm",
+            30,
+            40,
+            "",
+            7.8,
+            20,
+            1.224,
+            1.35,
+            3.0654000000000003,
+            "capture-item-2-0",
+            "",
+            "",
+            "硅藻泥基础料",
+            "",
+            "跟随方案",
+            150,
+            "",
+            1.35,
+            7.02,
+            3.9545999999999992,
+            56.33333333333332,
+            50.69999999999999,
+            1.98,
+            1.78,
+            3.12,
+            4.68
+          ],
+          [
+            "示例店铺一",
+            "面积递增",
+            "40 × 60 cm",
+            40,
+            60,
+            "",
+            16.52,
+            80,
+            2.448,
+            1.35,
+            4.83876,
+            "capture-item-2-1",
+            "",
+            "",
+            "硅藻泥基础料",
+            "",
+            "跟随方案",
+            233.44098175359278,
+            "",
+            1.35,
+            14.868,
+            10.029240000000001,
+            67.45520581113801,
+            60.70968523002422,
+            1.65,
+            1.49,
+            4.9544,
+            11.5656
+          ]
+        ]
+      ],
+      [
+        "材料",
+        [
+          [
+            "材料",
+            "厚度或说明",
+            "单价（元/㎡）",
+            "状态"
+          ],
+          [
+            "硅藻泥基础料",
+            "",
+            10.2,
+            "启用"
+          ],
+          [
+            "PVC 防滑底",
+            "",
+            12.8,
+            "启用"
+          ],
+          [
+            "定制加厚料",
+            "",
+            16.5,
+            "启用"
+          ],
+          [
+            "硅藻泥",
+            "",
+            9.5,
+            "启用"
+          ],
+          [
+            "亚麻",
+            "",
+            16.2,
+            "启用"
+          ],
+          [
+            "水晶绒",
+            "",
+            8,
+            "启用"
+          ],
+          [
+            "丝圈",
+            "",
+            21,
+            "启用"
+          ],
+          [
+            "皮革",
+            "",
+            15,
+            "启用"
+          ],
+          [
+            "仿羊绒",
+            "",
+            17,
+            "启用"
+          ],
+          [
+            "冰藤",
+            "",
+            18,
+            "启用"
+          ],
+          [
+            "冰丝",
+            "",
+            17,
+            "启用"
+          ],
+          [
+            "冰丝水洗底",
+            "",
+            18,
+            "启用"
+          ],
+          [
+            "菠萝圈",
+            "",
+            19.5,
+            "启用"
+          ],
+          [
+            "天鹅绒",
+            "",
+            12.5,
+            "启用"
+          ],
+          [
+            "金钻绒",
+            "",
+            11.5,
+            "启用"
+          ],
+          [
+            "圈绒",
+            "",
+            18.5,
+            "启用"
+          ]
+        ]
+      ],
+      [
+        "报价记录",
+        [
+          [
+            "材料",
+            "报价日期",
+            "单价（元/㎡）",
+            "备注"
+          ],
+          [
+            "硅藻泥基础料",
+            "2026-09-07",
+            10.2,
+            "初始材料价"
+          ],
+          [
+            "PVC 防滑底",
+            "2026-09-07",
+            12.8,
+            "初始材料价"
+          ],
+          [
+            "定制加厚料",
+            "2026-09-07",
+            16.5,
+            "初始材料价"
+          ],
+          [
+            "硅藻泥",
+            "2026-09-29",
+            9.5,
+            "内置材料规则"
+          ],
+          [
+            "亚麻",
+            "2026-09-29",
+            16.2,
+            "内置材料规则"
+          ],
+          [
+            "水晶绒",
+            "2026-09-29",
+            8,
+            "内置材料规则"
+          ],
+          [
+            "丝圈",
+            "2026-09-29",
+            21,
+            "内置材料规则"
+          ],
+          [
+            "皮革",
+            "2026-09-29",
+            15,
+            "内置材料规则"
+          ],
+          [
+            "仿羊绒",
+            "2026-09-29",
+            17,
+            "内置材料规则"
+          ],
+          [
+            "冰藤",
+            "2026-09-29",
+            18,
+            "内置材料规则"
+          ],
+          [
+            "冰丝",
+            "2026-09-29",
+            17,
+            "内置材料规则"
+          ],
+          [
+            "冰丝水洗底",
+            "2026-09-29",
+            18,
+            "内置材料规则"
+          ],
+          [
+            "菠萝圈",
+            "2026-09-29",
+            19.5,
+            "内置材料规则"
+          ],
+          [
+            "天鹅绒",
+            "2026-09-29",
+            12.5,
+            "内置材料规则"
+          ],
+          [
+            "金钻绒",
+            "2026-09-29",
+            11.5,
+            "内置材料规则"
+          ],
+          [
+            "圈绒",
+            "2026-09-29",
+            18.5,
+            "内置材料规则"
+          ]
+        ]
+      ],
+      [
+        "尺寸库",
+        [
+          [
+            "规格名称",
+            "生产长（cm）",
+            "生产宽（cm）",
+            "生产面积（㎡）",
+            "状态"
+          ],
+          [
+            "30 × 40 cm",
+            30,
+            40,
+            0.12,
+            "启用"
+          ],
+          [
+            "40 × 60 cm",
+            40,
+            60,
+            0.24,
+            "启用"
+          ],
+          [
+            "50 × 80 cm",
+            50,
+            80,
+            0.4,
+            "启用"
+          ],
+          [
+            "60 × 90 cm",
+            60,
+            90,
+            0.54,
+            "启用"
+          ],
+          [
+            "80 × 100 cm",
+            80,
+            100,
+            0.8,
+            "启用"
+          ],
+          [
+            "80 × 120 cm",
+            80,
+            120,
+            0.96,
+            "启用"
+          ]
+        ]
+      ],
+      [
+        "运费模板",
+        [
+          [
+            "模板",
+            "类型",
+            "重量下限（不含，g）",
+            "重量上限（含，g）",
+            "固定或分档费用（元）",
+            "首重（g）",
+            "首重费用（元）",
+            "续重（g）",
+            "每续重费用（元）",
+            "计费说明",
+            "状态"
+          ],
+          [
+            "固定运费 1.35 元",
+            "固定运费",
+            "",
+            "",
+            1.35,
+            "",
+            "",
+            "",
+            "",
+            "每单固定收取",
+            "启用"
+          ],
+          [
+            "重量分档（示例）",
+            "重量分档",
+            0,
+            500,
+            1.35,
+            "",
+            "",
+            "",
+            "",
+            "按重量所在档收取整单运费",
+            "启用"
+          ],
+          [
+            "重量分档（示例）",
+            "重量分档",
+            500,
+            1000,
+            1.8,
+            "",
+            "",
+            "",
+            "",
+            "按重量所在档收取整单运费",
+            "启用"
+          ],
+          [
+            "重量分档（示例）",
+            "重量分档",
+            1000,
+            2000,
+            2.8,
+            "",
+            "",
+            "",
+            "",
+            "按重量所在档收取整单运费",
+            "启用"
+          ],
+          [
+            "首重续重（示例）",
+            "首重续重",
+            0,
+            10000,
+            "",
+            1000,
+            2,
+            500,
+            0.8,
+            "不足一个续重按一个计费",
+            "启用"
+          ]
+        ]
+      ],
+      [
+        "历史账目",
+        [
+          [
+            "记录编号",
+            "日期",
+            "店铺",
+            "计划",
+            "状态",
+            "材料",
+            "当时单价（元/㎡）",
+            "广告费（元）",
+            "整体成交金额（元）",
+            "整体支付 ROI 保本线",
+            "预估盈亏（元）",
+            "入账备注",
+            "更正原因",
+            "原记录编号",
+            "总投入（元，含广告）",
+            "范围归属",
+            "计算口径"
+          ],
+          [
+            "record-mumqu1x3-8ggg2bo8",
+            "2026-09-29",
+            "示例店铺一",
+            "统一毛利",
+            "已入账",
+            "硅藻泥基础料",
+            10.2,
+            1000,
+            3000,
+            1.98,
+            521.0668647845464,
+            "",
+            "",
+            "",
+            2178.933135215453,
+            "所选范围",
+            "新版退款回收与净成交口径"
+          ]
+        ]
+      ],
+      [
+        "入账规格",
+        [
+          [
+            "记录编号",
+            "日期",
+            "店铺",
+            "计划",
+            "状态",
+            "规格",
+            "生产面积（㎡）",
+            "售价（元）",
+            "订单占比（%）",
+            "材料成本（元）",
+            "发货重量（g）",
+            "分摊运费（元/支付单）",
+            "每支付单成本（未含广告）"
+          ],
+          [
+            "record-mumqu1x3-8ggg2bo8",
+            "2026-09-29",
+            "示例店铺一",
+            "统一毛利",
+            "已入账",
+            "30 × 40 cm",
+            0.12,
+            7.8,
+            20,
+            1.224,
+            "",
+            1.35,
+            3.0654000000000003
+          ],
+          [
+            "record-mumqu1x3-8ggg2bo8",
+            "2026-09-29",
+            "示例店铺一",
+            "统一毛利",
+            "已入账",
+            "40 × 60 cm",
+            0.24,
+            11.51,
+            80,
+            2.448,
+            "",
+            1.35,
+            4.52313
+          ]
+        ]
+      ],
+      [
+        "显示设置",
+        [
+          [
+            "区域",
+            "顺序",
+            "字段",
+            "显示"
+          ],
+          [
+            "当前测算",
+            1,
+            "整体支付 ROI 保本线",
+            "是"
+          ],
+          [
+            "当前测算",
+            2,
+            "预估盈亏",
+            "是"
+          ],
+          [
+            "商品规格",
+            "固定首列",
+            "规格名称",
+            "是"
+          ],
+          [
+            "商品规格",
+            1,
+            "售价",
+            "是"
+          ],
+          [
+            "商品规格",
+            2,
+            "订单占比",
+            "是"
+          ],
+          [
+            "商品规格",
+            3,
+            "材料成本",
+            "是"
+          ],
+          [
+            "商品规格",
+            4,
+            "每支付单成本",
+            "是"
+          ],
+          [
+            "商品规格",
+            5,
+            "支付 ROI 保本线",
+            "是"
+          ],
+          [
+            "商品规格",
+            "",
+            "毛利率",
+            "否"
+          ],
+          [
+            "商品规格",
+            "",
+            "退款后结余率",
+            "否"
+          ],
+          [
+            "商品规格",
+            "",
+            "支付结余率",
+            "否"
+          ],
+          [
+            "商品规格",
+            "",
+            "退款后收入",
+            "否"
+          ],
+          [
+            "商品规格",
+            "",
+            "广告前结余",
+            "否"
+          ],
+          [
+            "商品规格",
+            "",
+            "销售数量",
+            "否"
+          ],
+          [
+            "商品规格",
+            "",
+            "发货重量",
+            "否"
+          ],
+          [
+            "商品规格",
+            "",
+            "单次运费",
+            "否"
+          ],
+          [
+            "商品规格",
+            "",
+            "分摊运费",
+            "否"
+          ],
+          [
+            "商品规格",
+            "固定末列",
+            "操作",
+            "是"
+          ]
+        ]
+      ],
+      [
+        "定价策略",
+        [
+          [
+            "编号",
+            "名称",
+            "类型",
+            "细则",
+            "状态"
+          ],
+          [
+            "capture-uniform",
+            "统一毛利",
+            "uniform",
+            "{\"id\":\"capture-uniform\",\"name\":\"统一毛利\",\"type\":\"uniform\",\"margin\":60,\"deleted\":false}",
+            "可用"
+          ],
+          [
+            "capture-rank",
+            "成本阶梯",
+            "rank",
+            "{\"id\":\"capture-rank\",\"name\":\"成本阶梯\",\"type\":\"rank\",\"tiers\":[30,50,70],\"fallback\":80,\"deleted\":false}",
+            "可用"
+          ],
+          [
+            "capture-area",
+            "面积递增",
+            "area",
+            "{\"id\":\"capture-area\",\"name\":\"面积递增\",\"type\":\"area\",\"baseArea\":0.12,\"baseMargin\":60,\"stepArea\":0.1,\"stepPoints\":10,\"cap\":90,\"deleted\":false}",
+            "可用"
+          ]
+        ]
+      ],
+      [
+        "尺寸组合",
+        [
+          [
+            "编号",
+            "名称",
+            "尺寸编号",
+            "状态"
+          ]
+        ]
+      ],
+      [
+        "活动方案",
+        [
+          [
+            "编号",
+            "名称",
+            "活动顺序",
+            "状态"
+          ]
+        ]
+      ],
+      [
+        "厚度规则",
+        [
+          [
+            "材料编号",
+            "材料",
+            "规则编号",
+            "厚度（mm）",
+            "变体",
+            "重量系数（g/㎡）",
+            "材料成本（元/㎡）",
+            "默认",
+            "状态"
+          ],
+          [
+            "mat-builtin-0",
+            "硅藻泥",
+            "rule-784585fb6ce5-2.7-base",
+            2.7,
+            "",
+            830,
+            9.3,
+            "否",
+            "可用"
+          ],
+          [
+            "mat-builtin-0",
+            "硅藻泥",
+            "rule-784585fb6ce5-3-base",
+            3,
+            "",
+            900,
+            9.5,
+            "是",
+            "可用"
+          ],
+          [
+            "mat-builtin-0",
+            "硅藻泥",
+            "rule-784585fb6ce5-5-base",
+            5,
+            "",
+            1300,
+            11.2,
+            "否",
+            "可用"
+          ],
+          [
+            "mat-builtin-1",
+            "亚麻",
+            "rule-4e9a9ebb-3.5-base",
+            3.5,
+            "",
+            960,
+            15,
+            "否",
+            "可用"
+          ],
+          [
+            "mat-builtin-1",
+            "亚麻",
+            "rule-4e9a9ebb-5-base",
+            5,
+            "",
+            1260,
+            16.2,
+            "是",
+            "可用"
+          ],
+          [
+            "mat-builtin-2",
+            "水晶绒",
+            "rule-6c3466767ed2-base-base",
+            "",
+            "",
+            650,
+            8,
+            "是",
+            "可用"
+          ],
+          [
+            "mat-builtin-2",
+            "水晶绒",
+            "rule-6c3466767ed2-base-53058fb9",
+            "",
+            "包边",
+            700,
+            9,
+            "否",
+            "可用"
+          ],
+          [
+            "mat-builtin-3",
+            "丝圈",
+            "rule-4e1d5708-base-base",
+            "",
+            "",
+            2800,
+            21,
+            "是",
+            "可用"
+          ],
+          [
+            "mat-builtin-4",
+            "皮革",
+            "rule-76ae9769-3.5-base",
+            3.5,
+            "",
+            1300,
+            15,
+            "是",
+            "可用"
+          ],
+          [
+            "mat-builtin-5",
+            "仿羊绒",
+            "rule-4eff7f8a7ed2-base-base",
+            "",
+            "",
+            1450,
+            17,
+            "是",
+            "可用"
+          ],
+          [
+            "mat-builtin-6",
+            "冰藤",
+            "rule-51b085e4-4.15-base",
+            4.15,
+            "",
+            1200,
+            18,
+            "是",
+            "可用"
+          ],
+          [
+            "mat-builtin-7",
+            "冰丝",
+            "rule-51b04e1d-3.36-base",
+            3.36,
+            "",
+            950,
+            17,
+            "是",
+            "可用"
+          ],
+          [
+            "mat-builtin-7",
+            "冰丝",
+            "rule-51b04e1d-3.36-5e267ed15e26",
+            3.36,
+            "带绑带",
+            950,
+            19,
+            "否",
+            "可用"
+          ],
+          [
+            "mat-builtin-8",
+            "冰丝水洗底",
+            "rule-51b04e1d6c346d175e95-1.9-base",
+            1.9,
+            "",
+            1000,
+            18,
+            "是",
+            "可用"
+          ],
+          [
+            "mat-builtin-8",
+            "冰丝水洗底",
+            "rule-51b04e1d6c346d175e95-1.9-7ed15e26",
+            1.9,
+            "绑带",
+            1000,
+            19,
+            "否",
+            "可用"
+          ],
+          [
+            "mat-builtin-9",
+            "菠萝圈",
+            "rule-83e0841d5708-base-base",
+            "",
+            "",
+            1250,
+            19.5,
+            "是",
+            "可用"
+          ],
+          [
+            "mat-builtin-10",
+            "天鹅绒",
+            "rule-59299e457ed2-base-base",
+            "",
+            "",
+            850,
+            12.5,
+            "是",
+            "可用"
+          ],
+          [
+            "mat-builtin-11",
+            "金钻绒",
+            "rule-91d194bb7ed2-base-base",
+            "",
+            "",
+            800,
+            11.5,
+            "是",
+            "可用"
+          ],
+          [
+            "mat-builtin-12",
+            "圈绒",
+            "rule-57087ed2-8-base",
+            8,
+            "",
+            2600,
+            18.5,
+            "是",
+            "可用"
+          ]
+        ]
+      ]
+    ]
+  }
+}

@@ -10,31 +10,36 @@
   const Excel=typeof module==='object'?require('./assets/exceljs.min.js'):root.ExcelJS;
   const clean=v=>v===undefined||v===null||typeof v==='number'&&!Number.isFinite(v)?'':v;
   const status=h=>h.kind==='snapshot'?'旧版试算':({confirmed:'已入账',superseded:'已更正',void:'已作废'}[h.status]);
-  function tables(s,format=6){
+  function tables(s,format=9){
+    // Formats 5–8 are verified against their original visible values and labels.
+    // Older pricing and cost validation apply only to backup verification.
+    const calculate=(state,plan)=>M.calculate(format<7&&state.version===4&&state.formulaVersion===undefined?{...state,formulaVersion:4}:state,plan,{},{legacyPricing:format<8,legacyCostValidation:format<9});
+    const metricList=format<7?M.metricList.map(x=>({...x,label:({netRoi:'净 ROI',margin:'每单可投广告费',rate:'每百元结余'})[x.id]||x.label})):M.metricList;
+    const skuColumnList=format<7?M.skuColumnList.filter(x=>!['receivedMargin','contributionRate','revenue','margin','baseShipping'].includes(x.id)).map(x=>({...x,label:({grossMargin:'毛利率',shipping:'运费',cost:'每单总成本',roi:'保本 ROI'})[x.id]||x.label})):M.skuColumnList;
     if(Compatibility.workbookTables(format)==='v3')return Old.tables(s,format);
     const shop=id=>s.shops.find(x=>x.id===id)?.name||'',material=id=>s.materials.find(x=>x.id===id),shipping=id=>s.shippingTemplates.find(x=>x.id===id);
     const splitPlans=format>=3;
     const legacyShippingRows=t=>t.type==='tiers'?t.tiers.map((v,i)=>[t.name,'重量分档',i?t.tiers[i-1].upTo:0,v.upTo,v.fee,'','','','','按重量所在档收取整单运费',t.active?'启用':'停用']):[[t.name,t.type==='fixed'?'固定运费':'首重续重',t.type==='step'?0:'',t.maxWeight,t.fee,t.firstWeight,t.firstFee,t.stepWeight,t.stepFee,t.type==='step'?'不足一个续重按一个计费':'每单固定收取',t.active?'启用':'停用']];
     const planHeader=splitPlans?['店铺','计划','状态','材料','运费模板','广告消耗（元）','支付ROI','退款率（兼容）（%）','未发货仅退款率（%）','已发货仅退款率（%）','退货退款率（%）','1 小时内退款率（%）','其他费用发生范围','平台费（%）','税率（%）','回收比例（%）','其他费用（元/单）','每退货单额外费用（元）','整体支付 ROI 保本线','预估盈亏（元）','备注']:['店铺','计划','状态','材料','运费模板','广告消耗（元）','支付ROI','退货率（%）','平台费（%）','税率（%）','回收比例（%）','其他费用（元/单）','每退货单额外费用（元）','整体支付 ROI 保本线','预估盈亏（元）','备注'];
-    const planRows=s.plans.map(p=>{const r=M.calculate(s,p),rates=M.refundMetrics(p.params);return splitPlans?[shop(p.shopId),p.name,p.deleted?'已删除':'使用中',material(p.materialId)?.name,shipping(p.shippingId)?.name,p.params.spend,p.params.actualRoi,format>=4?rates.refundTotal:p.params.refund,rates.unshipped,rates.shippedOnly,rates.returnRefund,p.params.refundRates?.firstHour??'',rates.otherFeeScope,p.params.fee,p.params.tax,p.params.recovery,p.params.other,p.params.returnCost,r.valid?M.ceilRoi(r.roi):'',r.profit,p.note]:[shop(p.shopId),p.name,p.deleted?'已删除':'使用中',material(p.materialId)?.name,shipping(p.shippingId)?.name,p.params.spend,p.params.actualRoi,p.params.refund,p.params.fee,p.params.tax,p.params.recovery,p.params.other,p.params.returnCost,r.valid?M.ceilRoi(r.roi):'',r.profit,p.note];});
+    const planRows=s.plans.map(p=>{const r=calculate(s,p),rates=M.refundMetrics(p.params,format<7);return splitPlans?[shop(p.shopId),p.name,p.deleted?'已删除':'使用中',material(p.materialId)?.name,shipping(p.shippingId)?.name,p.params.spend,p.params.actualRoi,format>=4?rates.refundTotal:p.params.refund,rates.unshipped,rates.shippedOnly,rates.returnRefund,p.params.refundRates?.firstHour??'',rates.otherFeeScope,p.params.fee,p.params.tax,p.params.recovery,p.params.other,p.params.returnCost,r.valid?M.ceilRoi(r.roi):'',r.profit,p.note]:[shop(p.shopId),p.name,p.deleted?'已删除':'使用中',material(p.materialId)?.name,shipping(p.shippingId)?.name,p.params.spend,p.params.actualRoi,p.params.refund,p.params.fee,p.params.tax,p.params.recovery,p.params.other,p.params.returnCost,r.valid?M.ceilRoi(r.roi):'',r.profit,p.note];});
     const sheets=[
       ['使用说明',[['项目','说明'],['文件用途','运营查看与完整工作区恢复；在工作台导入本文件即可恢复。'],['恢复要求','使用未改动的原始导出文件恢复。需要加工分析时请另存副本，避免表格与冻结账目不一致。'],['费用口径','每单总成本按退款类型分摊商品和运费，含平台费、税及其他费用，不含广告；总投入包含广告。'],['历史合计','只有“已入账”的每日记录计入合计；已更正、已作废和旧版试算不累计。'],['备份范围','全部店铺、计划、公共资料、冻结账目及显示设置。隐藏的恢复数据页用于完整还原，请保留。']]],
       ['店铺',[['店铺','状态','使用中计划数'],...s.shops.map(x=>[x.name,x.deleted?'已删除':'使用中',s.plans.filter(p=>p.shopId===x.id&&!p.deleted).length])]],
       ['计划',[planHeader,...planRows]],
-      ['商品规格',[['店铺','计划','商品规格','销售长（cm）','销售宽（cm）','异形','生产长（cm）','生产宽（cm）','发货重量（kg）','售价（元）','订单占比（%）','材料成本（元）','运费（元）','每单总成本（未含广告）'],...s.plans.flatMap(p=>M.calculate(s,p).rows.map(i=>[shop(p.shopId),p.name,M.sizeLabel(i.size),i.size.salesW,i.size.salesH,i.size.irregular?'是':'否',i.size.irregular?i.size.productionW:i.size.salesW,i.size.irregular?i.size.productionH:i.size.salesH,i.weight,i.price,i.share,i.material,i.shipping,i.cost]))]],
+      ['商品规格',[['店铺','计划','商品规格','销售长（cm）','销售宽（cm）','异形','生产长（cm）','生产宽（cm）','发货重量（kg）','售价（元）','订单占比（%）','材料成本（元）','运费（元）','每单总成本（未含广告）'],...s.plans.flatMap(p=>calculate(s,p).rows.map(i=>[shop(p.shopId),p.name,M.sizeLabel(i.size),i.size.salesW,i.size.salesH,i.size.irregular?'是':'否',i.size.irregular?i.size.productionW:i.size.salesW,i.size.irregular?i.size.productionH:i.size.salesH,i.weight,i.price,i.share,i.material,i.shipping,i.cost]))]],
       ['材料',[['材料','厚度或说明','单价（元/㎡）','状态'],...s.materials.map(m=>[m.name,m.description,m.price,m.active?'启用':'停用'])]],
       ['报价记录',[['材料','报价日期','单价（元/㎡）','备注'],...s.materials.flatMap(m=>m.history.map(h=>[m.name,h.date,h.price,h.note]))]],
       ['尺寸库',[['规格名称','销售长（cm）','销售宽（cm）','异形','生产长（cm）','生产宽（cm）','生产面积（㎡）','状态'],...s.sizes.map(x=>[M.sizeLabel(x),x.salesW,x.salesH,x.irregular?'是':'否',x.irregular?x.productionW:x.salesW,x.irregular?x.productionH:x.salesH,M.productionArea(x),x.needsReview?'待补生产尺寸':x.active?'启用':'停用'])]],
       ['运费模板',[['模板','类型','重量下限（不含，kg）','重量上限（含，kg）','固定或分档费用（元）','首重（kg）','首重费用（元）','续重（kg）','每续重费用（元）','计费说明','状态'],...s.shippingTemplates.flatMap(legacyShippingRows)]],
       ['历史账目',[['记录编号','日期','店铺','计划','状态','材料','当时单价（元/㎡）','广告费（元）','整体成交金额（元）','整体支付 ROI 保本线','预估盈亏（元）','入账备注','更正原因','原记录编号'],...s.records.map(h=>[h.id,h.date,h.shopName,h.planName,status(h),h.frame?.materials[0].name||h.legacy?.materialName,h.frame&&format>=4?M.frameMaterialPrice(h.frame):h.frame?.materials[0].price??h.legacy?.materialPrice,h.frame?.plan.params.spend??h.legacy?.spend,h.result.gmv,M.ceilRoi(h.result.roi),h.result.profit,h.note,h.reason,h.previousId])]],
       ['入账规格',[['记录编号','日期','店铺','计划','状态','规格','生产面积（㎡）','售价（元）','订单占比（%）','材料成本（元）','发货重量（kg）','运费（元）','每单总成本（未含广告）'],...s.records.flatMap(h=>h.frame?M.calculate(h.frame,h.frame.plan).rows.map(i=>[h.id,h.date,h.shopName,h.planName,status(h),M.sizeLabel(i.size),i.area,i.price,i.share,i.material,i.weight,i.shipping,i.cost]):(h.legacy?.items||[]).map(i=>[h.id,h.date,h.shopName,h.planName,status(h),i.name||`${i.w} × ${i.h}`,i.billingArea??i.area,i.price,i.share,i.material,'',h.legacy.params.shipping,'']))]],
-      ['显示设置',[['顺序','指标'],...s.prefs.ids.map((id,i)=>[i+1,M.metricList.find(x=>x.id===id).label])]]
+      ['显示设置',[['顺序','指标'],...s.prefs.ids.map((id,i)=>[i+1,metricList.find(x=>x.id===id).label])]]
     ];
     // Format 5 keeps its exact visible sheets for verification of existing backups.
     // New exports expose only the one actual-production pair; recovery JSON stays lossless.
     if(format>=6){
       const label=M.productionSizeLabel;
-      sheets.find(([name])=>name==='商品规格')[1]=[['店铺','计划','商品规格','生产长（cm）','生产宽（cm）','发货重量（kg）','售价（元）','订单占比（%）','材料成本（元）','运费（元）','每单总成本（未含广告）'],...s.plans.flatMap(p=>M.calculate(s,p).rows.map(i=>{const d=M.productionDimensions(i.size);return [shop(p.shopId),p.name,label(i.size),d.width,d.height,i.weight,i.price,i.share,i.material,i.shipping,i.cost];}))];
+      sheets.find(([name])=>name==='商品规格')[1]=[['店铺','计划','商品规格','生产长（cm）','生产宽（cm）','发货重量（kg）','售价（元）','订单占比（%）','材料成本（元）','运费（元）','每单总成本（未含广告）'],...s.plans.flatMap(p=>calculate(s,p).rows.map(i=>{const d=M.productionDimensions(i.size);return [shop(p.shopId),p.name,label(i.size),d.width,d.height,i.weight,i.price,i.share,i.material,i.shipping,i.cost];}))];
       sheets.find(([name])=>name==='尺寸库')[1]=[['规格名称','生产长（cm）','生产宽（cm）','生产面积（㎡）','状态'],...s.sizes.map(x=>{const d=M.productionDimensions(x);return [label(x),d.width,d.height,M.productionArea(x),x.needsReview?'待补生产尺寸':x.active?'启用':'停用'];})];
       let ledgerIndex=1;const ledgerRows=sheets.find(([name])=>name==='入账规格')[1];for(const h of s.records)if(h.frame)for(const row of M.calculate(h.frame,h.frame.plan).rows)ledgerRows[ledgerIndex++][5]=label(row.size);else ledgerIndex+=(h.legacy?.items||[]).length;
     }
@@ -60,12 +65,29 @@
         for(const col of columns){rows[0][col]=rows[0][col].replaceAll('kg','g');for(const row of rows.slice(1))row[col]=M.toGrams(row[col]);}
       }
       const selected=M.skuColumns(s),display=sheets.find(([name])=>name==='显示设置');
-      display[1]=[['区域','顺序','字段','显示'],...s.prefs.ids.map((id,i)=>['当前测算',i+1,M.metricList.find(x=>x.id===id).label,'是']),['商品规格','固定首列','规格名称','是'],...selected.map((id,i)=>['商品规格',i+1,M.skuColumnList.find(x=>x.id===id).label,'是']),...M.skuColumnList.filter(x=>!selected.includes(x.id)).map(x=>['商品规格','',x.label,'否']),['商品规格','固定末列','操作','是']];
+      display[1]=[['区域','顺序','字段','显示'],...s.prefs.ids.map((id,i)=>['当前测算',i+1,metricList.find(x=>x.id===id).label,'是']),['商品规格','固定首列','规格名称','是'],...selected.map((id,i)=>['商品规格',i+1,skuColumnList.find(x=>x.id===id).label,'是']),...skuColumnList.filter(x=>!selected.includes(x.id)).map(x=>['商品规格','',x.label,'否']),['商品规格','固定末列','操作','是']];
     }
     const current=sheets.find(([name])=>name==='商品规格')[1];current[0].push('SKU 行编号','商品 ID','SKU ID','材料','厚度规则','定价模式','毛利率（%）','销售数量');let rowIndex=1;
-    for(const p of s.plans)for(const item of M.calculate(s,p).rows)current[rowIndex++].push(item.id,item.productId,item.skuId,material(item.materialId||p.materialId)?.name,item.materialRuleId||p.materialRuleId,item.priceMode==='manual'?'手动':p.strategyId?'跟随方案':'手动定价',item.grossMargin,item.sales);
+    for(const p of s.plans)for(const item of calculate(s,p).rows)current[rowIndex++].push(item.id,item.productId,item.skuId,material(item.materialId||p.materialId)?.name,item.materialRuleId||p.materialRuleId,item.priceMode==='manual'?'手动':p.strategyId?'跟随方案':'手动定价',item.grossMargin,item.sales);
     sheets.push(['定价策略',[['编号','名称','类型','细则','状态'],...s.pricingStrategies.map(x=>[x.id,x.name,x.type,JSON.stringify(x),x.deleted?'已删除':'可用'])]],['尺寸组合',[['编号','名称','尺寸编号','状态'],...s.sizeSchemes.map(x=>[x.id,x.name,x.sizeIds.join('；'),x.deleted?'已删除':'可用'])]],['活动方案',[['编号','名称','活动顺序','状态'],...s.promotionSchemes.map(x=>[x.id,x.name,JSON.stringify(x.steps),x.deleted?'已删除':'可用'])]],['厚度规则',[['材料编号','材料','规则编号','厚度（mm）','变体','重量系数（kg/㎡）','材料成本（元/㎡）','默认','状态'],...s.materials.flatMap(m=>m.weightRules.map(r=>[m.id,m.name,r.id,r.thickness,r.variant,r.coefficient,r.costPerSqm,r.default?'是':'否',r.deleted?'已删除':m.deleted?'材料已删除':'可用']))]]);
-    if(format>=5)for(const sheet of sheets)for(const row of sheet[1])for(let i=0;i<row.length;i++)if(typeof row[i]==='string')row[i]=row[i].replaceAll('kg','g');
+    if(format>=7){
+      const rules=sheets.find(([name])=>name==='厚度规则')[1];rules[0][5]='重量系数（g/㎡）';for(const row of rules.slice(1))row[5]=M.toGrams(row[5]);
+      const freight=sheets.find(([name])=>name==='运费模板')[1];for(const row of freight.slice(1))if(row[1]==='区域整公斤计费')row[9]='超过 5000 g 按总重量换算公斤并向上取整 × 每公斤费用；偏远地区人工核价';
+      const ledger=sheets.find(([name])=>name==='入账规格')[1];ledger[0][11]='分摊运费（元/支付单）';ledger[0][12]='每支付单成本（未含广告）';
+      current[0][9]='分摊运费（元/支付单）';current[0][10]='每支付单成本（未含广告）';current[0][17]='毛利率（利润÷成本，%）';
+      current[0].push('单次运费（元/包裹）','退款后收入（元/支付单）','广告前结余（元/支付单）','退款后结余率（%）','支付结余率（%）','支付 ROI 保本线','净成交 ROI 保本线','毛利计算成本（元）','毛利计算利润（元）');
+      let index=1;for(const p of s.plans)for(const item of calculate(s,p).rows)current[index++].push(item.baseShipping,item.revenue,item.margin,item.receivedMargin,item.contributionRate,M.ceilRoi(item.roi),M.ceilRoi(item.netRoi),item.pricingTotalCost,item.pricingProfit);
+      const plans=sheets.find(([name])=>name==='计划')[1];for(let i=0;i<s.plans.length;i++){const p=s.plans[i],r=calculate(s,p);plans[i+1][6]=p.params.revenueInput==='amount'?(p.params.spend>0&&r.gmv!==null?r.gmv/p.params.spend:''):p.params.actualRoi;}
+      sheets[0][1].push(['毛利率（成本口径）','利润 ÷ 成本 × 100%；利润 = 售价 − 成本；成本含原材料、单次运费、按售价计算的平台费及税。未计退款、其他费用及广告；成本为零时不计算。'],format<8?['定价策略目标（销售口径）','策略目标沿用利润 ÷ 售价的定价规则，规格表显示利润 ÷ 成本。']:['定价策略目标（成本口径）','统一毛利、成本阶梯和面积递增均按利润 ÷ 成本反推售价；成本含材料、单次运费、平台费及税。售价向上取到分，保证达到目标；目标可超过 100%。'],['退款后结余率','广告前结余除以退款后收入；收入为零时不计算。支付结余率改用退款前支付金额为分母。'],['退款回收','新版仅退货退款抵扣回收材料；已发货仅退款无材料回收，已发出运费不退。旧入账保持当时公式。'],['净成交 ROI 保本线','退款后收入除以广告前结余；1 小时内退款为退款子集，仅作参考，不加回收入。'],['订单模型','一单一件估算；各规格先按订单占比加权金额，再计算整体 ROI。']);
+      const history=sheets.find(([name])=>name==='历史账目')[1];history[0].push('计算口径');s.records.forEach((h,i)=>history[i+1].push(h.frame?.formulaVersion===5?'新版退款回收与净成交口径':'历史冻结口径'));
+    }
+    if(format>=8){
+      current[0].push('策略目标毛利率（利润÷成本，%）');
+      let index=1;for(const p of s.plans)for(const item of calculate(s,p).rows)current[index++].push(item.targetMargin);
+    }
+    // Historical formats replaced all text, including user names; retain that
+    // only for verification. New units convert their numeric values explicitly.
+    if(format>=5&&format<7)for(const sheet of sheets)for(const row of sheet[1])for(let i=0;i<row.length;i++)if(typeof row[i]==='string')row[i]=row[i].replaceAll('kg','g');
     return sheets.map(([name,rows])=>[name,rows.map(row=>row.map(clean))]);
   }
   async function exportWorkbook(state,scope){
@@ -81,7 +103,7 @@
       sheet.eachRow((row,index)=>{if(index===1)return;row.height=27;row.eachCell(c=>{c.alignment={vertical:'middle',wrapText:true};c.font={name:'Microsoft YaHei',size:10};if(typeof c.value==='number')c.numFmt='#,##0.00####;[Red]-#,##0.00####';if(index%2===0)c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFF3F7F4'}};});});
       sheet.pageSetup={orientation:'landscape',fitToPage:true,fitToWidth:1,fitToHeight:0};
     }
-    const data=book.addWorksheet('恢复数据');data.state='veryHidden';data.addRow(['MAT-ROI-XLSX',6]);
+    const data=book.addWorksheet('恢复数据');data.state='veryHidden';data.addRow(['MAT-ROI-XLSX',9]);
     const json=JSON.stringify(s);let offset=0,index=0;
     while(offset<json.length){let end=Math.min(json.length,offset+24000);if(end<json.length&&/[\uD800-\uDBFF]/.test(json[end-1]))end--;data.addRow([index++,json.slice(offset,end)]);offset=end;}
     return book.xlsx.writeBuffer();
@@ -89,7 +111,7 @@
   async function importWorkbook(bytes){
     const book=new Excel.Workbook();await book.xlsx.load(bytes);
     const sheet=book.getWorksheet('恢复数据');
-    if(!sheet||sheet.getCell('A1').value!=='MAT-ROI-XLSX'||![1,2,3,4,5,6].includes(sheet.getCell('B1').value))throw Error('请选择由工作台导出的完整或按范围 Excel 备份');
+    if(!sheet||sheet.getCell('A1').value!=='MAT-ROI-XLSX'||![1,2,3,4,5,6,7,8,9].includes(sheet.getCell('B1').value))throw Error('请选择由工作台导出的完整或按范围 Excel 备份');
     if(sheet.rowCount>2000)throw Error('备份过大，请按店铺或日期分批导出后导入');
     let json='';for(let r=2;r<=sheet.rowCount;r++){if(sheet.getCell(r,1).value!==r-2||typeof sheet.getCell(r,2).value!=='string')throw Error('恢复数据不完整');json+=sheet.getCell(r,2).value;}
     const state=JSON.parse(json),format=sheet.getCell('B1').value,model=Compatibility.workbookData(format,state)==='v3'?OldM:M,transfer=Compatibility.workbookData(format,state)==='v3'?OldT:T;if(!Compatibility.workbookVersionValid(format,state)||!model.validateBackup(state)||!transfer.validScope(state))throw Error('账目、范围或成本校验未通过，当前工作区保留');

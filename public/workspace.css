@@ -126,7 +126,8 @@ td{font-size:13px;color:#354155;background:#fff}
 th,td,th:first-child,td:first-child,th:last-child,td:last-child{padding:14px 14px;border-bottom:1px solid var(--line)}
 tbody tr:last-child td{border-bottom:0}tbody tr:hover>td{background:#fafbfd}
 .sku-table{min-width:var(--sku-min,770px)}.sku-table th,.sku-table td{padding:14px 12px}
-.sku-table th small{color:#8790a1;font-size:10px;margin-top:2px}
+.sku-table .sku-heading{display:inline-flex;align-items:baseline;gap:4px;white-space:nowrap}
+.sku-table th small{display:inline;color:var(--muted);font-size:10px;margin:0;font-weight:400;white-space:nowrap}
 .sku-table th[data-column='material'],.sku-table th[data-column='shipping'],.sku-table th[data-column='cost'],.sku-table th[data-column='roi'],.sku-table th[data-column='weight']{text-align:right}
 .sku-table td.num{color:#354155;font-weight:400;background:#fff}.sku-table tr:hover td.num{background:#fafbfd}
 .sku-table th:first-child,.sku-table td:first-child{position:sticky;left:0;z-index:1}

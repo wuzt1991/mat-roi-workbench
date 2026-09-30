@@ -7,7 +7,7 @@
   const HEADERS = Recognition.OUTPUT_HEADERS.slice();
   const FIELD_ALIASES = {
     seq:['序号','编号','行号'], platform:['平台'], shop:['店铺','店铺名称'], productName:['平台商品名称','商品名称'], specName:['平台规格名称','规格名称','商品规格名称'],
-    productCode:['平台商品编码','商品编码'], merchantCode:['平台商家编码','商家编码'], productId:['平台商品ID','商品ID'], specId:['平台规格ID','规格ID'], price:['平台售价','售价','价格'], status:['售卖状态','销售状态'], inventory:['平台库存','库存'],
+    productCode:['平台商品编码','商品编码'], merchantCode:['平台商家编码','商家编码'], brand:['品牌'], productTag:['商品标签'], productId:['平台商品ID','商品ID'], specId:['平台规格ID','规格ID'], price:['平台售价','售价','价格'], status:['售卖状态','销售状态'], inventory:['平台库存','库存'],
     specType:['规格类型'], goodsName:['货品名称'], goodsCode:['货品编码'], goodsShort:['货品简称'], goodsSpec:['规格名称'], merchantNew:['商家编码（新）','商家编码'], specShort:['规格简称']
   };
   const WEIGHT_RULES = [
@@ -52,19 +52,29 @@
   const validValue=v=>number(v)!==null&&number(v)>=0&&number(v)<=MAX_VALUE;
   const validDimension=v=>number(v)!==null&&number(v)>0&&number(v)<=10000;
   function numericIssues(values){return [['price',19],['inventory',21]].flatMap(([field,index])=>validValue(values[index])?[]:[{code:'INVALID_NUMBER',field,message:`${FIELD_ALIASES[field][0]}需为 0 至 ${MAX_VALUE} 的有限数字`}]);}
-  function withMaterialSuffix(value,material){
-    const source=text(value);if(!source||!material)return source;
-    const escaped=text(material).replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
-    const trailing=new RegExp(`[【（(]${escaped}[】）)]$`);
-    return trailing.test(source) ? source.replace(trailing,`【${material}】`) : `${source}【${material}】`;
+  function thicknessText(rule){
+    return Recognition.thicknessText(rule);
   }
-  function replaceMaterialSuffix(value,previousMaterial,material){
-    let source=text(value),previous=text(previousMaterial);
-    if(previous&&previous!==material){
-      const escaped=previous.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+  function materialThicknessLabel(material,rule){
+    const name=text(material);
+    return !name?'':`${thicknessText(rule)}${name}`;
+  }
+  function stripGeneratedNameSuffix(value,rules={}){
+    let source=text(value).replace(/【[^【】]+、[^【】]+】$/,'');
+    const materials=Object.keys(rules.materials||{}).sort((a,b)=>b.length-a.length);
+    for(const material of materials){
+      const escaped=material.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
       source=source.replace(new RegExp(`[【（(]${escaped}[】）)]$`),'');
+      source=source.replace(new RegExp(`;${escaped}$`),'');
     }
-    return withMaterialSuffix(source,material);
+    return source.trim();
+  }
+  function withMaterialThicknessSuffix(value,material,rule,rules={}){
+    const name=text(material),source=Recognition.exportName(stripGeneratedNameSuffix(value,rules));
+    return !source||!name?source:`${source}【${name}、${thicknessText(rule)}】`;
+  }
+  function replaceMaterialSuffix(value,previousMaterial,material,rule,rules={}){
+    return withMaterialThicknessSuffix(value,material,rule,rules);
   }
 
   function defaultRules(){ return clone(DEFAULT_RULES); }
@@ -170,14 +180,21 @@
       if(rows.length>=MAX_ROWS)throw Object.assign(Error('ERP 数据超过 5000 行，请拆分后导入'),{code:'IMPORT_LIMIT'});
       const rowNumber=header.rowIndex+offset+2, get=field=>map[field]===undefined?'':raw[map[field]];
       const productName=text(get('productName')), sourceSpecName=text(get('specName'));
-      const material=identifyMaterial(productName,sourceSpecName,rules), dimensions=parseDimensions(sourceSpecName);
-      const specName=withMaterialSuffix(sourceSpecName,material.name);
+      let ruleSource=`${productName} ${sourceSpecName}`;
+      let material=identifyMaterial(productName,sourceSpecName,rules);
+      if(!material.ok&&!material.reason?.includes('伪亚麻')){
+        const hint=[get('productTag'),get('brand')].map(text).filter(Boolean).join(' ');
+        if(hint){const hinted=identifyMaterial(hint,'',rules);if(hinted.ok){material=hinted;ruleSource=hint;}}
+      }
+      const dimensions=parseDimensions(sourceSpecName);
       const rowExceptions=[];
       required.forEach(field=>{if(text(get(field))==='')rowExceptions.push({code:'MISSING_FIELD',field,message:`缺少${FIELD_ALIASES[field]?.[0]||field}`});});
       if(!material.ok)rowExceptions.push({code:'MATERIAL',message:material.reason});
       if(!dimensions.ok)rowExceptions.push({code:'DIMENSION',message:dimensions.reason});
       // A matched child rule is authoritative for both weight and cost.
       const rule=material.weightRule ? {...(material.rule||{}),weightPerSqm:material.weightRule.coefficient,costPerSqm:material.weightRule.costPerSqm ?? material.rule?.costPerSqm} : (material.rule || rules.fallback), weightCoefficient=material.weightRule?.coefficient ?? rule?.weightPerSqm;
+      const specName=material.ok?withMaterialThicknessSuffix(sourceSpecName,material.name,material.weightRule,rules):Recognition.exportName(sourceSpecName);
+      const materialLabel=material.ok?materialThicknessLabel(material.name,material.weightRule):material.name;
       if(number(weightCoefficient)===null || number(weightCoefficient)<0)rowExceptions.push({code:'RULE',message:'缺少有效重量规则'});
       const area=dimensions.ok?dimensions.area:null;
       const weight=area!==null&&number(weightCoefficient)!==null?area*number(weightCoefficient):'';
@@ -185,12 +202,12 @@
       if(!validValue(rule?.costPerSqm))rowExceptions.push({code:'RULE',message:'请在材料库填写有效的非负规则成本'});
       const out=Array(29).fill('');
       const put=(i,v)=>{out[i]=v===undefined||v===null?'':v;};
-      put(0,number(get('seq')) ?? (rows.length+1));put(1,text(get('platform')));put(2,text(get('shop')));put(3,productName);put(4,specName);put(5,material.name);put(6,material.name);put(7,dimensions.ok?dimensions.label:'');put(8,area??'');put(9,dimensions.ok?dimensions.width:'');put(10,dimensions.ok?dimensions.length:'');put(11,weight);put(12,cost);
-      put(13,'');put(14,'');put(17,text(get('productId')));put(18,text(get('specId')));put(19,number(get('price'))??text(get('price')));put(20,text(get('status')));put(21,number(get('inventory'))??text(get('inventory')));put(22,text(get('specType')));put(23,specName);put(24,text(get('goodsCode')));put(25,text(get('goodsShort')));put(26,specName);put(27,text(get('specId')));put(28,text(get('specShort')));
+      put(0,number(get('seq')) ?? (rows.length+1));put(1,text(get('platform')));put(2,text(get('shop')));put(3,Recognition.exportName(productName));put(4,specName);put(5,materialLabel);put(6,materialLabel);put(7,dimensions.ok?dimensions.label:'');put(8,area??'');put(9,dimensions.ok?dimensions.width:'');put(10,dimensions.ok?dimensions.length:'');put(11,weight);put(12,cost);
+      put(13,'');put(14,'');put(17,text(get('productId')));put(18,text(get('specId')));put(19,number(get('price'))??text(get('price')));put(20,text(get('status')));put(21,number(get('inventory'))??text(get('inventory')));put(22,text(get('specType')));put(23,specName);put(24,text(get('goodsCode')));put(25,Recognition.exportName(get('goodsShort')));put(26,specName);put(27,text(get('specId')));put(28,Recognition.exportName(get('specShort')));
       const ids=[17,18,27];ids.forEach(i=>{if(out[i]!==''&&out[i]!==null)out[i]=String(out[i]);});
       rowExceptions.push(...numericIssues(out));
       if(rowExceptions.length)exceptions.push({rowNumber,source:raw.slice(),output:out.slice(),issues:rowExceptions,reviewed:false});
-      rows.push({rowNumber,values:out,material:material.name,dimensions,area,weight,cost,issues:rowExceptions});
+      rows.push({rowNumber,ruleSource,values:out,material:material.name,dimensions,area,weight,cost,issues:rowExceptions});
     });
     return {headers:HEADERS.slice(),rows,exceptions,sourceHeader:header.headers.slice(),map,rules,summary:{sourceRows:rows.length,exceptionRows:exceptions.length,ready:exceptions.length===0}};
   }
@@ -199,13 +216,16 @@
     next.exceptions=[];
     next.rows.forEach(row=>{
       const patch=reviews[row.rowNumber];
+      const ruleSource=row.ruleSource??`${row.values[3]} ${row.dimensions?.raw||row.values[4]}`;
       if (patch) {
         if (patch.material) {
-          const previousMaterial=row.values[5];
-          row.values[5] = row.values[6] = patch.material;
+          const previousMaterial=row.material||row.values[5];
           // Keep every name field in the fixed template consistent with the
-          // reviewed material, including the required 【材质】 suffix.
-          row.values[4] = replaceMaterialSuffix(row.values[4],previousMaterial,patch.material);
+          // reviewed material, including the required 【材质、厚度】 suffix.
+          const replacementRule=resolveWeightRule(patch.material,ruleSource,next.rules);
+          row.material=patch.material;
+          row.values[5] = row.values[6] = materialThicknessLabel(patch.material,replacementRule);
+          row.values[4] = replaceMaterialSuffix(row.values[4],previousMaterial,patch.material,replacementRule,next.rules);
           row.values[23] = row.values[26] = row.values[4];
         }
         for(const [field,index] of [['width',9],['length',10],['price',19],['inventory',21]])if(patch[field]!==undefined)row.values[index]=number(patch[field])??text(patch[field]);
@@ -215,8 +235,8 @@
         if (row.values[9] && row.values[10]) {
           row.values[7] = `${row.values[9]}*${row.values[10]}`;
           row.values[8] = row.values[9] * row.values[10] / 10000;
-          const rule = next.rules?.materials?.[row.values[5]];
-          const weightRule = resolveWeightRule(row.values[5], `${row.values[3]} ${row.values[4]}`, next.rules);
+          const rule = next.rules?.materials?.[row.material];
+          const weightRule = resolveWeightRule(row.material, ruleSource, next.rules);
           if (weightRule) row.values[11] = row.values[8] * number(weightRule.coefficient);
           const unitCost=weightRule?.costPerSqm??rule?.costPerSqm;
           row.values[12]=validValue(unitCost)?row.values[8]*number(unitCost):'';
@@ -224,14 +244,15 @@
         row.reviewed = true;
       }
       const unresolved=[];
-      const reviewRule=resolveWeightRule(row.values[5],`${row.values[3]} ${row.values[4]}`,next.rules);
-      if(!row.values[5] || !reviewRule || number(reviewRule.coefficient)===null || number(reviewRule.coefficient)<0)unresolved.push({code:'MATERIAL',message:'材质没有可用重量规则'});
+      const reviewMaterial=row.material||row.values[5];
+      const reviewRule=resolveWeightRule(reviewMaterial,ruleSource,next.rules);
+      if(!reviewMaterial || !reviewRule || number(reviewRule.coefficient)===null || number(reviewRule.coefficient)<0)unresolved.push({code:'MATERIAL',message:'材质没有可用重量规则'});
       if(![row.values[9],row.values[10]].every(validDimension))unresolved.push({code:'DIMENSION',message:'长宽需为大于 0、不超过 10000 cm 的数字'});
-      if(!validValue(reviewRule?.costPerSqm??next.rules?.materials?.[row.values[5]]?.costPerSqm))unresolved.push({code:'RULE',message:'请在材料库填写有效的非负规则成本'});
+      if(!validValue(reviewRule?.costPerSqm??next.rules?.materials?.[reviewMaterial]?.costPerSqm))unresolved.push({code:'RULE',message:'请在材料库填写有效的非负规则成本'});
       unresolved.push(...numericIssues(row.values));
       if(!row.values[17] || !row.values[18])unresolved.push({code:'ID',message:'商品 ID 或规格 ID 不能为空'});
       for(const [field,index] of [['shop',2],['productName',3],['specName',4],['status',20]])if(!text(row.values[index]))unresolved.push({code:'MISSING_FIELD',field,message:`缺少${FIELD_ALIASES[field][0]}`});
-      row.material=row.values[5];row.area=row.values[8];row.weight=row.values[11];row.cost=row.values[12];row.issues=unresolved;
+      row.material=reviewMaterial;row.area=row.values[8];row.weight=row.values[11];row.cost=row.values[12];row.issues=unresolved;
       row.dimensions={ok:[row.values[9],row.values[10]].every(validDimension),width:row.values[9],length:row.values[10],label:row.values[7],area:row.values[8],raw:row.dimensions?.raw};
       if(unresolved.length)next.exceptions.push({rowNumber:row.rowNumber,source:row.source,output:row.values.slice(),issues:unresolved,reviewed:!!row.reviewed});
     });
@@ -247,7 +268,7 @@
     });
     const merged={};
     for(const [productId,rows] of groups){
-      const materials=[...new Set(rows.map(row=>text(reviews[row.rowNumber]?.material)||text(row.values?.[5])).filter(Boolean))];
+      const materials=[...new Set(rows.map(row=>text(reviews[row.rowNumber]?.material)||text(row.material)||text(row.values?.[5])).filter(Boolean))];
       if(materials.length>1){rows.forEach(row=>conflicts.add(row.rowNumber));continue;}
       if(materials.length===1){
         rows.filter(row=>row.issues?.length||reviews[row.rowNumber]).forEach(row=>{merged[row.rowNumber]={...(reviews[row.rowNumber]||{}),material:materials[0]};});
@@ -283,14 +304,14 @@
         if(!grouped.has(productId))grouped.set(productId,{kind:'product',productId,rows:allByProduct.get(productId)||[],exceptions:[],rowNumbers:[],material:'',productName:'',specNames:[]});
         const group=grouped.get(productId),materialException={...exception,issues:materialIssues};group.exceptions.push(materialException);group.rowNumbers.push(exception.rowNumber);
         group.productName=group.productName||text(output[3]);if(text(output[4])&&!group.specNames.includes(text(output[4])))group.specNames.push(text(output[4]));
-        const material=text(output[5]);if(material&&!group.material)group.material=material;
+        const material=text(row?.material||output[5]);if(material&&!group.material)group.material=material;
       }
       if(!productId||rowIssues.length||!materialIssues.length){
         const visibleException=productId&&materialIssues.length?{...exception,issues:rowIssues}:exception;
         ungrouped.push({kind:'row',rowNumber:exception.rowNumber,exception:visibleException,row,materialEditable:!productId&&materialIssues.length>0});
       }
     }
-    const products=[...grouped.values()].map(group=>{for(const row of group.rows){const value=text(row.values?.[4]);if(value&&!group.specNames.includes(value))group.specNames.push(value);if(!group.productName)group.productName=text(row.values?.[3]);if(!group.material){const material=text(row.values?.[5]);if(material)group.material=material;}}return {...group,skuCount:group.rows.length,issueText:[...new Set(group.exceptions.flatMap(x=>(x.issues||[]).map(issue=>issue.message)))].join('；')};});
+    const products=[...grouped.values()].map(group=>{for(const row of group.rows){const value=text(row.values?.[4]);if(value&&!group.specNames.includes(value))group.specNames.push(value);if(!group.productName)group.productName=text(row.values?.[3]);if(!group.material){const material=text(row.material||row.values?.[5]);if(material)group.material=material;}}return {...group,skuCount:group.rows.length,issueText:[...new Set(group.exceptions.flatMap(x=>(x.issues||[]).map(issue=>issue.message)))].join('；')};});
     return {products,rows:ungrouped};
   }
   function applyProductReview(result,productId,patch={}){

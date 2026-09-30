@@ -13,8 +13,8 @@
   const ceilRoi=v=>Number.isFinite(v)?Math.ceil(v*100-1e-9)/100:null;
   const defaults={refund:10,fee:5,tax:2,recovery:0,other:0,returnCost:0,spend:'',actualRoi:''};
   const defaultRefundRates={unshipped:0,shippedOnly:0,returnRefund:10,firstHour:''};
-  const metricList=[{id:'roi',label:'整体支付 ROI 保本线'},{id:'netRoi',label:'净 ROI'},{id:'profit',label:'预估盈亏'},{id:'cost',label:'平均每单成本'},{id:'price',label:'平均售价'},{id:'margin',label:'每单可投广告费'},{id:'gmv',label:'整体成交金额'},{id:'receivedSales',label:'实际到手销售金额'},{id:'investment',label:'总投入'},{id:'rate',label:'每百元结余'}];
-  const skuColumnList=[{id:'grossMargin',label:'毛利率',unit:'%'},{id:'sales',label:'销售数量'},{id:'price',label:'售价',unit:'元'},{id:'share',label:'订单占比',unit:'%'},{id:'weight',label:'发货重量',unit:'g'},{id:'material',label:'材料成本'},{id:'shipping',label:'运费'},{id:'cost',label:'每单总成本'},{id:'roi',label:'保本 ROI'}];
+  const metricList=[{id:'roi',label:'整体支付 ROI 保本线'},{id:'netRoi',label:'净成交 ROI 保本线'},{id:'profit',label:'预估盈亏'},{id:'cost',label:'平均每单成本'},{id:'price',label:'平均售价'},{id:'margin',label:'每单广告前结余'},{id:'gmv',label:'整体成交金额'},{id:'receivedSales',label:'实际到手销售金额'},{id:'investment',label:'总投入'},{id:'rate',label:'每百元支付结余'}];
+  const skuColumnList=[{id:'grossMargin',label:'毛利率',unit:'%',note:'利润 ÷ 成本 × 100%；利润 = 售价 − 成本；成本含材料、单次运费、按售价计算的平台费和税，未计退款、广告及其他费用'},{id:'receivedMargin',label:'退款后结余率',unit:'%',note:'广告前结余 ÷ 退款后收入；已计全部退款和已填费用'},{id:'contributionRate',label:'支付结余率',unit:'%',note:'广告前结余 ÷ 退款前支付金额；与支付 ROI 保本线对应'},{id:'revenue',label:'退款后收入',note:'平均每支付单的退款后收入，未扣费用'},{id:'margin',label:'广告前结余',note:'退款后收入 − 每支付单成本；未扣广告'},{id:'sales',label:'销售数量'},{id:'price',label:'售价',unit:'元'},{id:'share',label:'订单占比',unit:'%'},{id:'weight',label:'发货重量',unit:'g'},{id:'material',label:'材料成本',note:'每件原始材料成本，未计退款回收'},{id:'baseShipping',label:'单次运费',note:'实际发出一个包裹的模板运费'},{id:'shipping',label:'分摊运费',note:'单次运费 × 发货比例；平均每支付单'},{id:'cost',label:'每支付单成本',note:'退款分摊后的材料、运费、平台费、税和其他费用；不含广告'},{id:'roi',label:'支付 ROI 保本线',note:'退款前支付金额 ÷ 广告前结余；向上保留两位小数'}];
   const defaultSkuColumns=['price','share','material','cost','roi'];
   const BUILTIN_MATERIALS=[
     ['硅藻泥',[[2.7,'',.83,9.3,false],[3,'',.9,9.5,true],[5,'',1.3,11.2,false]]],
@@ -55,9 +55,9 @@
     if(!Object.prototype.hasOwnProperty.call(input||{},'otherFeeScope'))p.otherFeeScope='all';
     return p;
   }
-  function refundMetrics(params={}) {
+  function refundMetrics(params={},legacy=false) {
     const p=normalizeParams(params),rates=p.refundRates&&typeof p.refundRates==='object'&&!Array.isArray(p.refundRates)?p.refundRates:{};
-    const value=k=>Number.isFinite(Number(rates[k]))?Number(rates[k]):NaN;
+    const value=k=>legacy?(Number.isFinite(Number(rates[k]))?Number(rates[k]):NaN):(nonnegative(rates[k])?rates[k]:NaN);
     const unshipped=value('unshipped'),shippedOnly=value('shippedOnly'),returnRefund=value('returnRefund'),firstHour=rates.firstHour===''?'':value('firstHour');
     const refundTotal=unshipped+shippedOnly+returnRefund;
     return {unshipped,shippedOnly,returnRefund,firstHour,firstHourValue:firstHour===''?0:firstHour,refundTotal,shippedRefund:shippedOnly+returnRefund,paidRatio:1-refundTotal/100,shippedRatio:1-unshipped/100,otherFeeScope:p.otherFeeScope};
@@ -143,8 +143,12 @@
     return {value:t.firstFee+Math.max(0,Math.ceil((weight-t.firstWeight)/t.stepWeight-1e-9))*t.stepFee};
   }
 
-  function calculate(state,plan,overrides={}) {
+  // Frozen v4 records retain their original formula. New live calculations and
+  // new records use formula 5 without rewriting saved business inputs or history.
+  const formulaVersion=state=>state.formulaVersion??(state.calculationVersion===4?4:5);
+  function calculate(state,plan,overrides={},options={}) {
     if(Compatibility.calculation(state)==='v3')return V3.calculate(state,plan,overrides);
+    const legacyFormula=formulaVersion(state)===4;
     const p=normalizeParams({...plan.params,...overrides}),mat=state.materials.find(m=>m.id===plan.materialId),rule=materialRule(mat,plan),template=state.shippingTemplates.find(t=>t.id===plan.shippingId),errors=[];
     if(!mat||!nonnegative(mat.price))errors.push('请选择材料并填写单价');
     if(rule&&!nonnegative(rule.costPerSqm))errors.push('请填写非负且有效的材料规则成本');
@@ -153,7 +157,7 @@
     if(plan.needsMaterialReview)errors.push('请核对材料报价，旧规格曾使用厚度估算');
     if(!plan.items.length)errors.push('请添加规格、售价和订单占比');
     for(const k of ['fee','tax','recovery','other','returnCost'])if(!nonnegative(p[k])||(['fee','tax','recovery'].includes(k)&&p[k]>100))errors.push('请检查费用和比例');
-    const summary=refundMetrics(p),rateValues=['unshipped','shippedOnly','returnRefund','firstHour'],rateSource=p.refundRates&&typeof p.refundRates==='object'&&!Array.isArray(p.refundRates)?p.refundRates:{};
+    const summary=refundMetrics(p,legacyFormula),rateValues=['unshipped','shippedOnly','returnRefund','firstHour'],rateSource=p.refundRates&&typeof p.refundRates==='object'&&!Array.isArray(p.refundRates)?p.refundRates:{};
     if(['unshipped','shippedOnly','returnRefund'].some(k=>!nonnegative(rateSource[k]))||rateSource.firstHour!==''&&!nonnegative(rateSource.firstHour))errors.push('请填写有效退款率');
     if(rateValues.some(k=>rateSource[k]!==''&&rateSource[k]>100))errors.push('请检查退款率');
     if(Number.isFinite(summary.refundTotal)&&summary.refundTotal>100+1e-9)errors.push('三类退款率合计不能超过 100%');
@@ -162,13 +166,13 @@
     for(const k of ['spend','actualRoi'])if(p[k]!==''&&!nonnegative(p[k]))errors.push('请检查广告消耗和支付 ROI');
     if(p.revenueInput!==undefined&&!['roi','amount'].includes(p.revenueInput)||p.actualGmv!==undefined&&p.actualGmv!==''&&!nonnegative(p.actualGmv))errors.push('请检查成交金额与录入方式');
     const pricingRows=plan.items.map(item=>{
-      const m=state.materials.find(x=>x.id===(item.materialId||plan.materialId)), r=materialRule(m,item.materialId?item:plan), size=state.sizes.find(x=>x.id===item.sizeId), area=productionArea(size), weight=derivedWeight(size,m,{...item,materialRule:r,packagingWeight:plan.packagingWeight??0},template?.type==='regional'),ship=shippingCost(template,weight), cost=area*(r?.costPerSqm??(m?.legacyCostFallback?m.price:NaN))+(ship.value??NaN);
-      return {...item,size,area,pricingCost:cost,costError:!m||!r&&!m.legacyCostFallback||!Number.isFinite(cost)||ship.error};
+      const m=state.materials.find(x=>x.id===(item.materialId||plan.materialId)), r=materialRule(m,item.materialId?item:plan), size=state.sizes.find(x=>x.id===item.sizeId), area=productionArea(size), weight=derivedWeight(size,m,{...item,materialRule:r,packagingWeight:plan.packagingWeight??0},template?.type==='regional'),ship=shippingCost(template,weight), unitCost=r?.costPerSqm??(m?.legacyCostFallback?m.price:NaN),cost=options.legacyPricing||state.calculationVersion===4?area*unitCost+(ship.value??NaN):Pricing.baseCost(size,unitCost,ship.value,template,weight);
+      return {...item,size,area,pricingCost:cost,costError:!options.legacyCostValidation&&(!validSize(size)||!!size?.needsReview)||!m||!r&&!m.legacyCostFallback||!Number.isFinite(cost)||ship.error};
     });
     const strategy=state.calculationVersion===4?null:state.pricingStrategies?.find(x=>x.id===plan.strategyId);
     if(plan.strategyId&&!strategy&&state.calculationVersion!==4)errors.push('定价策略不存在');
     const rows=plan.items.map((original,index)=>{
-      const mat=state.materials.find(m=>m.id===(original.materialId||plan.materialId)),rule=materialRule(mat,original.materialId?original:plan),priced=Pricing.effectivePrice(original,strategy,pricingRows[index],pricingRows,p),item={...original,price:priced.price??''};
+      const mat=state.materials.find(m=>m.id===(original.materialId||plan.materialId)),rule=materialRule(mat,original.materialId?original:plan),priced=Pricing.effectivePrice(original,strategy,pricingRows[index],pricingRows,p,options.legacyPricing===true,options.legacyCostValidation===true),item={...original,price:priced.price??''};
       if(priced.error)errors.push(priced.error);
       if(!mat||!rule&&!mat.legacyCostFallback)errors.push('请在可复用规则中配置材料厚度与成本');
       if((original.materialRuleId||(!original.materialId&&plan.materialRuleId))&&!rule)errors.push('所选材料厚度规则不存在');
@@ -177,8 +181,12 @@
       if(!positive(item.price)||!nonnegative(item.share)||item.share>100)errors.push('请补齐售价和订单占比');
       if(ship.error)errors.push(`${size?productionSizeLabel(size):'规格'}：${ship.error}`);
       const {unshipped,shippedOnly,returnRefund,firstHour,firstHourValue,refundTotal,shippedRefund,paidRatio,shippedRatio}=summary;
-      const revenue=item.price*paidRatio,netRevenue=item.price*(1-Math.max(0,refundTotal-firstHourValue)/100),goods=material*(paidRatio+shippedRefund/100*(1-p.recovery/100)),fees=revenue*p.fee/100,tax=revenue*p.tax/100,baseShipping=ship.value===null?NaN:ship.value,shipping=baseShipping*shippedRatio,otherBase=p.other*(p.otherFeeScope==='all'?1:shippedRatio),returnExtra=returnRefund/100*p.returnCost,other=otherBase+returnExtra,cost=goods+fees+tax+shipping+other,margin=revenue-cost,netMargin=netRevenue-cost;
-      const marginRate=Pricing.actualMargin(material+baseShipping,item.price,p.fee,p.tax); return {...item,grossMargin:marginRate,marginRate,targetMargin:priced.targetMargin,priceError:priced.error||'',weight,size,area,material,baseShipping,shipping,revenue,netRevenue,goods,fees,tax,other,otherBase,returnExtra,refundTotal,unshipped,shippedOnly,returnRefund,firstHour,cost,margin,netMargin,roi:margin>0?item.price/margin:null,netRoi:netMargin>0?item.price/netMargin:null};
+      const revenue=item.price*paidRatio,netRevenue=legacyFormula?item.price*(1-Math.max(0,refundTotal-firstHourValue)/100):revenue,
+        goods=material*(legacyFormula?paidRatio+shippedRefund/100*(1-p.recovery/100):paidRatio+shippedOnly/100+returnRefund/100*(1-p.recovery/100)),
+        fees=revenue*p.fee/100,tax=revenue*p.tax/100,baseShipping=ship.value===null?NaN:ship.value,shipping=baseShipping*shippedRatio,otherBase=p.other*(p.otherFeeScope==='all'?1:shippedRatio),returnExtra=returnRefund/100*p.returnCost,other=otherBase+returnExtra,cost=goods+fees+tax+shipping+other,margin=revenue-cost,netMargin=legacyFormula?netRevenue-cost:margin;
+      const pricing=Pricing.costMarginDetails(pricingRows[index].pricingCost,item.price,p.fee,p.tax);
+      const marginRate=legacyFormula?(1-(material+baseShipping)/item.price-(p.fee+p.tax)/100)*100:pricing.rate;
+      return {...item,grossMargin:marginRate,marginRate,pricingTotalCost:pricing.cost,pricingProfit:pricing.profit,receivedMargin:revenue>0?margin/revenue*100:null,contributionRate:positive(item.price)?margin/item.price*100:null,targetMargin:priced.targetMargin,priceError:priced.error||'',weight,size,area,material,baseShipping,shipping,revenue,netRevenue,goods,fees,tax,other,otherBase,returnExtra,refundTotal,unshipped,shippedOnly,returnRefund,firstHour,cost,margin,netMargin,roi:margin>0?item.price/margin:null,netRoi:netMargin>0?(legacyFormula?item.price:revenue)/netMargin:null};
     });
     const total=plan.items.reduce((a,i)=>a+Number(i.share),0);
     if(Math.abs(total-100)>1e-6)errors.push('订单占比需合计 100%');
@@ -186,13 +194,13 @@
     const amountInput=p.revenueInput==='amount',forecast=nonnegative(p.spend)&&(amountInput?nonnegative(p.actualGmv):nonnegative(p.actualRoi)),gmv=forecast?(amountInput?p.actualGmv:p.spend*p.actualRoi):null,orders=forecast&&price>0?gmv/price:null,investment=orders===null?null:p.spend+orders*cost,profit=orders===null?null:orders*margin-p.spend;
     if(![price,margin,cost].every(Number.isFinite)||forecast&&![gmv,investment,profit].every(Number.isFinite))errors.push('计算暂不可用，请检查输入');
     const valid=errors.length===0;
-    return {valid,errors:[...new Set(errors)],rows,total,price,cost,margin,netMargin,refundTotal:summary.refundTotal,shippedRefund:summary.shippedRefund,refundRates:{unshipped:summary.unshipped,shippedOnly:summary.shippedOnly,returnRefund:summary.returnRefund,firstHour:summary.firstHour},otherFeeScope:p.otherFeeScope,roi:valid&&margin>0?price/margin:null,netRoi:valid&&netMargin>0?price/netMargin:null,rate:valid&&price>0?margin/price:null,gmv,receivedSales:valid&&gmv!==null?gmv*summary.paidRatio:null,profit:valid?profit:null,orders,investment:valid?investment:null,revenue:sum('revenue'),netRevenue:sum('netRevenue'),goods:sum('goods'),shipping:sum('shipping'),fees:sum('fees'),tax:sum('tax'),other:sum('other')};
+    return {valid,errors:[...new Set(errors)],rows,total,price,cost,margin,netMargin,refundTotal:summary.refundTotal,shippedRefund:summary.shippedRefund,refundRates:{unshipped:summary.unshipped,shippedOnly:summary.shippedOnly,returnRefund:summary.returnRefund,firstHour:summary.firstHour},otherFeeScope:p.otherFeeScope,roi:valid&&margin>0?price/margin:null,netRoi:valid&&netMargin>0?(legacyFormula?price:sum('revenue'))/netMargin:null,rate:valid&&price>0?margin/price:null,gmv:valid||legacyFormula?gmv:null,receivedSales:valid&&gmv!==null?gmv*summary.paidRatio:null,profit:valid?profit:null,orders:valid||legacyFormula?orders:null,investment:valid?investment:null,revenue:sum('revenue'),netRevenue:sum('netRevenue'),goods:sum('goods'),shipping:sum('shipping'),fees:sum('fees'),tax:sum('tax'),other:sum('other')};
   }
   function makeFrame(state,plan) {
     if(Compatibility.frame(state)==='v3')return V3.makeFrame(state,plan);
     const {history,...values}=plan,result=calculate(state,plan),items=plan.items.map((item,i)=>({...item,price:result.rows[i].price,materialId:item.materialId||plan.materialId,materialRuleId:item.materialRuleId||plan.materialRuleId||''})),ids=new Set([plan.materialId,...items.map(i=>i.materialId)]);
     const materials=state.materials.filter(m=>ids.has(m.id)).map(m=>{const copy=clone(m),used=new Set(items.filter(i=>i.materialId===m.id).map(i=>i.materialRuleId).filter(Boolean));if(m.id===plan.materialId&&plan.materialRuleId)used.add(plan.materialRuleId);for(const rule of copy.weightRules||[])if(used.has(rule.id)&&Number.isFinite(Number(rule.costPerSqm))){copy.price=Number(rule.costPerSqm);break;}return copy;});
-    return clone({calculationVersion:4,plan:{...values,params:normalizeParams(values.params),items},materials,sizes:state.sizes.filter(s=>items.some(i=>i.sizeId===s.id)),shippingTemplates:state.shippingTemplates.filter(t=>t.id===plan.shippingId),pricingStrategies:state.pricingStrategies.filter(x=>x.id===plan.strategyId),promotionSchemes:state.promotionSchemes.filter(x=>x.id===plan.promotionSchemeId)});
+    return clone({calculationVersion:4,formulaVersion:5,plan:{...values,params:normalizeParams(values.params),items},materials,sizes:state.sizes.filter(s=>items.some(i=>i.sizeId===s.id)),shippingTemplates:state.shippingTemplates.filter(t=>t.id===plan.shippingId),pricingStrategies:state.pricingStrategies.filter(x=>x.id===plan.strategyId),promotionSchemes:state.promotionSchemes.filter(x=>x.id===plan.promotionSchemeId)});
   }
   function frameMaterials(frame){const f=frame?.plan||{},items=f.items||[],out=[];for(const item of items){const id=item.materialId||f.materialId,rid=item.materialRuleId||f.materialRuleId||'',m=frame.materials?.find(x=>x.id===id),r=m?.weightRules?.find(x=>x.id===rid)||materialRule(m,f),ruleId=r?.id||'';if(m&&!out.some(x=>x.materialId===id&&x.ruleId===ruleId))out.push({materialId:id,ruleId,name:m.name,thickness:r?.thickness??'',costPerSqm:r?.costPerSqm??m.price});}return out;}
   function frameMaterialPrice(frame){const groups=frameMaterials(frame);if(groups.length===1)return groups[0].costPerSqm;return null;}
@@ -242,6 +250,11 @@
   function migrate(input){
     const route=Compatibility.workspace(input);
     if(route==='current'&&validateBackup(input))return clone(input);
+    if(route==='current'){
+      const normalized=clone(input);
+      for(const p of normalized.plans||[])p.params=normalizeParams(p.params);
+      if(validateBackup(normalized))return normalized;
+    }
     const source=route==='v3'?clone(input):route==='current'?(()=>{const v=clone(input);v.version=3;for(const p of v.plans||[]){p.params=normalizeParams(p.params);delete p.strategyId;delete p.promotionSchemeId;delete p.salesSource;}return v;})():legacyToV3(input);
     if(!V3.validateBackup(source)||!validRecordResults(source))throw Error('旧备份未通过检查，原数据保留');
     const s=clone(source),maps=new Map();s.version=4;s.pricingStrategies=[];s.sizeSchemes=[];s.promotionSchemes=[];
@@ -268,7 +281,7 @@
     try{
       if(s?.version===3)return V3.validateBackup(s)&&validRecordResults(s);
       const id=v=>typeof v==='string'&&/^[A-Za-z0-9_-]{1,100}$/.test(v),ruleId=v=>typeof v==='string'&&/^[A-Za-z0-9_.-]{1,100}$/.test(v),text=(v,max=10000)=>typeof v==='string'&&v.length<=max,name=(v,max=10000)=>text(v,max)&&!!v.trim(),unique=a=>Array.isArray(a)&&a.length<=20000&&a.every(x=>x&&id(x.id))&&new Set(a.map(x=>x.id)).size===a.length,field=v=>v===''||nonnegative(v),deleted=v=>typeof v.deleted==='boolean';
-      if(!s||s.version!==4||!['shops','plans','materials','sizes','shippingTemplates','records','pricingStrategies','sizeSchemes','promotionSchemes'].every(k=>unique(s[k]))||!s.shops.length||!validRecordResults(s))return false;
+      if(!s||s.formulaVersion!==undefined&&![4,5].includes(s.formulaVersion)||s.version!==4||!['shops','plans','materials','sizes','shippingTemplates','records','pricingStrategies','sizeSchemes','promotionSchemes'].every(k=>unique(s[k]))||!s.shops.length||!validRecordResults(s))return false;
       const sameNames=list=>new Set(list.filter(x=>!x.deleted).map(x=>materialNameKey(x.name))).size===list.filter(x=>!x.deleted).length;
       if(s.shops.some(x=>!name(x.name)||!deleted(x))||!sameNames(s.materials))return false;
       for(const m of s.materials){if(!name(m.name)||!nonnegative(m.price)||typeof m.active!=='boolean'||!deleted(m)||!Array.isArray(m.history)||m.history.some(h=>!nonnegative(h.price)||!text(h.date)||!text(h.note))||!Array.isArray(m.weightRules)||m.weightRules.length>100)return false;const ids=new Set(),keys=new Set();for(const r of m.weightRules){const key=`${r.thickness}|${r.variant}`;if(!ruleId(r.id)||ids.has(r.id)||!text(r.variant)||!(r.thickness===''||positive(r.thickness)&&r.thickness<=10000)||!nonnegative(r.coefficient)||!nonnegative(r.costPerSqm)||typeof r.default!=='boolean'||!deleted(r)||!r.deleted&&keys.has(key))return false;ids.add(r.id);if(!r.deleted)keys.add(key);}if(m.weightRules.filter(r=>!r.deleted&&r.default).length>1)return false;}
@@ -285,7 +298,7 @@
         if(!validDate(h.date)||!['confirmed','superseded','void'].includes(h.status)||!['daily','snapshot'].includes(h.kind)||!text(h.createdAt)||!text(h.note)||!s.plans.some(p=>p.id===h.planId&&p.shopId===h.shopId)||!s.shops.some(x=>x.id===h.shopId)||!h.result)return false;
         if(h.legacy&&h.legacy.kind!==h.kind||h.kind==='snapshot'&&(!h.legacy||h.frame))return false;
         if(h.kind==='daily'){if(!Number.isFinite(h.result.profit)||!nonnegative(h.result.gmv))return false;
-          if(h.frame){const f=h.frame,p=f.plan;if(p.id!==h.planId||p.shopId!==h.shopId||f.calculationVersion!==undefined&&f.calculationVersion!==4)return false;const r=calculate(f,p);if(!r.valid||recordResultKeys(h).some(k=>!near(r[k],h.result[k])))return false;}
+          if(h.frame){const f=h.frame,p=f.plan;if(p.id!==h.planId||p.shopId!==h.shopId||f.calculationVersion!==undefined&&f.calculationVersion!==4||f.formulaVersion!==undefined&&(![4,5].includes(f.formulaVersion)||f.calculationVersion!==4))return false;const r=calculate(f,p);if(!r.valid||recordResultKeys(h).some(k=>!near(r[k],h.result[k])))return false;}
           else if(h.legacy){const l=h.legacy,mat={id:'frozen',name:l.materialName,price:l.materialPrice,baseThickness:l.materialBaseThickness,active:true,history:[]},frozen={version:2,materials:[mat],sizes:l.items.map(i=>({...i,id:i.sizeId,active:true})),plans:[{id:'frozen-plan',name:'历史校验',materialId:mat.id,params:l.params,items:l.items,history:[l]}]};if(!Legacy.validateBackup(frozen)||!['profit','gmv','roi','price'].every(k=>near(l[k],h.result[k]))||l.cost!==undefined&&!near(l.cost,h.result.cost))return false;}else return false;
           if(h.status==='confirmed'){const key=h.planId+'/'+h.date;if(dates.has(key))return false;dates.add(key);}}
         if(h.previousId&&!s.records.some(x=>x.id!==h.id&&x.id===h.previousId&&x.planId===h.planId&&x.kind===h.kind&&x.status==='superseded'&&x.replacedBy===h.id)||h.status==='superseded'&&!s.records.some(x=>x.id!==h.id&&x.id===h.replacedBy&&x.previousId===h.id)||h.status!=='superseded'&&h.replacedBy)return false;
@@ -295,6 +308,6 @@
       return s.prefs&&Array.isArray(s.prefs.ids)&&s.prefs.ids.length>=1&&s.prefs.ids.length<=4&&new Set(s.prefs.ids).size===s.prefs.ids.length&&s.prefs.ids.every(id=>metricList.some(x=>x.id===id));
     }catch{return false;}
   }
-  const api={migrateWorkspace:migrate,validName,selectable,validRecordResults,clone,uid,today,number,draft,positive,nonnegative,validDate,ceilRoi,defaults,defaultRefundRates,metricList,skuColumnList,defaultSkuColumns,skuColumns,toGrams,fromGrams,sizeLabel,productionDimensions,productionSizeLabel,productionArea,derivedWeight,validSize,validTemplate,shippingCost,normalizeParams,refundMetrics,calculate,frameMaterialPrice,setFrameMaterialPrice,makeFrame,summarize,confirmRecord,ledger,newPlan,migrate,initialState,seed,validateBackup,regionalShippingTemplate,ZTO_REGIONAL_RATES,REGULAR_SHIPPING_RATES,BUILTIN_MATERIALS,materialNameKey,duplicateMaterialName,normalizeMaterial,materialRule,frameMaterials,frameCostLabel};
+  const api={formulaVersion,migrateWorkspace:migrate,validName,selectable,validRecordResults,clone,uid,today,number,draft,positive,nonnegative,validDate,ceilRoi,defaults,defaultRefundRates,metricList,skuColumnList,defaultSkuColumns,skuColumns,toGrams,fromGrams,sizeLabel,productionDimensions,productionSizeLabel,productionArea,derivedWeight,validSize,validTemplate,shippingCost,normalizeParams,refundMetrics,calculate,frameMaterialPrice,setFrameMaterialPrice,makeFrame,summarize,confirmRecord,ledger,newPlan,migrate,initialState,seed,validateBackup,regionalShippingTemplate,ZTO_REGIONAL_RATES,REGULAR_SHIPPING_RATES,BUILTIN_MATERIALS,materialNameKey,duplicateMaterialName,normalizeMaterial,materialRule,frameMaterials,frameCostLabel};
   if(typeof module==='object')module.exports=api;else root.MatModel=api;
 })(typeof globalThis==='object'?globalThis:{});

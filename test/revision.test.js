@@ -47,7 +47,7 @@ test('工作台按固定材质重量系数推导运费重量，未配置材料�
   s.materials[0].name='硅藻泥基础料';
   assert.equal(M.derivedWeight(size,s.materials[0],p.items[0]),'');
 });
-test('中通区域运费按表格重量区间计费且忽略面单费，净 ROI 排除一小时退款',()=>{
+test('中通区域运费按表格重量区间计费且忽略面单费，净成交 ROI 以全部退款后收入计',()=>{
   const t=M.regionalShippingTemplate();
   close(M.shippingCost(t,.3,'天津').value,1.45);
   close(M.shippingCost(t,.4,'福建省').value,1.65);

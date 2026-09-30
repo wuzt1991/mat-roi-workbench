@@ -38,8 +38,8 @@ test('标题同时出现仿亚麻和硅藻泥时优先识别硅藻泥',()=>{
     ['淘宝','店','仿亚麻硅藻泥地垫','80*120 3mm','1001','2001','39.9','在售','5']
   ],{rules});
   assert.equal(result.summary.ready,true);
-  assert.equal(result.rows[0].values[4],'80*120 3mm【硅藻泥】');
-  assert.equal(result.rows[0].values[23],'80*120 3mm【硅藻泥】');
+  assert.equal(result.rows[0].values[4],'80*120 3.0【硅藻泥、3.0】');
+  assert.equal(result.rows[0].values[23],'80*120 3.0【硅藻泥、3.0】');
 });
 
 test('常规运费无目的地时使用普通省份最高价及五公斤续重',()=>{
@@ -77,11 +77,11 @@ test('商品转表可按平台商品 ID 批量应用同组材质复核',()=>{
   const reviewed=P.applyBatchReviews(result,{2:{material:'硅藻泥'},});
   assert.equal(reviewed.summary.ready,true);
   assert.equal(reviewed.exceptions.length,0);
-  assert.equal(reviewed.rows[0].values[5],'硅藻泥');
-  assert.equal(reviewed.rows[1].values[5],'硅藻泥');
+  assert.equal(reviewed.rows[0].values[5],'3.0硅藻泥');
+  assert.equal(reviewed.rows[1].values[5],'3.0硅藻泥');
   assert.equal(reviewed.rows[0].values[18],'sku-1');
   assert.equal(reviewed.rows[1].values[18],'sku-2');
-  assert.match(reviewed.rows[1].values[4],/【硅藻泥】$/);
+  assert.match(reviewed.rows[1].values[4],/【硅藻泥、3.0】$/);
 });
 
 test('同商品组内材质复核冲突时保留异常',()=>{

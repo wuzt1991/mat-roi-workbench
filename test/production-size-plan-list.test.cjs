@@ -36,12 +36,12 @@ test('常用尺寸、组合、自定义复用和转表都使用同一组实际�
  assert.throws(()=>R.addSizes(s,p.id,[size.id]),/有效/);
 });
 
-test('格式 5 原始备份仍可恢复；格式 6 只导出生产长宽且完整恢复原始数据',async()=>{
+test('格式 5 原始备份仍可恢复；格式 8 只导出生产长宽且完整恢复原始数据',async()=>{
  const s=sample();legacySize(s);M.confirmRecord(s,{frame:M.makeFrame(s,s.plans[0]),date:'2026-09-20'});s.plans[0].pinned=true;
  const json=JSON.stringify(s),old=new Excel.Workbook();for(const [name,rows] of W.tables(s,5))old.addWorksheet(name).addRows(rows);
  const hidden=old.addWorksheet('恢复数据');hidden.addRow(['MAT-ROI-XLSX',5]);hidden.addRow([0,json]);
  assert.equal(old.getWorksheet('商品规格').getCell('F2').value,'是');assert.equal(JSON.stringify(await W.importWorkbook(await old.xlsx.writeBuffer())),json);
- const book=new Excel.Workbook();await book.xlsx.load(await W.exportWorkbook(s));assert.equal(book.getWorksheet('恢复数据').getCell('B1').value,6);
+ const book=new Excel.Workbook();await book.xlsx.load(await W.exportWorkbook(s));assert.equal(book.getWorksheet('恢复数据').getCell('B1').value,9);
  for(const name of ['商品规格','尺寸库'])assert.doesNotMatch(book.getWorksheet(name).getRow(1).values.join(','),/销售[长宽尺]|异形/);
  const sheet=book.getWorksheet('商品规格');assert.equal(sheet.getCell('D2').value,50);assert.equal(sheet.getCell('E2').value,120);assert.equal(sheet.getCell('C2').value,'50 × 120 cm');assert.equal(book.getWorksheet('入账规格').getCell('F2').value,'50 × 120 cm');
  assert.equal(JSON.stringify(await W.importWorkbook(await book.xlsx.writeBuffer())),json);

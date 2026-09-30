@@ -16,8 +16,8 @@
   const shippingTypeOptions = type => type === 'regional' ? [['regional', shippingTypeLabels.regional]] : [['fixed', shippingTypeLabels.fixed], ['tiers', shippingTypeLabels.tiers], ['step', shippingTypeLabels.step]];
   function ruleText(t) {
     if (!t) return '待选模板';
-    if (t.type === 'regional') return '中通区域运费 · 0–5kg 分档，5kg以上按整公斤续重 · 不含面单费';
-    if (t.type === 'fixed') return `每单 ${money(t.fee)}`;
+    if (t.type === 'regional') return '普通省份最高常规价 · 0–5000 g 分档；超过 5000 g 按总重向上取整到公斤 × 2.40 元；偏远地区人工核价，不含面单费';
+    if (t.type === 'fixed') return `每发货包裹 ${money(t.fee)}`;
     if (t.type === 'tiers') return t.tiers.map((r, i) => `${weightText(i ? t.tiers[i - 1].upTo : 0)}–${weightText(r.upTo)} g：${money(r.fee)}`).join('；');
     return `首 ${weightText(t.firstWeight)} g ${money(t.firstFee)}，每续 ${weightText(t.stepWeight)} g 加 ${money(t.stepFee)}；不足一档按一档，最高 ${weightText(t.maxWeight)} g`;
   }
@@ -47,10 +47,11 @@
       const d = modal.draft, k = modal.kind;
       let body = field('方案名称', 'name', d.name, 'text', 'maxlength="80"');
       if (k === 'pricingStrategies') {
-        body += `<label class="field"><span>定价方式</span><select data-field="type" aria-label="定价方式">${[['uniform', '统一毛利'], ['rank', '成本排名阶梯'], ['area', '面积递增毛利']].map(([v, t]) => option(v, t, d.type)).join('')}</select></label><div class="rule-fields stack-gap">${d.type === 'uniform' ? field('目标毛利率 / %', 'margin', d.margin) : d.type === 'area' ? [['baseArea', '基准面积 / ㎡'], ['baseMargin', '基准毛利率 / %'], ['stepArea', '递增面积 / ㎡'], ['stepPoints', '递增毛利 / 百分点'], ['cap', '毛利上限 / %']].map(([key, label]) => field(label, key, d[key])).join('') : d.tiers.map((v, i) => `<label class="field"><span>第 ${i + 1} 名毛利率 / %</span><input type="number" min="0" max="99.99" step="any" data-rank-tier="${i}" value="${e(v)}"></label>`).join('') + field('后续排名毛利率 / %', 'fallback', d.fallback)}</div>${d.type === 'rank' ? '<div class="row stack-gap">' + btn('add-rank-tier', '增加档位', 'plus', 'ghost') + btn('remove-rank-tier', '减少档位', 'minus', 'ghost', d.tiers.length <= 1 ? 'disabled' : '') + '</div>' : ''}`;
+        body += `<label class="field"><span>定价方式</span><select data-field="type" aria-label="定价方式">${[['uniform', '统一毛利'], ['rank', '成本排名阶梯'], ['area', '面积递增毛利']].map(([v, t]) => option(v, t, d.type)).join('')}</select></label><div class="rule-fields stack-gap">${d.type === 'uniform' ? field('目标毛利率 / %', 'margin', d.margin) : d.type === 'area' ? [['baseArea', '基准面积 / ㎡'], ['baseMargin', '基准毛利率 / %'], ['stepArea', '递增面积 / ㎡'], ['stepPoints', '递增毛利 / 百分点'], ['cap', '毛利上限 / %']].map(([key, label]) => field(label, key, d[key])).join('') : d.tiers.map((v, i) => `<label class="field"><span>第 ${i + 1} 名毛利率 / %</span><input type="number" min="0" step="any" data-rank-tier="${i}" value="${e(v)}"></label>`).join('') + field('后续排名毛利率 / %', 'fallback', d.fallback)}</div>${d.type === 'rank' ? '<div class="row stack-gap">' + btn('add-rank-tier', '增加档位', 'plus', 'ghost') + btn('remove-rank-tier', '减少档位', 'minus', 'ghost', d.tiers.length <= 1 ? 'disabled' : '') + '</div>' : ''}`;
       }
       if (k === 'sizeSchemes') body += `<div class="size-choice-grid stack-gap">${sizeChoices(d.sizeIds).replaceAll('data-select-size', 'data-rule-size')}</div>`;
       if (k === 'promotionSchemes') body += `<p class="note stack-gap">活动按顺序叠加，每一步基于上一步金额。</p>${d.steps.map((step, i) => `<div class="promotion-step"><select data-activity-type="${i}" aria-label="第 ${i + 1} 步活动">${option('discount', '折扣', step.type)}${option('reduction', '直减', step.type)}</select><input type="number" data-activity-value="${i}" step="0.01" min="0.01" value="${e(step.type === 'discount' ? step.discount : step.amount)}" aria-label="第 ${i + 1} 步${step.type === 'discount' ? '折扣' : '直减金额'}"><span>${step.type === 'discount' ? '折' : '元'}</span>${ib('activity-up', '上移', 'arrow-up', `data-index="${i}" ${i ? '' : 'disabled'}`)}${ib('activity-down', '下移', 'arrow-down', `data-index="${i}" ${i === d.steps.length - 1 ? 'disabled' : ''}`)}${ib('activity-remove', '移除', 'x', `data-index="${i}"`)}</div>`).join('')}${btn('activity-add', '添加活动', 'plus', 'ghost', d.steps.length >= 10 ? 'disabled' : '')}`;
+      if(k==='pricingStrategies')body+=`<p class="note stack-gap">毛利率 = 利润 ÷ 成本 × 100%，与规格表一致。成本含材料、单次运费、按售价计算的平台费和税；利润为售价减成本，未计退款、广告及其他费用。目标可超过 100%，售价向上取到分。${d.type==='area'?'面积按完整档位递增。':d.type==='rank'?'材料与单次运费合计按分排名，同分成本同档。':''}</p>`;
       return frame(modal.id ? '编辑方案' : '保存方案', body);
     }
     function materialList() {

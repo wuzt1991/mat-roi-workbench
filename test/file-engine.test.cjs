@@ -14,6 +14,29 @@ const {exportProduct}=require('../server/product-stream-export.cjs');
 const {normalizeCandidateSheets,normalizeMapping}=require('../server/file-service.cjs');
 
 const rules=()=>({materials:Domain.initialState().materials});
+test('流式商品导出厚度统一一位小数且无单位，成本重量仍使用原规则',async(t)=>{
+  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'mat-thickness-format-'));
+  t.after(()=>fs.rmSync(directory,{recursive:true,force:true}));
+  const filename=path.join(directory,'source.xlsx'),session=path.join(directory,'session'),output=path.join(directory,'out.xlsx');
+  const thicknesses=[2,3.5,4.15,3.36,2.05],labels=['2.0','3.5','4.2','3.4','2.1'];
+  const ruleSet={materials:[{id:'format-material',name:'硅藻泥',weightRules:thicknesses.map((thickness,i)=>({id:'format-'+i,thickness,coefficient:thickness,costPerSqm:thickness*10,default:i===0}))}]};
+  const book=new Excel.Workbook(),sheet=book.addWorksheet('商品');
+  sheet.addRow(['平台','店铺','平台商品名称','平台规格名称','平台商品ID','平台规格ID','平台售价','售卖状态','平台库存','货品简称','规格简称']);
+  thicknesses.forEach((value,i)=>sheet.addRow(['抖音','测试店',`硅藻泥 ${value}mm 地垫`,`400mm×600mm ${value}毫米`,'p-'+i,'s-'+i,20,'在售',10,`短名 ${value}mm`,`短规格 ${value}毫米`]));
+  fs.writeFileSync(filename,Buffer.from(await book.xlsx.writeBuffer()));
+  new ImportSessionStore(session,{create:true,meta:{sessionId:'format',ownerToken:'test',rules:ruleSet}}).close();
+  const inspection=await Reader.inspectWorkbook(filename,session);
+  const imported=await Reader.importSheet(filename,session,{sheetId:inspection.sheets[0].sheetId,rules:ruleSet});assert.equal(imported.ready,true);
+  await exportProduct({sessionDirectory:session,templatePath:path.join(__dirname,'../public/assets/product-template.xlsx'),outputPath:output});
+  const exported=new Excel.Workbook();await exported.xlsx.load(fs.readFileSync(output));const result=exported.worksheets[0];
+  thicknesses.forEach((value,i)=>{
+    const row=result.getRow(i+2).values.slice(1),label=labels[i];
+    assert.deepEqual(row.slice(5,7),[label+'硅藻泥',label+'硅藻泥']);
+    for(const col of [4,23,26])assert.equal(row[col],`400mm×600mm ${label}【硅藻泥、${label}】`);
+    assert.equal(row[3],`硅藻泥 ${label} 地垫`);assert.equal(row[25],`短名 ${label}`);assert.equal(row[28],`短规格 ${label}`);
+    assert.equal(row[11],.24*value);assert.equal(row[12],.24*(value*10));assert.equal(row[17],'p-'+i);
+  });
+});
 async function source(filename,rows=3){const book=new Excel.Workbook(),sheet=book.addWorksheet('商品');sheet.addRow(['平台','店铺','平台商品名称','平台规格名称','平台商品ID','平台规格ID','平台售价','售卖状态','平台库存']);for(let i=0;i<rows;i++)sheet.addRow(['抖音','店铺','硅藻泥地垫',`${40+i}*60cm 3mm`,`000${i}`,`sku-${i}`,20,'在售',10]);fs.writeFileSync(filename,Buffer.from(await book.xlsx.writeBuffer()));}
 async function sourceWithRepeatedHeader(filename){const book=new Excel.Workbook(),sheet=book.addWorksheet('销售'),header=['店铺','','平台订单号','主条码','货品名称','提取尺寸','修改数量','','货品数量','快递单号','','','货品名称','货品名称'],repeated=['店铺','0','平台订单号','主条码','货品名称','','货品数量','#VALUE!','货品数量','快递单号','#N/A','','货品名称','货品名称'];sheet.addRow(header);sheet.addRow(['A','','o1','sku-1','地垫','','1','','1']);sheet.addRow(['旺店通2.2','#N/A','','','','','','#VALUE!','','','#N/A']);sheet.addRow(repeated);sheet.addRow(['A','','o2','sku-2','地垫','','2','','2']);fs.writeFileSync(filename,Buffer.from(await book.xlsx.writeBuffer()));}
 

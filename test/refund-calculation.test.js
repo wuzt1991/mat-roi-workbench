@@ -10,7 +10,7 @@ function oneSku(){
   return {state,plan};
 }
 
-test('净 ROI 使用每行 netMargin 汇总并按显示规则向上到 1.33',()=>{
+test('净成交 ROI 保本线使用退款后收入且不加回一小时退款',()=>{
   const state=M.seed(),plan=state.plans[0],material=state.materials.find(m=>m.id===plan.materialId);
   Object.assign(material,{name:'硅藻泥',price:9.3,weightRules:[{id:'silica-27',thickness:2.7,variant:'',coefficient:.83,costPerSqm:9.3,default:true}]});
   plan.materialRuleId='silica-27';
@@ -20,8 +20,10 @@ test('净 ROI 使用每行 netMargin 汇总并按显示规则向上到 1.33',()=
   const result=M.calculate(state,plan);
   assert.equal(result.valid,true);
   assert.ok(result.rows.every(row=>Number.isFinite(row.netMargin)));
-  assert.ok(Math.abs(result.netRoi-1.3246226097928797)<1e-9);
-  assert.equal(M.ceilRoi(result.netRoi),1.33);
+  close(result.netRoi,result.revenue/result.margin);
+  close(result.netRoi,result.roi*.97);
+  plan.params.refundRates.firstHour=0;
+  close(M.calculate(state,plan).netRoi,result.netRoi);
 });
 
 test('退款按类型分摊：100% 未发货退款不产生商品、运费或履约亏损',()=>{
@@ -42,7 +44,7 @@ test('已发货退款保留运费与回收折减成本，退货额外费只按�
   const baseShipping=M.calculate(state,{...plan,params:{...plan.params,refundRates:{unshipped:0,shippedOnly:0,returnRefund:0,firstHour:''}}}).rows[0].shipping;
   plan.params={...plan.params,recovery:50,returnCost:4,refundRates:{unshipped:10,shippedOnly:20,returnRefund:30,firstHour:10}};
   const result=M.calculate(state,plan),item=result.rows[0];
-  close(item.goods,material*(.4+.5*.5));
+  close(item.goods,material*(.4+.2+.3*.5));
   close(item.shipping,baseShipping*.9);
   close(item.returnExtra,1.2);
   close(item.otherBase,0);

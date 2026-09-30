@@ -24,9 +24,9 @@ test('商品转表识别表头、材质和尺寸，并生成 139 条静态数据
   assert.equal(result.summary.sourceRows,139);
   assert.equal(result.summary.exceptionRows,0);
   assert.equal(result.rows[0].material,'硅藻泥');
-  assert.match(result.rows[0].values[4],/【硅藻泥】$/);
+  assert.match(result.rows[0].values[4],/【硅藻泥、3.0】$/);
   assert.equal(result.rows[0].values[23],result.rows[0].values[4]);
-  assert.match(result.rows[0].values[26],/【硅藻泥】$/);
+  assert.match(result.rows[0].values[26],/【硅藻泥、3.0】$/);
   assert.deepEqual(result.rows[0].dimensions,{ok:true,width:40,length:60,label:'40*60',area:.24,raw:result.rows[0].dimensions.raw});
   assert.equal(result.rows[0].values[11],.216);
   assert.equal(result.rows[0].values[12],2.352);
@@ -50,7 +50,7 @@ test('商品转表导出复制模板样式并清除公式，输出 29 列和 139
   assert.equal(sheet.columnCount,29);assert.equal(sheet.rowCount,140);
   assert.equal(sheet.getCell('R2').formula,undefined);assert.equal(sheet.getCell('S2').formula,undefined);
   assert.equal(sheet.getCell('R2').type,Excel.ValueType.String);assert.equal(sheet.getCell('S2').type,Excel.ValueType.String);assert.equal(sheet.getCell('AC140').value,'');
-  assert.equal(sheet.getCell('F2').value,'硅藻泥');assert.equal(sheet.getCell('L2').value,.216);
+  assert.equal(sheet.getCell('F2').value,'3.0硅藻泥');assert.equal(sheet.getCell('L2').value,.216);
 });
 
 for(const count of [1,60,99,100])test(`商品转表导出 ${count} 条规格时删除模板尾行且无残留公式`,async()=>{
@@ -74,7 +74,7 @@ test('未解决异常禁止导出，复核后才解锁',async()=>{
   assert.equal(result.summary.ready,false);assert.ok(result.exceptions.length);
   const reviewed=P.applyReviews(result,{2:{material:'硅藻泥',width:40,length:60}});
   assert.equal(reviewed.summary.ready,true);assert.equal(reviewed.exceptions.length,0);
-  assert.match(reviewed.rows[0].values[4],/【硅藻泥】$/);
+  assert.match(reviewed.rows[0].values[4],/【硅藻泥、3.0】$/);
   assert.equal(reviewed.rows[0].values[23],reviewed.rows[0].values[4]);
   assert.equal(reviewed.rows[0].values[26],reviewed.rows[0].values[4]);
 });
@@ -119,8 +119,8 @@ test('商品级材质复核一次应用到该商品全部 SKU',()=>{
   const result=P.transformRows(rows),reviewed=P.applyProductReview(result,'product-1',{material:'硅藻泥'});
   const target=reviewed.rows.filter(row=>row.values[17]==='product-1');
   assert.equal(target.length,2);
-  assert.ok(target.every(row=>row.values[5]==='硅藻泥'));
-  assert.ok(target.every(row=>/【硅藻泥】$/.test(row.values[4])));
+  assert.ok(target.every(row=>row.values[5]==='3.0硅藻泥'));
+  assert.ok(target.every(row=>/【硅藻泥、3.0】$/.test(row.values[4])));
   assert.ok(target.every(row=>Number.isFinite(row.values[11])&&Number.isFinite(row.values[12])));
   assert.equal(reviewed.summary.ready,true);
 });
@@ -131,7 +131,7 @@ test('商品级复核改材质时替换旧后缀而不叠加',()=>{
     [1,'抖音','店','硅藻泥商品','40*60cm','product-1','sku-1',10,'在售',1]
   ];
   const result=P.transformRows(rows),reviewed=P.applyProductReview(result,'product-1',{material:'亚麻'});
-  assert.match(reviewed.rows[0].values[4],/【亚麻】$/);
+  assert.match(reviewed.rows[0].values[4],/【亚麻、5.0】$/);
   assert.doesNotMatch(reviewed.rows[0].values[4],/【硅藻泥】【亚麻】$/);
 });
 
@@ -147,4 +147,13 @@ test('固定重量系数按材质与厚度命中，成本价不参与重量',()=
     const rule=P.resolveWeightRule(material,source,P.defaultRules());
     assert.equal(rule.coefficient,coefficient,`${material} ${source}`);
   }
+});
+test('去掉厚度单位后复核仍命中原始非默认规则，不改变成本重量',()=>{
+  const headers=['平台','店铺','平台商品名称','平台规格名称','平台商品ID','平台规格ID','平台售价','售卖状态','平台库存'];
+  const rules=P.defaultRules();rules.weightRules.push({material:'硅藻泥',thickness:4.15,coefficient:1.2345,costPerSqm:17.31,default:false});
+  const result=P.transformRows([headers,['抖音','店','硅藻泥 4.15mm 地垫','400mm×600mm 4.15mm','p','s',20,'在售',10]],{rules});
+  const reviewed=P.applyReviews(result,{2:{price:21}}),row=reviewed.rows[0];
+  assert.equal(reviewed.summary.ready,true);assert.equal(row.values[5],'4.2硅藻泥');
+  assert.equal(row.weight,.24*1.2345);assert.equal(row.cost,.24*17.31);assert.equal(row.values[3],'硅藻泥 4.2 地垫');
+  assert.equal(row.values[4],'400mm×600mm 4.2【硅藻泥、4.2】');
 });

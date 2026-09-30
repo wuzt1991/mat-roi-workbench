@@ -51,6 +51,7 @@
     }
     const frame = record ? M.clone(record.frame) : M.makeFrame(state, plan);
     if (!frame) throw Error('这笔旧记录缺少完整成本，无法直接更正');
+    if (record && frame.calculationVersion === 4) frame.formulaVersion = 5;
     if (!record) {
       const result = M.calculate(frame, frame.plan);
       frame.plan.params.revenueInput = 'amount';
