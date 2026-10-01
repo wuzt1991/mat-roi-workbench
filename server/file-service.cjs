@@ -47,7 +47,22 @@ function createFileService({store,dataDir}){
     if(restoring)throw new SessionError(409,'正在恢复工作区，文件任务暂停。','RESTORE_IN_PROGRESS');const directory=sessionDirectory(id),session=openSession(id);let meta;try{meta=session.metadata();if(type!=='export-rescue')assertCurrent(meta);}finally{session.close();}const sourcePath=path.join(directory,'source.xlsx'),outputDir=path.join(directory,'artifacts');fs.mkdirSync(outputDir,{recursive:true});const outputPath=path.join(outputDir,`${crypto.randomUUID()}.${type==='export-rescue'?'ndjson':'xlsx'}`),job=broker.start(type,payload,{sessionId:id,workspaceId:meta.workspaceId,storageEpoch:meta.storageEpoch,generation:meta.generation,revision:meta.revision,rulesFingerprint:meta.rulesFingerprint,sessionDirectory:directory,sourcePath,templatePath:TEMPLATE,outputPath,outputDir,...extra}),marker=openSession(id);try{marker.updateMeta({job,phase:phaseFor(type),error:null});}finally{marker.close();}return job;
   }
   async function upload(id,request,ownerToken){
-    const directory=sessionDirectory(id),session=openSession(id);try{assertCurrent(session.assertContext({ownerToken}));if(request.headers['content-type']&&!request.headers['content-type'].startsWith('application/octet-stream'))throw new SessionError(415,'请以原始文件流上传 Excel。','UNSUPPORTED_CONTENT_TYPE');if(broker.active)throw new SessionError(409,'已有文件任务正在进行。','FILE_JOB_BUSY');const statfs=fs.statfsSync(root),free=Number(statfs.bavail)*Number(statfs.bsize);if(free<FREE_LIMIT)throw new SessionError(507,'磁盘剩余空间不足 1 GiB。','DISK_SPACE_LOW');if(directoryBytes(root)>SESSION_TOTAL_LIMIT)throw new SessionError(507,'文件会话已占用 8 GiB，请先放弃不需要的会话。','SESSION_QUOTA');const part=path.join(directory,`source.${crypto.randomUUID()}.part`),hash=crypto.createHash('sha256');let bytes=0;request.on('data',chunk=>{bytes+=chunk.length;hash.update(chunk);if(bytes>LIMITS.sourceBytes)request.destroy(new SessionError(413,'文件超过 100 MiB。','SOURCE_TOO_LARGE'));});try{await pipeline(request,fs.createWriteStream(part,{flags:'wx'}));}catch(error){try{fs.unlinkSync(part);}catch{}throw error;}if(bytes===0){fs.unlinkSync(part);throw new SessionError(422,'上传文件为空。','EMPTY_FILE');}if(directoryBytes(directory)>SESSION_LIMIT){fs.unlinkSync(part);throw new SessionError(507,'当前会话占用超过 2 GiB。','SESSION_QUOTA');}assertCurrent(session.metadata());assertIdle();const source=path.join(directory,'source.xlsx');fs.renameSync(part,source);session.updateMeta({phase:'inspecting',sourceHash:hash.digest('hex'),sourceBytes:bytes,candidateSheets:[],artifact:null,error:null});return startSessionJob(id,'inspect',{});}finally{session.close();}
+    const directory=sessionDirectory(id),session=openSession(id);let part;
+    try{
+      assertCurrent(session.assertContext({ownerToken}));
+      if(request.headers['content-type']&&!request.headers['content-type'].startsWith('application/octet-stream'))throw new SessionError(415,'请以原始文件流上传 Excel。','UNSUPPORTED_CONTENT_TYPE');
+      assertIdle();const statfs=fs.statfsSync(root),free=Number(statfs.bavail)*Number(statfs.bsize);
+      if(free<FREE_LIMIT)throw new SessionError(507,'磁盘剩余空间不足 1 GiB。','DISK_SPACE_LOW');
+      if(directoryBytes(root)>SESSION_TOTAL_LIMIT)throw new SessionError(507,'文件会话已占用 8 GiB，请先放弃不需要的会话。','SESSION_QUOTA');
+      part=path.join(directory,`source.${crypto.randomUUID()}.part`);const hash=crypto.createHash('sha256');let bytes=0;
+      request.on('data',chunk=>{bytes+=chunk.length;hash.update(chunk);if(bytes>LIMITS.sourceBytes)request.destroy(new SessionError(413,'文件超过 100 MiB。','SOURCE_TOO_LARGE'));});
+      await pipeline(request,fs.createWriteStream(part,{flags:'wx'}));
+      if(bytes===0)throw new SessionError(422,'上传文件为空。','EMPTY_FILE');
+      if(directoryBytes(directory)>SESSION_LIMIT)throw new SessionError(507,'当前会话占用超过 2 GiB。','SESSION_QUOTA');
+      assertCurrent(session.metadata());assertIdle();const source=path.join(directory,'source.xlsx');fs.renameSync(part,source);
+      session.updateMeta({phase:'inspecting',sourceHash:hash.digest('hex'),sourceBytes:bytes,candidateSheets:[],artifact:null,error:null});
+      return startSessionJob(id,'inspect',{});
+    }finally{if(part)try{fs.rmSync(part,{force:true});}catch{}session.close();}
   }
   function status(id){const session=openSession(id);try{const meta=session.metadata(),counts=session.counts(meta.generation||0),job=meta.job?.jobId?broker.get(meta.job.jobId)||meta.job:null,candidateSheets=meta.candidateSheets||[],ctx=context(store),originalWorkspaceContext=meta.workspaceId!==ctx.workspaceId||Number(meta.storageEpoch)!==Number(ctx.storageEpoch),rulesStale=meta.kind==='product'&&Number(meta.generation)>0&&!originalWorkspaceContext&&(digest(currentRules())!==meta.rulesFingerprint||meta.derivationVersion!==Recognition.DERIVATION_VERSION);return {sessionId:id,kind:meta.kind,phase:meta.phase,revision:meta.revision,generation:meta.generation,workspaceId:meta.workspaceId,storageEpoch:meta.storageEpoch,candidateSheets,sheets:candidateSheets,inspection:meta.inspection||null,selectedSheets:meta.selectedSheets||[],duplicateRows:meta.duplicateRows||0,job,ready:counts.ready&&!rulesStale&&!originalWorkspaceContext&&(!meta.requireThicknessSetup||meta.uniformConfirmed===true),rulesStale,originalWorkspaceContext,counts,artifactId:meta.artifact?.artifactId||null,artifact:meta.artifact||null,error:meta.error||null};}finally{session.close();}}
   async function handle(request,response,url){
@@ -55,9 +70,21 @@ function createFileService({store,dataDir}){
     if(parts[1]==='file-jobs'){
       if(parts.length===2&&request.method==='GET')return json(response,200,{busy:!!broker.active,canQuit:!restoring&&broker.canQuit(),restoring,active:broker.get(broker.active?.jobId)}),true;
       if(parts[2]==='inspect-backup'&&parts[3]==='source'&&request.method==='POST'){
-        if(broker.active)throw new SessionError(409,'已有文件任务正在进行。','FILE_JOB_BUSY');const taskDir=path.join(root,`aux-${crypto.randomUUID()}`);fs.mkdirSync(taskDir,{recursive:true});const inputPath=path.join(taskDir,'backup.xlsx');let size=0;const limit=new Transform({transform(chunk,encoding,callback){size+=chunk.length;if(size>15*1024*1024)return callback(new SessionError(413,'备份文件超过 15 MiB。','BACKUP_TOO_LARGE'));callback(null,chunk);}});try{await pipeline(request,limit,fs.createWriteStream(inputPath,{flags:'wx'}));}catch(error){try{fs.rmSync(taskDir,{recursive:true,force:true});}catch{}throw error;}if(!size){fs.rmSync(taskDir,{recursive:true,force:true});throw new SessionError(422,'备份文件为空。','EMPTY_FILE');}const ctx=context(store),job=broker.start('inspect-backup',{filename:decodeURIComponent(request.headers['x-file-name']||'backup.xlsx')},{...ctx,outputDir:taskDir,inputPath});return json(response,202,{jobId:job.jobId}),true;
+        assertIdle();const taskDir=path.join(root,`aux-${crypto.randomUUID()}`);fs.mkdirSync(taskDir,{recursive:true});const inputPath=path.join(taskDir,'backup.xlsx');let size=0,started=false;
+        const limit=new Transform({transform(chunk,encoding,callback){size+=chunk.length;if(size>15*1024*1024)return callback(new SessionError(413,'备份文件超过 15 MiB。','BACKUP_TOO_LARGE'));callback(null,chunk);}});
+        try{
+          await pipeline(request,limit,fs.createWriteStream(inputPath,{flags:'wx'}));
+          if(!size)throw new SessionError(422,'备份文件为空。','EMPTY_FILE');
+          const ctx=context(store),job=broker.start('inspect-backup',{filename:decodeURIComponent(request.headers['x-file-name']||'backup.xlsx')},{...ctx,outputDir:taskDir,inputPath});started=true;
+          return json(response,202,{jobId:job.jobId}),true;
+        }finally{if(!started)try{fs.rmSync(taskDir,{recursive:true,force:true});}catch{}}
       }
-      if(parts.length===2&&request.method==='POST'){const input=await readJson(request,20*1024*1024);if(!ALLOWED_AUXILIARY.has(input.type))throw new SessionError(400,'该文件任务不允许。','UNKNOWN_FILE_JOB');const taskDir=path.join(root,`aux-${crypto.randomUUID()}`);fs.mkdirSync(taskDir,{recursive:true});const job=broker.start(input.type,input.payload||{},{workspaceId:context(store).workspaceId,storageEpoch:context(store).storageEpoch,outputDir:taskDir,outputPath:path.join(taskDir,`${crypto.randomUUID()}.xlsx`)});return json(response,202,{jobId:job.jobId}),true;}
+      if(parts.length===2&&request.method==='POST'){
+        const input=await readJson(request,20*1024*1024);if(!ALLOWED_AUXILIARY.has(input.type))throw new SessionError(400,'该文件任务不允许。','UNKNOWN_FILE_JOB');
+        assertIdle();const taskDir=path.join(root,`aux-${crypto.randomUUID()}`);fs.mkdirSync(taskDir,{recursive:true});let started=false;
+        try{const job=broker.start(input.type,input.payload||{},{...context(store),outputDir:taskDir,outputPath:path.join(taskDir,`${crypto.randomUUID()}.xlsx`)});started=true;return json(response,202,{jobId:job.jobId}),true;}
+        finally{if(!started)try{fs.rmSync(taskDir,{recursive:true,force:true});}catch{}}
+      }
       const jobId=parts[2],job=broker.get(jobId);if(!job)throw new SessionError(404,'文件任务不存在。','JOB_NOT_FOUND');
       if(parts.length===3&&request.method==='GET'){const ctx=context(store);if(job.type==='inspect-backup'&&(job.workspaceId!==ctx.workspaceId||job.storageEpoch!==ctx.storageEpoch))throw new SessionError(409,'工作区已恢复，请重新检查备份。','WORKSPACE_CONTEXT_CHANGED');return json(response,200,job),true;}
       if(parts[3]==='cancel'&&request.method==='POST')return json(response,202,broker.cancel(jobId)),true;

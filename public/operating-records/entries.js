@@ -26,7 +26,7 @@
     }
     if (!materials.length) fail('请填写有效的非负材料单价。', '[data-entry-price]');
     const rates = p.params.refundRates || ({}), summary = M.refundMetrics(p.params);
-    for (const key of ['unshipped', 'shippedOnly', 'returnRefund', 'firstHour']) if (!(key === 'firstHour' && rates[key] === '') && (!M.nonnegative(rates[key]) || rates[key] > 100) || summary.refundTotal > 100 || summary.firstHour > summary.refundTotal) {
+    for (const key of ['unshipped', 'shippedOnly', 'returnRefund', 'firstHour']) if (!(key === 'firstHour' && rates[key] === '') && (!M.nonnegative(rates[key]) || rates[key] > 100) || summary.refundTotal > 100 + 1e-9 || summary.firstHour > summary.refundTotal + 1e-9) {
       fail('请核对退款率；三类合计不超过 100%，1 小时内退款率不超过合计。', `[data-entry-refund-rate="${key}"]`);
       return false;
     }

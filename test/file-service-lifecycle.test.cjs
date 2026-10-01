@@ -75,6 +75,34 @@ test('undo lost response is replayed from its atomic receipt without a second ch
 async function completed(service,jobId){const end=Date.now()+10000;while(Date.now()<end){const job=service.broker.get(jobId);if(job&&job.state!=='running')return job;await new Promise(resolve=>setTimeout(resolve,20));}throw Error('Job timed out');}
 
 test('restored workspace fences stale session commands even when client omits epoch',async t=>{const f=await fixture(t);f.workspace.storageEpoch++;await assert.rejects(f.request('POST',`/api/file-sessions/${f.id}/reviews`,f.command),rejectedCode('WORKSPACE_CONTEXT_CHANGED'));await assert.rejects(f.request('GET',`/api/file-sessions/${f.id}/rows`),rejectedCode('WORKSPACE_CONTEXT_CHANGED'));});
+test('上传完成时工作区或任务状态变化，拒绝上传后清理临时文件并保留原源文件',async t=>{
+ for(const reason of ['WORKSPACE_CONTEXT_CHANGED','FILE_JOB_BUSY']){
+  const f=await fixture(t),source=path.join(f.directory,'source.xlsx');fs.writeFileSync(source,'original source');
+  const before=f.open();const metadata=before.metadata();before.close();
+  const stream=Readable.from((async function*(){yield Buffer.from('new source');if(reason==='WORKSPACE_CONTEXT_CHANGED')f.workspace.storageEpoch++;else f.service.broker.active={jobId:'other-job'};})());
+  stream.method='PUT';stream.headers={'content-type':'application/octet-stream','x-session-owner':f.created.ownerToken};
+  try{
+   await assert.rejects(f.service.handle(stream,{},new URL(`/api/file-sessions/${f.id}/source`,'http://localhost')),rejectedCode(reason));
+   assert.equal(fs.readFileSync(source,'utf8'),'original source');
+   const after=f.open();assert.deepEqual(after.metadata(),metadata);after.close();
+   assert.deepEqual(fs.readdirSync(f.directory).filter(name=>name.endsWith('.part')),[]);
+  }finally{f.service.broker.active=null;}
+ }
+});
+test('备份上传在启动任务前被拒绝时清理文件，已占用时导出不遗留目录',async t=>{
+ const f=await fixture(t),rootDir=path.dirname(f.directory),before=fs.readdirSync(rootDir).sort();
+ for(const reason of ['FILE_JOB_BUSY','INVALID_FILENAME']){
+  const stream=Readable.from((async function*(){yield Buffer.from('backup bytes');if(reason==='FILE_JOB_BUSY')f.service.broker.active={jobId:'other-job'};})());
+  stream.method='POST';stream.headers={'x-file-name':reason==='INVALID_FILENAME'?'%':'backup.xlsx'};
+  try{
+   await assert.rejects(f.service.handle(stream,{},new URL('/api/file-jobs/inspect-backup/source','http://localhost')),reason==='FILE_JOB_BUSY'?rejectedCode(reason):URIError);
+   assert.deepEqual(fs.readdirSync(rootDir).sort(),before);
+  }finally{f.service.broker.active=null;}
+ }
+ f.service.broker.active={jobId:'other-job'};
+ try{await assert.rejects(f.request('POST','/api/file-jobs',{type:'export-backup',payload:{state:f.state}}),rejectedCode('FILE_JOB_BUSY'));assert.deepEqual(fs.readdirSync(rootDir).sort(),before);}
+ finally{f.service.broker.active=null;}
+});
 test('review HTTP retry returns original receipt before stale revision check',async t=>{const f=await fixture(t);const first=await f.request('POST',`/api/file-sessions/${f.id}/reviews`,f.command),second=await f.request('POST',`/api/file-sessions/${f.id}/reviews`,f.command);assert.equal(second.value.replayed,true);assert.equal(second.value.revision,first.value.revision);});
 test('rules change blocks undo and previously generated downloads',async t=>{const f=await fixture(t);await f.request('POST',`/api/file-sessions/${f.id}/reviews`,f.command);const session=f.open(),filename=path.join(f.directory,'artifact.xlsx');fs.writeFileSync(filename,'fixture');const meta=session.metadata(),artifact=session.registerArtifact(filename,'商品转表.xlsx',digest([meta.sourceHash,meta.revision,meta.generation,meta.rulesFingerprint]));session.close();f.state.materials[0].name+=' changed';await assert.rejects(f.request('POST',`/api/file-sessions/${f.id}/undo`,{ownerToken:f.created.ownerToken,expectedSessionRevision:1}),rejectedCode('RULES_CHANGED'));await assert.rejects(f.request('GET',`/api/file-sessions/${f.id}/download?artifactId=${artifact.artifactId}`),rejectedCode('RULES_CHANGED'));});
 test('discard waits for child exit before removing session files',async t=>{const f=await fixture(t),child=new EventEmitter(),job={jobId:'active',sessionId:f.id,child};child.exitCode=null;child.signalCode=null;let exitObserved=false;f.service.broker.active=job;f.service.broker.jobs.set(job.jobId,job);f.service.broker.cancel=()=>{setTimeout(()=>{assert.ok(fs.existsSync(f.directory));exitObserved=true;child.exitCode=0;child.emit('exit',0,null);f.service.broker.active=null;},40);return job;};const result=await f.request('POST',`/api/file-sessions/${f.id}/discard`,{ownerToken:f.created.ownerToken});assert.equal(result.value.discarded,true);assert.equal(exitObserved,true);assert.equal(fs.existsSync(f.directory),false);});

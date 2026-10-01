@@ -23,11 +23,14 @@ test('规格列顺序独立保存，全部隐藏也不会改变当前或历史�
   for(const invalid of [['cost','cost'],['unknown'],null,'cost']){s.prefs.skuColumns=invalid;assert.equal(M.validateBackup(s),false);}
 });
 test('新版 Excel 规格、入账规格和全部运费重量都显示 g，恢复不改冻结数据',async()=>{
-  const s=sample();s.prefs.skuColumns=['cost','roi','shipping','weight'];const original=M.clone(s),before=JSON.parse(JSON.stringify(s)),bytes=await W.exportWorkbook(s),book=new Excel.Workbook();await book.xlsx.load(bytes);
+  const s=sample();s.records[0].id='record-kg-unit-check';s.prefs.skuColumns=['cost','roi','shipping','weight'];const original=M.clone(s),before=JSON.parse(JSON.stringify(s)),bytes=await W.exportWorkbook(s),book=new Excel.Workbook();await book.xlsx.load(bytes);
   assert.equal(book.getWorksheet('商品规格').getCell('F1').value,'发货重量（g）');assert.equal(book.getWorksheet('商品规格').getCell('F2').value,500);
   assert.equal(book.getWorksheet('入账规格').getCell('K1').value,'发货重量（g）');assert.equal(book.getWorksheet('入账规格').getCell('K2').value,500);
   const freight=book.getWorksheet('运费模板');assert.equal(freight.getCell('D3').value,500);assert.equal(freight.getCell('E3').value,1.35);assert.equal(freight.getCell('F6').value,1000);assert.equal(freight.getCell('H6').value,500);
-  const visible=book.worksheets.filter(s=>s.name!=='恢复数据').flatMap(s=>s.getSheetValues()).flat(2).filter(v=>typeof v==='string');assert.ok(visible.every(v=>!v.includes('kg')));
+  // Record IDs and user content may legitimately contain "kg"; check unit labels and generated freight explanations.
+  const headers=book.worksheets.filter(s=>s.name!=='恢复数据').flatMap(s=>s.getRow(1).values).filter(v=>typeof v==='string');assert.ok(headers.every(v=>!v.includes('kg')));
+  freight.eachRow((row,index)=>{if(index>1)assert.ok(!String(row.getCell(10).value||'').includes('kg'));});
+  assert.equal(book.getWorksheet('入账规格').getCell('A2').value,'record-kg-unit-check');
   const settings=book.getWorksheet('显示设置').getSheetValues().filter(Boolean).slice(1).map(row=>row.slice(1));assert.ok(settings.some(row=>row[0]==='商品规格'&&row[1]===1&&row[2]==='每支付单成本'));assert.ok(settings.some(row=>row[2]==='售价'&&row[3]==='否'));
   assert.deepEqual(await W.importWorkbook(bytes),before);assert.deepEqual(s,original);
 });
