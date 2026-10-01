@@ -1,6 +1,11 @@
 {
   "version": "1.2.18",
   "installerSha256": "d7e123fbb58042e5fdfaedecf079ca803b5535a7186dff539f6381b0af3595af",
-  "windows8GiB": {"passed": false, "evidence": null},
-  "windowsOffice": {"passed": false, "evidence": null}
+  "releaseScope": {
+    "mode": "github-windows-ci",
+    "approval": "validation/acceptance/release-scope-1.2.18.json"
+  },
+  "publicationMode": "console-verified",
+  "windows8GiB": {"passed": false, "evidence": null, "status": "not-covered"},
+  "windowsOffice": {"passed": false, "evidence": null, "status": "not-covered"}
 }

@@ -1,6 +1,6 @@
 'use strict';
 const test = require('node:test'), assert = require('node:assert/strict'), crypto = require('node:crypto');
-const { publish, preflight, verifyPublic, parseMetadata } = require('../scripts/publish-oss-update.cjs');
+const { publish, preflight, verifyPublic, verifyPublicAssets, parseMetadata } = require('../scripts/publish-oss-update.cjs');
 const env = { OSS_ACCESS_KEY_ID: 'test-key', OSS_ACCESS_KEY_SECRET: 'test-secret' };
 const digest = (b, a, e) => crypto.createHash(a).update(b).digest(e);
 function bundle(version = '1.2.18') {
@@ -78,6 +78,16 @@ test('OSS final public verification detects manifest and installer corruption', 
   await assert.rejects(verifyPublic(bundle(), { request: wrong.request }), /manifest mismatch/);
   const m = mock({ current: '1.2.18', existing: true, corruptDownload: true });
   await assert.rejects(verifyPublic(bundle(), { request: m.request }), /size mismatch|checksum mismatch/);
+});
+test('console staged assets are verified anonymously while the old feed remains unchanged', async () => {
+  const m = mock({ existing: true }), before = Buffer.from(m.objects.get('latest.yml'));
+  const result = await verifyPublicAssets(bundle(), { request: m.request });
+  assert.equal(result.verified, true); assert.equal(result.assets.length, 2);
+  assert.equal(result.manifestVerified, undefined);
+  assert.deepEqual(m.objects.get('latest.yml'), before);
+  assert.ok(m.calls.every(x => x.method === 'GET' && !x.authenticated && x.name !== 'latest.yml'));
+  m.objects.set(bundle().name + '.blockmap', Buffer.from('corrupt'));
+  await assert.rejects(verifyPublicAssets(bundle(), { request: m.request }), /size mismatch|checksum mismatch/);
 });
 test('update metadata rejects a different per-file digest or unsafe installer name', () => {
   const b = bundle(); assert.equal(parseMetadata(b.metadata).version, b.version);

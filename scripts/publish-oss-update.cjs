@@ -59,6 +59,9 @@ async function verifyPublic(bundle, { request = fetch } = {}) {
   const remote = Buffer.from(await response.arrayBuffer());
   assert.deepEqual(remote, bundle.metadata, 'Public manifest mismatch');
   assert.match(response.headers.get('cache-control') || '', /(?:no-cache|no-store|max-age=0)/, 'Public manifest must not be cached');
+  return { ...await verifyPublicAssets(bundle, { request }), manifestVerified: true };
+}
+async function verifyPublicAssets(bundle, { request = fetch } = {}) {
   const assets = [];
   for (const asset of bundle.assets) {
     const result = await publicRequest(asset.name, request);
@@ -130,7 +133,8 @@ if (require.main === module) (async () => {
     : process.argv.includes('--stage-assets') ? await publish(bundle, { onlyAssets: true })
     : process.argv.includes('--preflight') ? await preflight(bundle)
     : process.argv.includes('--verify-public') ? await verifyPublic(bundle)
+    : process.argv.includes('--verify-assets') ? await verifyPublicAssets(bundle)
     : { verified: true, published: false, version: bundle.version, installer: bundle.name };
   console.log(JSON.stringify(result));
 })().catch(error => { console.error(error.message); process.exitCode = 1; });
-module.exports = { inspect, parseMetadata, compareVersions, preflight, publish, verifyPublic };
+module.exports = { inspect, parseMetadata, compareVersions, preflight, publish, verifyPublic, verifyPublicAssets };

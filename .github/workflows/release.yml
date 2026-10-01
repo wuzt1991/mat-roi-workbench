@@ -17,8 +17,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - name: Require final installer manual acceptance
+      - name: Require approved final installer acceptance scope
         run: node scripts/release-validation/check-release-acceptance.cjs
+      - name: Select publication transport
+        id: transport
+        run: |
+          node -e 'const fs=require("fs"),a=require("./validation/release-acceptance.json"),mode=a.publicationMode||"ci-oss";if(!["ci-oss","console-verified"].includes(mode))throw Error("Unknown publication mode");if(mode==="console-verified"&&a.version!=="1.2.18")throw Error("Console publication is limited to 1.2.18");fs.appendFileSync(process.env.GITHUB_OUTPUT,"mode="+mode+"\n")'
       - name: Find a successful candidate for exactly this source
         id: candidate
         uses: actions/github-script@v7
@@ -46,12 +50,17 @@ jobs:
           path: candidate
       - name: Verify exact bytes and public feed before any publication
         env:
+          PUBLICATION_MODE: ${{ steps.transport.outputs.mode }}
           OSS_ACCESS_KEY_ID: ${{ secrets.OSS_UPDATE_ACCESS_KEY_ID }}
           OSS_ACCESS_KEY_SECRET: ${{ secrets.OSS_UPDATE_ACCESS_KEY_SECRET }}
         run: |
-          node -e 'if(!process.env.OSS_ACCESS_KEY_ID || !process.env.OSS_ACCESS_KEY_SECRET) throw Error("OSS CI credentials are not configured"); const fs=require("fs"),c=require("crypto"),e=require("./validation/candidate/sha256.json"),b=fs.readFileSync("candidate/"+e.file); if(b.length!==e.bytes || c.createHash("sha256").update(b).digest("hex")!==e.sha256) throw Error("Candidate differs from approved installer")'
+          node -e 'if(process.env.PUBLICATION_MODE==="ci-oss"&&(!process.env.OSS_ACCESS_KEY_ID || !process.env.OSS_ACCESS_KEY_SECRET)) throw Error("OSS CI credentials are not configured"); const fs=require("fs"),c=require("crypto"),e=require("./validation/candidate/sha256.json"),b=fs.readFileSync("candidate/"+e.file); if(b.length!==e.bytes || c.createHash("sha256").update(b).digest("hex")!==e.sha256) throw Error("Candidate differs from approved installer")'
           node scripts/publish-oss-update.cjs candidate --preflight
+          if [ "$PUBLICATION_MODE" = "console-verified" ]; then
+            node scripts/publish-oss-update.cjs candidate --verify-public
+          fi
       - name: Stage verified immutable files without changing latest
+        if: steps.transport.outputs.mode == 'ci-oss'
         env:
           OSS_ACCESS_KEY_ID: ${{ secrets.OSS_UPDATE_ACCESS_KEY_ID }}
           OSS_ACCESS_KEY_SECRET: ${{ secrets.OSS_UPDATE_ACCESS_KEY_SECRET }}
@@ -94,10 +103,14 @@ jobs:
             }
             core.setOutput('id', String(release.id));
       - name: Commit domestic update manifest and verify anonymous downloads
+        if: steps.transport.outputs.mode == 'ci-oss'
         env:
           OSS_ACCESS_KEY_ID: ${{ secrets.OSS_UPDATE_ACCESS_KEY_ID }}
           OSS_ACCESS_KEY_SECRET: ${{ secrets.OSS_UPDATE_ACCESS_KEY_SECRET }}
         run: node scripts/publish-oss-update.cjs candidate --publish
+      - name: Recheck console-published feed before making GitHub discoverable
+        if: steps.transport.outputs.mode == 'console-verified'
+        run: node scripts/publish-oss-update.cjs candidate --verify-public
       - name: Publish GitHub channel after domestic feed is verified
         uses: actions/github-script@v7
         env:

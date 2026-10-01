@@ -1,0 +1,10 @@
+{
+  "version": "1.2.18",
+  "installerSha256": "d7e123fbb58042e5fdfaedecf079ca803b5535a7186dff539f6381b0af3595af",
+  "authorizedBy": "user",
+  "checkedAt": "2026-10-01",
+  "decision": "release-with-github-windows-ci",
+  "statement": "按 GitHub 验收发布，保留未覆盖说明",
+  "notCovered": ["windows8GiB", "windowsOffice"],
+  "requiredValidation": "Successful Windows candidate validation for the exact tagged commit, all four jobs, and the approved installer bytes. Verify unmodified production-feed upgrades after publishing."
+}

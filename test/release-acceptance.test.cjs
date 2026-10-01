@@ -17,3 +17,20 @@ test('formal release rejects pending manual evidence and mismatched installer ev
  write('validation/acceptance/windows8GiB.json',{...common,physicalMemoryGiB:8,physicalDevice:true});assert.equal(check(root).passed,true);
  write('validation/acceptance/windowsOffice.json',{...common,installerSha256:'b'.repeat(64),application:'WPS',manuallyOpened:true,noRepairDialog:true,valuesAndLayoutVerified:true});assert.throws(()=>check(root));
 });
+test('approved CI scope preserves uncovered checks and is bound to this installer and version',t=>{
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'mat-release-scope-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
+ fs.mkdirSync(path.join(root,'validation/candidate'),{recursive:true});fs.mkdirSync(path.join(root,'validation/acceptance'));
+ const write=(p,d)=>fs.writeFileSync(path.join(root,p),JSON.stringify(d));
+ const sha='d7e123fbb58042e5fdfaedecf079ca803b5535a7186dff539f6381b0af3595af';
+ const approval={version:'1.2.18',installerSha256:sha,authorizedBy:'user',checkedAt:'2026-10-01',decision:'release-with-github-windows-ci',statement:'按 GitHub 验收发布，保留未覆盖说明',notCovered:['windows8GiB','windowsOffice']};
+ const acceptance={version:'1.2.18',installerSha256:sha,releaseScope:{mode:'github-windows-ci',approval:'validation/acceptance/scope.json'},windows8GiB:{passed:false,evidence:null,status:'not-covered'},windowsOffice:{passed:false,evidence:null,status:'not-covered'}};
+ write('package.json',{version:'1.2.18'});write('validation/candidate/sha256.json',{sha256:sha});write('validation/release-acceptance.json',acceptance);
+ assert.throws(()=>check(root),/ENOENT/);
+ write('validation/acceptance/scope.json',approval);assert.deepEqual(check(root).notCovered,['windows8GiB','windowsOffice']);
+ acceptance.windowsOffice.passed=true;write('validation/release-acceptance.json',acceptance);assert.throws(()=>check(root),/must remain false/);
+ acceptance.windowsOffice.passed=false;write('validation/release-acceptance.json',acceptance);
+ approval.authorizedBy='assistant';write('validation/acceptance/scope.json',approval);assert.throws(()=>check(root));
+ approval.authorizedBy='user';write('validation/acceptance/scope.json',approval);
+ acceptance.installerSha256='b'.repeat(64);write('validation/candidate/sha256.json',{sha256:acceptance.installerSha256});write('validation/release-acceptance.json',acceptance);assert.throws(()=>check(root),/approved installer/);
+ acceptance.installerSha256=sha;acceptance.version='1.2.19';write('validation/candidate/sha256.json',{sha256:sha});write('package.json',{version:'1.2.19'});write('validation/release-acceptance.json',acceptance);assert.throws(()=>check(root),/only for 1.2.18/);
+});
