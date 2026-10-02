@@ -91,9 +91,10 @@
     const name=text(material);
     if(!name)return '';
     const value=number(thickness??rule?.thickness);
-    // These two standard transfer labels are unambiguous without a numeric
-    // prefix. This is an export convention independent of the material
-    // library's default-rule flag; every other thickness keeps its prefix.
+    // The standard default labels for these two materials are already
+    // unambiguous without a numeric prefix. Keep the prefix for every other
+    // material/thickness combination so custom and non-default rules remain
+    // distinguishable in the exported goods fields.
     const materialOnly=(name==='硅藻泥'&&value!==null&&Math.abs(value-3)<0.011)
       ||(name==='亚麻'&&value!==null&&Math.abs(value-3.5)<0.011);
     return materialOnly?name:`${thicknessText(rule,thickness)}${name}`;
