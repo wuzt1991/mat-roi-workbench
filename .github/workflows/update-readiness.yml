@@ -1,7 +1,7 @@
 name: Online update readiness
 on:
   push:
-    branches: [codex/release-1.2.18-20260930]
+    branches: [codex/release-1.2.19-20261001]
   workflow_dispatch:
 permissions:
   contents: read
@@ -19,7 +19,7 @@ jobs:
           OSS_ACCESS_KEY_ID: ${{ secrets.OSS_UPDATE_ACCESS_KEY_ID }}
           OSS_ACCESS_KEY_SECRET: ${{ secrets.OSS_UPDATE_ACCESS_KEY_SECRET }}
         run: |
-          node -e 'const a=require("./validation/release-acceptance.json"),mode=a.publicationMode||"ci-oss";if(mode==="console-verified"&&a.version==="1.2.18"){console.log("::notice::Console upload selected; promotion must independently verify the public manifest and full asset hashes");process.exit(0)}if(mode!=="ci-oss")throw Error("Unknown publication mode");const missing=["OSS_ACCESS_KEY_ID","OSS_ACCESS_KEY_SECRET"].filter(k=>!process.env[k]);if(missing.length){console.log("::error::Missing CI secret configuration: "+missing.join(", "));process.exit(1)}console.log("::notice::Both OSS publisher secrets are configured")'
+          node -e 'const a=require("./validation/release-acceptance.json"),mode=a.publicationMode||"ci-oss";if(mode==="console-verified"&&a.version==="1.2.19"){console.log("::notice::Console upload selected; promotion must independently verify the public manifest and full asset hashes");process.exit(0)}if(mode!=="ci-oss")throw Error("Unknown publication mode");const missing=["OSS_ACCESS_KEY_ID","OSS_ACCESS_KEY_SECRET"].filter(k=>!process.env[k]);if(missing.length){console.log("::error::Missing CI secret configuration: "+missing.join(", "));process.exit(1)}console.log("::notice::Both OSS publisher secrets are configured")'
       - name: Check existing clients can read production feed
         if: always()
         shell: bash

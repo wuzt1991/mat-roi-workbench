@@ -77,8 +77,8 @@ test('商品转表可按平台商品 ID 批量应用同组材质复核',()=>{
   const reviewed=P.applyBatchReviews(result,{2:{material:'硅藻泥'},});
   assert.equal(reviewed.summary.ready,true);
   assert.equal(reviewed.exceptions.length,0);
-  assert.equal(reviewed.rows[0].values[5],'3.0硅藻泥');
-  assert.equal(reviewed.rows[1].values[5],'3.0硅藻泥');
+  assert.equal(reviewed.rows[0].values[5],'硅藻泥');
+  assert.equal(reviewed.rows[1].values[5],'硅藻泥');
   assert.equal(reviewed.rows[0].values[18],'sku-1');
   assert.equal(reviewed.rows[1].values[18],'sku-2');
   assert.match(reviewed.rows[1].values[4],/【硅藻泥、3.0】$/);

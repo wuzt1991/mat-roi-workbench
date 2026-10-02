@@ -3,7 +3,7 @@ name: Windows candidate validation
 on:
   push:
     branches:
-      - codex/release-1.2.18-20260930
+      - codex/release-1.2.19-20261001
   workflow_dispatch:
 
 permissions:
@@ -332,7 +332,7 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - name: Upgrade 1.2.10 to exact 1.2.18 and roll back with latest data
+      - name: Upgrade 1.2.10 to exact 1.2.19 and roll back with latest data
         shell: pwsh
         run: |
           $previous = Join-Path $env:RUNNER_TEMP 'previous-internal.exe'
@@ -342,7 +342,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Browser driver setup failed' }
           $env:MAT_PLAYWRIGHT_MODULE = Join-Path $tools 'node_modules/playwright'
           $env:MAT_VERIFY_OUTPUT = Join-Path $env:RUNNER_TEMP 'mat-internal-upgrade-evidence'
-          node scripts/release-validation/verify-windows-rollback.cjs $previous validation/candidate/mat-roi-workbench-setup-1.2.18.exe
+          node scripts/release-validation/verify-windows-rollback.cjs $previous validation/candidate/mat-roi-workbench-setup-1.2.19.exe
           if ($LASTEXITCODE -ne 0) { throw 'Internal upgrade or rollback failed' }
       - name: Emit complete internal upgrade evidence
         if: always()

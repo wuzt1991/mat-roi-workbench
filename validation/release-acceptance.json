@@ -1,11 +1,19 @@
 {
-  "version": "1.2.18",
-  "installerSha256": "d7e123fbb58042e5fdfaedecf079ca803b5535a7186dff539f6381b0af3595af",
+  "version": "1.2.19",
+  "installerSha256": "beb86d1da519d04ed5a918f71f5ed5f5e106f9d9d4ceead7e0fc0af220f6e1c4",
   "releaseScope": {
     "mode": "github-windows-ci",
-    "approval": "validation/acceptance/release-scope-1.2.18.json"
+    "approval": "validation/acceptance/release-scope-1.2.19.json"
   },
   "publicationMode": "console-verified",
-  "windows8GiB": {"passed": false, "evidence": null, "status": "not-covered"},
-  "windowsOffice": {"passed": false, "evidence": null, "status": "not-covered"}
+  "windows8GiB": {
+    "passed": false,
+    "evidence": null,
+    "status": "not-covered"
+  },
+  "windowsOffice": {
+    "passed": false,
+    "evidence": null,
+    "status": "not-covered"
+  }
 }

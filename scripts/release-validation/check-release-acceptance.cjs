@@ -9,8 +9,8 @@ function check(root) {
   if (acceptance.releaseScope?.mode === 'github-windows-ci') {
     // This exception is bound to one release and its exact installer. The release
     // workflow still requires all four Windows jobs for the exact tagged commit.
-    assert.equal(acceptance.version, '1.2.18', 'CI-only scope is approved only for 1.2.18');
-    assert.equal(candidate.sha256, 'd7e123fbb58042e5fdfaedecf079ca803b5535a7186dff539f6381b0af3595af', 'CI-only scope is bound to the approved installer');
+    assert.equal(acceptance.version, '1.2.19', 'CI-only scope is approved only for 1.2.19');
+    assert.equal(candidate.sha256, 'beb86d1da519d04ed5a918f71f5ed5f5e106f9d9d4ceead7e0fc0af220f6e1c4', 'CI-only scope is bound to the approved installer');
     const approvalPath = acceptance.releaseScope.approval;
     assert.match(approvalPath || '', /^validation\/acceptance\/[a-zA-Z0-9._-]+\.json$/, 'Release scope approval required');
     const approval = JSON.parse(fs.readFileSync(path.join(root, approvalPath)));

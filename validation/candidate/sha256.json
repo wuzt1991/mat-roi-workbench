@@ -1,6 +1,8 @@
 {
-  "sha256": "d7e123fbb58042e5fdfaedecf079ca803b5535a7186dff539f6381b0af3595af",
-  "bytes": 103792440,
-  "payloadSha256": "e1a5305a609ef4dfd39072b59fe4b2d1b08355db4832f5d6d68b93360b875a35",
-  "file": "mat-roi-workbench-setup-1.2.18.exe"
+  "sha256": "beb86d1da519d04ed5a918f71f5ed5f5e106f9d9d4ceead7e0fc0af220f6e1c4",
+  "bytes": 103792782,
+  "payloadSha256": "d6fc7021782727f10f50ee7b2c249778a1ea1a14939b5d74fffbcd0a3883ceaf",
+  "file": "mat-roi-workbench-setup-1.2.19.exe",
+  "version": "1.2.19",
+  "blockmapSha256": "2c0846edc06b1be9cc5b04d06df6b3a779329bf0e16aad1d210a938a68bd3d7c"
 }

@@ -50,7 +50,7 @@ test('商品转表导出复制模板样式并清除公式，输出 29 列和 139
   assert.equal(sheet.columnCount,29);assert.equal(sheet.rowCount,140);
   assert.equal(sheet.getCell('R2').formula,undefined);assert.equal(sheet.getCell('S2').formula,undefined);
   assert.equal(sheet.getCell('R2').type,Excel.ValueType.String);assert.equal(sheet.getCell('S2').type,Excel.ValueType.String);assert.equal(sheet.getCell('AC140').value,'');
-  assert.equal(sheet.getCell('F2').value,'3.0硅藻泥');assert.equal(sheet.getCell('L2').value,.216);
+  assert.equal(sheet.getCell('F2').value,'硅藻泥');assert.equal(sheet.getCell('L2').value,.216);
 });
 
 for(const count of [1,60,99,100])test(`商品转表导出 ${count} 条规格时删除模板尾行且无残留公式`,async()=>{
@@ -119,7 +119,7 @@ test('商品级材质复核一次应用到该商品全部 SKU',()=>{
   const result=P.transformRows(rows),reviewed=P.applyProductReview(result,'product-1',{material:'硅藻泥'});
   const target=reviewed.rows.filter(row=>row.values[17]==='product-1');
   assert.equal(target.length,2);
-  assert.ok(target.every(row=>row.values[5]==='3.0硅藻泥'));
+  assert.ok(target.every(row=>row.values[5]==='硅藻泥'));
   assert.ok(target.every(row=>/【硅藻泥、3.0】$/.test(row.values[4])));
   assert.ok(target.every(row=>Number.isFinite(row.values[11])&&Number.isFinite(row.values[12])));
   assert.equal(reviewed.summary.ready,true);

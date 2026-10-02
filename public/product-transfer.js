@@ -57,7 +57,11 @@
   }
   function materialThicknessLabel(material,rule){
     const name=text(material);
-    return !name?'':`${thicknessText(rule)}${name}`;
+    if(!name)return '';
+    const value=number(rule?.thickness);
+    const materialOnly=(name==='硅藻泥'&&value!==null&&Math.abs(value-3)<0.011)
+      ||(name==='亚麻'&&value!==null&&Math.abs(value-3.5)<0.011);
+    return materialOnly?name:`${thicknessText(rule)}${name}`;
   }
   function stripGeneratedNameSuffix(value,rules={}){
     let source=text(value).replace(/【[^【】]+、[^【】]+】$/,'');

@@ -40,7 +40,7 @@ test('商品名和规格未写材质时使用商品标签补齐标准后缀',()=
  assert.equal(derived.values[4],'花间小猫;60*100【硅藻泥、3.0】');
  assert.equal(derived.values[23],derived.values[4]);
  assert.equal(derived.values[26],derived.values[4]);
- assert.deepEqual(derived.values.slice(5,7),['3.0硅藻泥','3.0硅藻泥']);
+ assert.deepEqual(derived.values.slice(5,7),['硅藻泥','硅藻泥']);
 });
 
 test('品牌和商品标签随人工厚度及材质选择同步，名称后缀一致',()=>{
@@ -50,7 +50,7 @@ test('品牌和商品标签随人工厚度及材质选择同步，名称后缀�
  assert.deepEqual(changed.derived.values.slice(5,7),['5.0硅藻泥','5.0硅藻泥']);
  assert.equal(changed.derived.weight,.48);
  const linen=R.previewTransferRowPatch(row,changed.review,{material:{mode:'value',id:'linen'},thickness:{mode:'value',materialId:'linen',ruleId:'linen35'}},{type:'row-edit'},both).derived;
- assert.deepEqual(linen.values.slice(5,7),['3.5亚麻','3.5亚麻']);
+ assert.deepEqual(linen.values.slice(5,7),['亚麻','亚麻']);
  for(const index of [4,23,26])assert.match(linen.values[index],/【亚麻、3\.5】$/);
  assert.equal(linen.weight,.24);
  assert.equal(linen.cost,2.88);
@@ -58,7 +58,7 @@ test('品牌和商品标签随人工厚度及材质选择同步，名称后缀�
  // Original source title is retained and may conflict after a material edit;
  // an explicit review remains authoritative on reimport too.
  const confirmed=R.deriveTransferRow({rowId:1,values:linen.values,mapping:R.mapFields(R.OUTPUT_HEADERS)}, {material:{status:'value',materialId:'linen'},thickness:{status:'value',materialId:'linen',ruleId:'linen35'}}, {rules:both});
- assert.deepEqual(confirmed.values.slice(5,7),['3.5亚麻','3.5亚麻']);
+ assert.deepEqual(confirmed.values.slice(5,7),['亚麻','亚麻']);
  assert.equal(confirmed.values[4],linen.values[4]);
 });
 

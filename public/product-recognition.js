@@ -89,7 +89,15 @@
   }
   function materialThicknessLabel(material,rule,thickness){
     const name=text(material);
-    return !name?'':`${thicknessText(rule,thickness)}${name}`;
+    if(!name)return '';
+    const value=number(thickness??rule?.thickness);
+    // The standard default labels for these two materials are already
+    // unambiguous without a numeric prefix. Keep the prefix for every other
+    // material/thickness combination so custom and non-default rules remain
+    // distinguishable in the exported goods fields.
+    const materialOnly=(name==='硅藻泥'&&value!==null&&Math.abs(value-3)<0.011)
+      ||(name==='亚麻'&&value!==null&&Math.abs(value-3.5)<0.011);
+    return materialOnly?name:`${thicknessText(rule,thickness)}${name}`;
   }
   function stripGeneratedNameSuffix(value,rules={}){
     let source=text(value);
