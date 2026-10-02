@@ -105,6 +105,11 @@
       if(files.length!==1){notify('每次只能导入一个 .xlsx 文件');return;}
       await startImport(files[0]);
     }
+    function documentInput(event){
+      const el=event.target;if(!el.closest?.('[data-product-v4]')||local.busy||!el.matches('[data-pv9-export-name]'))return;
+      controller.editExportName(el.value);
+      const preview=root.document.querySelector('[data-pv9-export-preview]');if(preview)preview.textContent='文件名：'+controller.exportName();
+    }
     async function documentChange(event){
       const el=event.target;if(!el.closest?.('[data-product-v4]')||local.busy)return;
       if(el.matches('[data-pv8-export-shop]')){controller.selectExportShop(el.value);return;}
@@ -116,6 +121,7 @@
     }
     async function documentClick(event){
       const button=event.target.closest?.('[data-product-v4] button');if(!button||local.busy&&!button.matches('[data-pv4-cancel]'))return;
+      if(button.matches('[data-pv9-export-reset]')){controller.resetExportName();return;}
       if(button.matches('[data-pv7-refresh]')){await refreshPage();return;}
       if(button.matches('[data-pv7-reconcile]')){await checkPending();return;}
       if(button.matches('[data-pv4-manual]')||button.matches('[data-pv5-pending]')){local.manual=true;local.filter=button.matches('[data-pv5-pending]')?'pending':'all';local.pageNumber=1;local.search='';resetGroup();await refreshPage();return;}
@@ -144,6 +150,7 @@
       if(local.listeners||!root.document)return;local.listeners=true;
       root.document.addEventListener('click',documentClick);
       root.document.addEventListener('change',documentChange);
+      root.document.addEventListener('input',documentInput);
       root.document.addEventListener('submit',dialogSubmit);
       root.document.addEventListener('dragenter',documentDragOver);
       root.document.addEventListener('dragover',documentDragOver);
@@ -153,7 +160,7 @@
     }
     function destroy(){
       waitingLoader.stop();resetDrop();controller.destroy();
-      if(local.listeners&&root.document){for(const [type,handler] of Object.entries({click:documentClick,change:documentChange,submit:dialogSubmit,dragenter:documentDragOver,dragover:documentDragOver,dragleave:documentDragLeave,drop:documentDrop,dragend:resetDrop}))root.document.removeEventListener(type,handler);}
+      if(local.listeners&&root.document){for(const [type,handler] of Object.entries({click:documentClick,change:documentChange,input:documentInput,submit:dialogSubmit,dragenter:documentDragOver,dragover:documentDragOver,dragleave:documentDragLeave,drop:documentDrop,dragend:resetDrop}))root.document.removeEventListener(type,handler);}
       local.dialog=null;root.document?.getElementById('product-v4-dialog')?.remove();
     }
     const api={html:views.html,activate(context){controller.activate(context);return api;},deactivate:controller.deactivate,refreshContext(context,settings){controller.refreshContext(context,settings);return api;},async restoreSession(session){await controller.restoreSession(session);return api;},refresh:controller.refreshPage,isBusy:controller.isBusy,canQuit:controller.canQuit,destroy,inspect:controller.inspect};

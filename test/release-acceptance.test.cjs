@@ -21,7 +21,7 @@ test('approved CI scope preserves uncovered checks and is bound to this installe
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'mat-release-scope-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
  fs.mkdirSync(path.join(root,'validation/candidate'),{recursive:true});fs.mkdirSync(path.join(root,'validation/acceptance'));
  const write=(p,d)=>fs.writeFileSync(path.join(root,p),JSON.stringify(d));
- const sha='beb86d1da519d04ed5a918f71f5ed5f5e106f9d9d4ceead7e0fc0af220f6e1c4';
+ const sha='7d6ddbb0256fdd4f07d907a8fb78f61179fdaa904d99db9412153924f3ae6629';
  const approval={version:'1.2.19',installerSha256:sha,authorizedBy:'user',checkedAt:'2026-10-02',decision:'release-with-github-windows-ci',statement:'按 GitHub 验收发布，保留未覆盖说明',notCovered:['windows8GiB','windowsOffice']};
  const acceptance={version:'1.2.19',installerSha256:sha,releaseScope:{mode:'github-windows-ci',approval:'validation/acceptance/scope.json'},windows8GiB:{passed:false,evidence:null,status:'not-covered'},windowsOffice:{passed:false,evidence:null,status:'not-covered'}};
  write('package.json',{version:'1.2.19'});write('validation/candidate/sha256.json',{sha256:sha});write('validation/release-acceptance.json',acceptance);

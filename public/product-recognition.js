@@ -78,26 +78,32 @@
     const value=number(thickness??rule?.thickness);
     return value===null?'不限厚度':exportThicknessFormat.format(value);
   }
-  function exportName(value){
-    const source=text(value),format=part=>part.replace(/(^|[^\d.])(\d+(?:\.\d+)?)\s*(?:mm|毫米)(?![\w])/ig,(_,prefix,n)=>prefix+thicknessText(null,n));
+  function exportName(value,material='',thickness=null){
+    const source=text(value),omit=isMaterialOnlyDefault(material,number(thickness));
+    const format=part=>{
+      if(omit){
+        const escaped=material.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+        part=part.replace(new RegExp(`([【（(]${escaped})[、,，]\\s*(\\d+(?:\\.\\d+)?)\\s*(?:mm|毫米)?([】）)])`,'gi'),(all,prefix,n,suffix)=>number(n)===number(thickness)?prefix+suffix:all);
+        part=part.replace(new RegExp(`(^|[^\\d.A-Za-z])(\\d+(?:\\.\\d+)?)\\s*(${escaped})`,'g'),(all,prefix,n,name)=>number(n)===number(thickness)?prefix+name:all);
+      }
+      return part.replace(/(^|[^\d.])(\d+(?:\.\d+)?)\s*(?:mm|毫米)(?![\w])/ig,(_,prefix,n)=>prefix+(omit&&number(n)===number(thickness)?'':thicknessText(null,n)));
+    };
     // Size units such as 400mm*600mm must remain usable as dimensions.
     let output='',start=0;
     for(const hit of source.matchAll(/(\d+(?:\.\d+)?)\s*(mm|cm|m|毫米|厘米|公分|米)?\s*(?:[*x×＊✕✖乘－–—-]|至|到)+\s*(\d+(?:\.\d+)?)\s*(mm|cm|m|毫米|厘米|公分|米)?/ig)){
       output+=format(source.slice(start,hit.index))+hit[0];start=hit.index+hit[0].length;
     }
-    return output+format(source.slice(start));
+    const result=output+format(source.slice(start));
+    return omit?result.replace(/\s{2,}/g,' ').replace(/\s+([】）)])/g,'$1').trim():result;
   }
   function materialThicknessLabel(material,rule,thickness){
     const name=text(material);
     if(!name)return '';
     const value=number(thickness??rule?.thickness);
-    // The standard default labels for these two materials are already
-    // unambiguous without a numeric prefix. Keep the prefix for every other
-    // material/thickness combination so custom and non-default rules remain
-    // distinguishable in the exported goods fields.
-    const materialOnly=(name==='硅藻泥'&&value!==null&&Math.abs(value-3)<0.011)
-      ||(name==='亚麻'&&value!==null&&Math.abs(value-3.5)<0.011);
-    return materialOnly?name:`${thicknessText(rule,thickness)}${name}`;
+    return isMaterialOnlyDefault(name,value)?name:`${thicknessText(rule,thickness)}${name}`;
+  }
+  function isMaterialOnlyDefault(material,thickness){
+    return (material==='硅藻泥'&&thickness===3)||(material==='亚麻'&&thickness===5);
   }
   function stripGeneratedNameSuffix(value,rules={}){
     let source=text(value);
@@ -111,9 +117,10 @@
     return source.trim();
   }
   function withMaterialThicknessSuffix(value,material,rule,thickness,rules={}){
-    const name=text(material),source=exportName(stripGeneratedNameSuffix(value,rules));
+    const name=text(material),source=exportName(stripGeneratedNameSuffix(value,rules),name,thickness??rule?.thickness);
     if(!source||!name)return source;
-    return `${source}【${name}、${thicknessText(rule,thickness)}】`;
+    const current=number(thickness??rule?.thickness);
+    return isMaterialOnlyDefault(name,current)?`${source}【${name}】`:`${source}【${name}、${thicknessText(rule,thickness)}】`;
   }
 
   function mapFields(headers){
@@ -178,8 +185,9 @@
     const outputMaterial=material.status==='value'&&thickness.status==='value'&&materialEntity
       ?materialThicknessLabel(materialEntity.name,rule,thickness.thickness)
       :materialEntity?.name||null;
+    const nameForExport=value=>exportName(value,materialEntity?.name,thickness.status==='value'?(thickness.thickness??rule?.thickness):null);
     const values=Array(29).fill(null),put=(i,v)=>{values[i]=v===''||v==null?null:v;};
-    put(0,number(field(raw,mapping,'seq'))??rowId);put(1,platform);put(2,shop);put(3,exportName(productName));put(4,outputSpecName);put(5,outputMaterial);put(6,outputMaterial);put(7,size.status==='value'?size.label:null);put(8,area);put(9,size.status==='value'?size.width:null);put(10,size.status==='value'?size.length:null);put(11,weight);put(12,cost);put(17,productId);put(18,skuId);put(19,number(field(raw,mapping,'price'))??text(field(raw,mapping,'price')));put(20,text(field(raw,mapping,'status')));put(21,number(field(raw,mapping,'inventory'))??text(field(raw,mapping,'inventory')));put(22,text(field(raw,mapping,'specType')));put(23,outputSpecName);put(24,sourceId(raw,mapping,'goodsCode'));put(25,exportName(field(raw,mapping,'goodsShort')));put(26,outputSpecName);put(27,skuId);put(28,exportName(field(raw,mapping,'specShort')));
+    put(0,number(field(raw,mapping,'seq'))??rowId);put(1,platform);put(2,shop);put(3,nameForExport(productName));put(4,outputSpecName);put(5,outputMaterial);put(6,outputMaterial);put(7,size.status==='value'?size.label:null);put(8,area);put(9,size.status==='value'?size.width:null);put(10,size.status==='value'?size.length:null);put(11,weight);put(12,cost);put(17,productId);put(18,skuId);put(19,number(field(raw,mapping,'price'))??text(field(raw,mapping,'price')));put(20,text(field(raw,mapping,'status')));put(21,number(field(raw,mapping,'inventory'))??text(field(raw,mapping,'inventory')));put(22,nameForExport(field(raw,mapping,'specType')));put(23,outputSpecName);put(24,sourceId(raw,mapping,'goodsCode'));put(25,nameForExport(field(raw,mapping,'goodsShort')));put(26,outputSpecName);put(27,skuId);put(28,nameForExport(field(raw,mapping,'specShort')));
     return {rowId,sourceRow:rawRecord.sourceRow,groupId:groupKey(platform,shop,productId,rowId),platform,shop,productId,skuId,productName,specName,material,size,thickness,originalMissingThickness:evidence.originalMissingThickness,area,weight,cost,values,issues,status:issues.length?'pending':'confirmed'};
   }
 
@@ -215,5 +223,5 @@
     return {review:next,derived:deriveTransferRow(raw,next,{rules,thicknessDefaults,thicknessMode}),protectedFields};
   }
 
-  return {DERIVATION_VERSION:6,normalizeThicknessDefaults,attentionField,OUTPUT_HEADERS,FIELD_ALIASES,REQUIRED_PRODUCT_FIELDS,productMappingIssues,text,compact,number,validDimension,parseDimensions,identifyMaterial,thicknessEvidence,resolveThickness,thicknessText,exportName,materialThicknessLabel,stripGeneratedNameSuffix,withMaterialThicknessSuffix,mapFields,detectHeader,deriveTransferRow,previewTransferRowPatch,groupKey};
+  return {DERIVATION_VERSION:7,normalizeThicknessDefaults,attentionField,OUTPUT_HEADERS,FIELD_ALIASES,REQUIRED_PRODUCT_FIELDS,productMappingIssues,text,compact,number,validDimension,parseDimensions,identifyMaterial,thicknessEvidence,resolveThickness,thicknessText,exportName,materialThicknessLabel,stripGeneratedNameSuffix,withMaterialThicknessSuffix,mapFields,detectHeader,deriveTransferRow,previewTransferRowPatch,groupKey};
 });

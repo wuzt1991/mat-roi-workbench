@@ -70,3 +70,19 @@ test('export filename uses local calendar date and removes filesystem control ch
  assert.equal(Model.exportFilename('华住/旗舰:店\n',new Date(2026,8,30)),'华住_旗舰_店-2026-09-30.xlsx');
  assert.equal(Model.exportFilename(' . ',new Date(2026,8,30)),'商品转表-2026-09-30.xlsx');
 });
+test('手动表格名称用于实际导出，切换店铺保留修改，恢复自动命名与新会话重置',async t=>{
+ const requests=[],state={activeShop:'a',shops:[{id:'a',name:'华住'},{id:'b',name:'亚麻店'}]};
+ const c=Controller.create({getState:()=>state,request:async(action,p)=>{requests.push([action,p]);if(action==='rows')return page();if(action==='startExport')return {artifactId:'new'};if(action==='downloadUrl')return '/download';}});t.after(()=>c.destroy());
+ await c.restoreSession(session);c.editExportName('十月新品');assert.equal(c.exportName(),'十月新品.xlsx');
+ c.selectExportShop('b');assert.equal(c.exportName(),'十月新品.xlsx');await c.refreshPage();assert.equal(c.exportName(),'十月新品.xlsx');
+ await c.exportFile();assert.equal(requests.find(([a])=>a==='startExport')[1].options.filename,'十月新品.xlsx');
+ c.resetExportName();assert.match(c.exportName(),/^亚麻店-\d{4}-\d{2}-\d{2}\.xlsx$/);
+ c.editExportName('上一张表');await c.restoreSession({...session,sessionId:'new-session'});assert.match(c.exportName(),/^亚麻店-/);
+});
+test('自定义文件名保留中文，补齐一次扩展名，处理 Windows 名称和跨平台长度',()=>{
+ const date=new Date(2026,9,2),name=value=>Model.exportFilename('华住',date,value);
+ assert.equal(name('十月新品'),'十月新品.xlsx');assert.equal(name('十月新品.XLSX'),'十月新品.xlsx');assert.equal(name('十月新品.xlsx.xlsx'),'十月新品.xlsx');
+ assert.equal(name('  '),'华住-2026-10-02.xlsx');assert.equal(name('...'),'华住-2026-10-02.xlsx');
+ assert.equal(name('CON'),'_CON.xlsx');assert.equal(name('a/b:c?d\n'),'a_b_c_d.xlsx');
+ assert.ok(name('x'.repeat(200)).length<=105);assert.ok(Buffer.byteLength(name('名'.repeat(120)))<=205);assert.ok(name('名'.repeat(120)).endsWith('.xlsx'));
+});

@@ -56,12 +56,7 @@
     return Recognition.thicknessText(rule);
   }
   function materialThicknessLabel(material,rule){
-    const name=text(material);
-    if(!name)return '';
-    const value=number(rule?.thickness);
-    const materialOnly=(name==='硅藻泥'&&value!==null&&Math.abs(value-3)<0.011)
-      ||(name==='亚麻'&&value!==null&&Math.abs(value-3.5)<0.011);
-    return materialOnly?name:`${thicknessText(rule)}${name}`;
+    return Recognition.materialThicknessLabel(material,rule);
   }
   function stripGeneratedNameSuffix(value,rules={}){
     let source=text(value).replace(/【[^【】]+、[^【】]+】$/,'');
@@ -74,8 +69,7 @@
     return source.trim();
   }
   function withMaterialThicknessSuffix(value,material,rule,rules={}){
-    const name=text(material),source=Recognition.exportName(stripGeneratedNameSuffix(value,rules));
-    return !source||!name?source:`${source}【${name}、${thicknessText(rule)}】`;
+    return Recognition.withMaterialThicknessSuffix(stripGeneratedNameSuffix(value,rules),material,rule);
   }
   function replaceMaterialSuffix(value,previousMaterial,material,rule,rules={}){
     return withMaterialThicknessSuffix(value,material,rule,rules);
@@ -206,8 +200,8 @@
       if(!validValue(rule?.costPerSqm))rowExceptions.push({code:'RULE',message:'请在材料库填写有效的非负规则成本'});
       const out=Array(29).fill('');
       const put=(i,v)=>{out[i]=v===undefined||v===null?'':v;};
-      put(0,number(get('seq')) ?? (rows.length+1));put(1,text(get('platform')));put(2,text(get('shop')));put(3,Recognition.exportName(productName));put(4,specName);put(5,materialLabel);put(6,materialLabel);put(7,dimensions.ok?dimensions.label:'');put(8,area??'');put(9,dimensions.ok?dimensions.width:'');put(10,dimensions.ok?dimensions.length:'');put(11,weight);put(12,cost);
-      put(13,'');put(14,'');put(17,text(get('productId')));put(18,text(get('specId')));put(19,number(get('price'))??text(get('price')));put(20,text(get('status')));put(21,number(get('inventory'))??text(get('inventory')));put(22,text(get('specType')));put(23,specName);put(24,text(get('goodsCode')));put(25,Recognition.exportName(get('goodsShort')));put(26,specName);put(27,text(get('specId')));put(28,Recognition.exportName(get('specShort')));
+      put(0,number(get('seq')) ?? (rows.length+1));put(1,text(get('platform')));put(2,text(get('shop')));put(3,Recognition.exportName(productName,material.name,material.weightRule?.thickness));put(4,specName);put(5,materialLabel);put(6,materialLabel);put(7,dimensions.ok?dimensions.label:'');put(8,area??'');put(9,dimensions.ok?dimensions.width:'');put(10,dimensions.ok?dimensions.length:'');put(11,weight);put(12,cost);
+      put(13,'');put(14,'');put(17,text(get('productId')));put(18,text(get('specId')));put(19,number(get('price'))??text(get('price')));put(20,text(get('status')));put(21,number(get('inventory'))??text(get('inventory')));put(22,Recognition.exportName(get('specType'),material.name,material.weightRule?.thickness));put(23,specName);put(24,text(get('goodsCode')));put(25,Recognition.exportName(get('goodsShort'),material.name,material.weightRule?.thickness));put(26,specName);put(27,text(get('specId')));put(28,Recognition.exportName(get('specShort'),material.name,material.weightRule?.thickness));
       const ids=[17,18,27];ids.forEach(i=>{if(out[i]!==''&&out[i]!==null)out[i]=String(out[i]);});
       rowExceptions.push(...numericIssues(out));
       if(rowExceptions.length)exceptions.push({rowNumber,source:raw.slice(),output:out.slice(),issues:rowExceptions,reviewed:false});

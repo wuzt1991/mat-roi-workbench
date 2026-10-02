@@ -62,7 +62,7 @@
     }
     function exportShopHtml(){
       const shop=selectors.exportShop(),shops=selectors.exportShops();
-      return `<div class="pv8-export-name"><label class="field"><span>导出文件名使用的店铺</span><select aria-label="导出店铺" data-pv8-export-shop ${local.busy?'disabled':''}>${!shop?'<option value="">请选择店铺</option>':''}${shops.map(item=>`<option value="${htmlEscape(item.id)}" ${item.id===shop?.id?'selected':''}>${htmlEscape(item.name)}</option>`).join('')}</select></label><p class="pv5-note" aria-live="polite">${shop?'文件名：'+htmlEscape(selectors.exportName()):'请先在店铺管理中添加店铺。'}</p></div>`;
+      return `<div class="pv8-export-name"><label class="field"><span>导出文件名使用的店铺</span><select aria-label="导出店铺" data-pv8-export-shop ${local.busy?'disabled':''}>${!shop?'<option value="">请选择店铺</option>':''}${shops.map(item=>`<option value="${htmlEscape(item.id)}" ${item.id===shop?.id?'selected':''}>${htmlEscape(item.name)}</option>`).join('')}</select></label><label class="field pv9-export-filename"><span>表格名称（可手动修改）</span><input type="text" aria-label="表格名称" aria-describedby="pv9-export-name-note" data-pv9-export-name maxlength="100" value="${htmlEscape(local.customExportName||selectors.exportName())}" ${local.busy||!shop?'disabled':''}></label><button type="button" class="btn ghost" data-pv9-export-reset ${local.busy||!shop?'disabled':''}>恢复自动命名</button><p class="pv5-note pv9-export-preview" id="pv9-export-name-note" data-pv9-export-preview aria-live="polite">${shop?'文件名：'+htmlEscape(selectors.exportName()):'请先在店铺管理中添加店铺。'}</p></div>`;
     }
     function resultHtml(){
       const p=local.page;if(!p)return '';const pending=countValue(p,'pending'),total=countValue(p,'total');

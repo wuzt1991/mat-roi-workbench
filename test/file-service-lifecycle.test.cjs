@@ -23,6 +23,23 @@ async function fixture(t,{kind='product'}={}){
   return {dataDir,state,workspace,service,request,created,id,directory,open,rules,command:{ownerToken:created.ownerToken,expectedSessionRevision:0,mutationId:'review-1',rowIds:[1],action:{type:'row-edit'},patch:{size:{mode:'blank'}}}};
 }
 const rejectedCode=(code)=>error=>error?.code===code;
+test('v6 商品缓存升级后必须重算，保留复核且真实 Excel 下载使用手动文件名',async t=>{
+ const f=await fixture(t),session=f.open();session.setMeta('derivationVersion',6);session.close();
+ const opts={ownerToken:f.created.ownerToken,expectedSessionRevision:0};
+ assert.equal((await f.request('GET',`/api/file-sessions/${f.id}/rows`)).value.rulesStale,true);
+ await assert.rejects(f.request('POST',`/api/file-sessions/${f.id}/export`,opts),rejectedCode('RULES_CHANGED'));
+ const recompute=await f.request('POST',`/api/file-sessions/${f.id}/recompute`,opts);
+ assert.equal((await completed(f.service,recompute.value.jobId)).state,'succeeded');
+ const fresh=f.open(),revision=fresh.getMeta('revision');assert.equal(fresh.getMeta('derivationVersion'),Recognition.DERIVATION_VERSION);assert.equal(fresh.page().rows[0].derived.values[4],'40*60cm【硅藻泥】');fresh.close();
+ f.service.broker.entry=path.join(root,'server/file-job-child.cjs');
+ const started=await f.request('POST',`/api/file-sessions/${f.id}/export`,{...opts,expectedSessionRevision:revision,filename:'十月新品/终版.xlsx'});
+ const job=await completed(f.service,started.value.jobId);assert.equal(job.state,'succeeded',JSON.stringify(job.error));assert.equal(job.result.artifactName,'十月新品_终版.xlsx');
+ const status=(await f.request('GET',`/api/file-sessions/${f.id}`)).value;
+ const req=Readable.from([]);req.method='GET';req.headers={};let responseHeaders;const chunks=[],res=new Writable({write(chunk,encoding,done){chunks.push(chunk);done();}});res.writeHead=(code,headers)=>{assert.equal(code,200);responseHeaders=headers;};
+ const finished=new Promise(resolve=>res.on('finish',resolve));await f.service.handle(req,res,new URL(`/api/file-sessions/${f.id}/download?artifactId=${status.artifactId}`,'http://localhost'));await finished;
+ assert.match(decodeURIComponent(responseHeaders['Content-Disposition']),/十月新品_终版.xlsx/);
+ const Excel=require('../public/assets/exceljs.min.js'),book=new Excel.Workbook();await book.xlsx.load(Buffer.concat(chunks));assert.equal(book.worksheets[0].getCell('E2').value,'40*60cm【硅藻泥】');
+});
 test('failed recompute receipt rolls back the published generation, decisions and revision together',async t=>{
  const f=await fixture(t),s=f.open(),before=s.page(),reviews=s.db.prepare('SELECT * FROM reviews').all();
  const material=f.rules.materials.find(m=>m.name==='硅藻泥'),rule=material.weightRules.find(r=>Number(r.thickness)===5);

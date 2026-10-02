@@ -28,7 +28,7 @@ test('缺失平台同其他必填字段一样阻止导出',()=>{const r=raw(1);r
 test('导出三列统一使用材质与厚度后缀，不依赖前文是否已写材质',()=>{
  const row=raw(1,'硅藻泥 花间小猫;40*60cm 3mm');
  const derived=R.deriveTransferRow(row,{},{rules});
- const expected='硅藻泥 花间小猫;40*60cm 3.0【硅藻泥、3.0】';
+ const expected='硅藻泥 花间小猫;40*60cm【硅藻泥】';
  assert.deepEqual([derived.values[4],derived.values[23],derived.values[26]],[expected,expected,expected]);
 });
 
@@ -37,20 +37,20 @@ test('商品名和规格未写材质时使用商品标签补齐标准后缀',()=
  const mapping=R.mapFields(headers),values=['抖音','店','花间小猫地垫','花间小猫;60*100','','硅藻泥','p','s',20,'在售',1];
  const derived=R.deriveTransferRow({rowId:1,values,mapping},{},{rules,thicknessDefaults:{m:'3'}});
  assert.equal(derived.material.source,'auto-metadata');
- assert.equal(derived.values[4],'花间小猫;60*100【硅藻泥、3.0】');
+ assert.equal(derived.values[4],'花间小猫;60*100【硅藻泥】');
  assert.equal(derived.values[23],derived.values[4]);
  assert.equal(derived.values[26],derived.values[4]);
  assert.deepEqual(derived.values.slice(5,7),['硅藻泥','硅藻泥']);
 });
 
 test('品牌和商品标签随人工厚度及材质选择同步，名称后缀一致',()=>{
- const both={materials:[...rules.materials,{id:'linen',name:'亚麻',weightRules:[{id:'linen35',thickness:3.5,coefficient:1,costPerSqm:12}]}]};
+ const both={materials:[...rules.materials,{id:'linen',name:'亚麻',weightRules:[{id:'linen35',thickness:3.5,coefficient:1,costPerSqm:12},{id:'linen5',thickness:5,coefficient:2,costPerSqm:20}]}]};
  const row=raw(1);
  const changed=R.previewTransferRowPatch(row,{}, {thickness:{mode:'value',materialId:'m',ruleId:'5'}},{type:'row-edit'},both);
  assert.deepEqual(changed.derived.values.slice(5,7),['5.0硅藻泥','5.0硅藻泥']);
  assert.equal(changed.derived.weight,.48);
  const linen=R.previewTransferRowPatch(row,changed.review,{material:{mode:'value',id:'linen'},thickness:{mode:'value',materialId:'linen',ruleId:'linen35'}},{type:'row-edit'},both).derived;
- assert.deepEqual(linen.values.slice(5,7),['亚麻','亚麻']);
+ assert.deepEqual(linen.values.slice(5,7),['3.5亚麻','3.5亚麻']);
  for(const index of [4,23,26])assert.match(linen.values[index],/【亚麻、3\.5】$/);
  assert.equal(linen.weight,.24);
  assert.equal(linen.cost,2.88);
@@ -58,7 +58,9 @@ test('品牌和商品标签随人工厚度及材质选择同步，名称后缀�
  // Original source title is retained and may conflict after a material edit;
  // an explicit review remains authoritative on reimport too.
  const confirmed=R.deriveTransferRow({rowId:1,values:linen.values,mapping:R.mapFields(R.OUTPUT_HEADERS)}, {material:{status:'value',materialId:'linen'},thickness:{status:'value',materialId:'linen',ruleId:'linen35'}}, {rules:both});
- assert.deepEqual(confirmed.values.slice(5,7),['亚麻','亚麻']);
+ assert.deepEqual(confirmed.values.slice(5,7),['3.5亚麻','3.5亚麻']);
+ const linenDefault=R.deriveTransferRow(row,{material:{status:'value',materialId:'linen'},thickness:{status:'value',materialId:'linen',ruleId:'linen5'}},{rules:both});
+ assert.deepEqual(linenDefault.values.slice(5,7),['亚麻','亚麻']);
  assert.equal(confirmed.values[4],linen.values[4]);
 });
 

@@ -1,8 +1,8 @@
 version: 1.2.19
 files:
   - url: mat-roi-workbench-setup-1.2.19.exe
-    sha512: rlXcPTf3R0Y8PdVIq3HubB/sVPogxUJ5G8GEGEIOdetzpjPSCCg238XL9CEbAcrL5WHtG65Ztp8FqbCJqmYG5Q==
-    size: 103792782
+    sha512: 1Y2tYsMih3K8H2ukDxYXdMYMzZBGL5E8ZjkF95TNhC8NjBHBNC+bCswFGnbTgI3V1WLAjhhYYOXU5MzxRVO4jw==
+    size: 103793356
 path: mat-roi-workbench-setup-1.2.19.exe
-sha512: rlXcPTf3R0Y8PdVIq3HubB/sVPogxUJ5G8GEGEIOdetzpjPSCCg238XL9CEbAcrL5WHtG65Ztp8FqbCJqmYG5Q==
-releaseDate: '2026-10-02T06:37:43.422Z'
+sha512: 1Y2tYsMih3K8H2ukDxYXdMYMzZBGL5E8ZjkF95TNhC8NjBHBNC+bCswFGnbTgI3V1WLAjhhYYOXU5MzxRVO4jw==
+releaseDate: '2026-10-02T15:18:57.069Z'

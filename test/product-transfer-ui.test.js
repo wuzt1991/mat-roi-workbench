@@ -73,6 +73,16 @@ function dragHarness(request,state={}){
   function event({target=child,files=[],types=['Files'],items=[],relatedTarget=null}={}){return {target,relatedTarget,dataTransfer:{files,types,items,dropEffect:'none'},defaultPrevented:false,preventDefault(){this.defaultPrevented=true;}};}
   return {controller,listeners,bindings,attributes,calls,messages,zone,child,outside,dialog,event};
 }
+test('表格名称输入直接更新导出请求，恢复按钮重新使用店铺日期',async t=>{
+ const h=dragHarness(async action=>action==='rows'?{rows:[],total:1,ready:true,thicknessConfigured:true,counts:{total:1,confirmed:1,pending:0}}:action==='startExport'?Promise.reject(Error('stop after request')):{},{activeShop:'a',shops:[{id:'a',name:'华住'}]});t.after(()=>h.controller.destroy());
+ await h.controller.restoreSession({sessionId:'existing',ownerToken:'o'});
+ assert.match(h.controller.html(),/表格名称（可手动修改）/);
+ h.listeners.get('input')({target:{closest:()=>h.zone,matches:s=>s==='[data-pv9-export-name]',value:'手动表名'}});
+ await h.listeners.get('click')({target:{closest:()=>({matches:s=>s==='[data-pv4-export]'})}});
+ assert.equal(h.calls.find(x=>x.action==='startExport').payload.options.filename,'手动表名.xlsx');
+ await h.listeners.get('click')({target:{closest:()=>({matches:s=>s==='[data-pv9-export-reset]'})}});
+ assert.match(h.controller.html(),/value="华住-\d{4}-\d{2}-\d{2}\.xlsx"/);
+});
 
 test('拖入完整 Excel 后自动接纳，点击选择仍可使用',async t=>{
   const h=dragHarness();t.after(()=>h.controller.destroy());

@@ -24,9 +24,9 @@ test('商品转表识别表头、材质和尺寸，并生成 139 条静态数据
   assert.equal(result.summary.sourceRows,139);
   assert.equal(result.summary.exceptionRows,0);
   assert.equal(result.rows[0].material,'硅藻泥');
-  assert.match(result.rows[0].values[4],/【硅藻泥、3.0】$/);
+  assert.match(result.rows[0].values[4],/【硅藻泥】$/);
   assert.equal(result.rows[0].values[23],result.rows[0].values[4]);
-  assert.match(result.rows[0].values[26],/【硅藻泥、3.0】$/);
+  assert.match(result.rows[0].values[26],/【硅藻泥】$/);
   assert.deepEqual(result.rows[0].dimensions,{ok:true,width:40,length:60,label:'40*60',area:.24,raw:result.rows[0].dimensions.raw});
   assert.equal(result.rows[0].values[11],.216);
   assert.equal(result.rows[0].values[12],2.352);
@@ -74,7 +74,7 @@ test('未解决异常禁止导出，复核后才解锁',async()=>{
   assert.equal(result.summary.ready,false);assert.ok(result.exceptions.length);
   const reviewed=P.applyReviews(result,{2:{material:'硅藻泥',width:40,length:60}});
   assert.equal(reviewed.summary.ready,true);assert.equal(reviewed.exceptions.length,0);
-  assert.match(reviewed.rows[0].values[4],/【硅藻泥、3.0】$/);
+  assert.match(reviewed.rows[0].values[4],/【硅藻泥】$/);
   assert.equal(reviewed.rows[0].values[23],reviewed.rows[0].values[4]);
   assert.equal(reviewed.rows[0].values[26],reviewed.rows[0].values[4]);
 });
@@ -120,7 +120,7 @@ test('商品级材质复核一次应用到该商品全部 SKU',()=>{
   const target=reviewed.rows.filter(row=>row.values[17]==='product-1');
   assert.equal(target.length,2);
   assert.ok(target.every(row=>row.values[5]==='硅藻泥'));
-  assert.ok(target.every(row=>/【硅藻泥、3.0】$/.test(row.values[4])));
+  assert.ok(target.every(row=>/【硅藻泥】$/.test(row.values[4])));
   assert.ok(target.every(row=>Number.isFinite(row.values[11])&&Number.isFinite(row.values[12])));
   assert.equal(reviewed.summary.ready,true);
 });
@@ -131,7 +131,7 @@ test('商品级复核改材质时替换旧后缀而不叠加',()=>{
     [1,'抖音','店','硅藻泥商品','40*60cm','product-1','sku-1',10,'在售',1]
   ];
   const result=P.transformRows(rows),reviewed=P.applyProductReview(result,'product-1',{material:'亚麻'});
-  assert.match(reviewed.rows[0].values[4],/【亚麻、5.0】$/);
+  assert.match(reviewed.rows[0].values[4],/【亚麻】$/);
   assert.doesNotMatch(reviewed.rows[0].values[4],/【硅藻泥】【亚麻】$/);
 });
 

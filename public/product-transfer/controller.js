@@ -9,7 +9,7 @@
       setup:false,setupDirty:false,setupSession:'',uniformChoices:{},materialAssignments:{},assignmentCounts:{},unknownMaterial:'',materialPage:1,manual:false,offerAttention:false,contextSerial:0,context:{},session:null,candidate:null,candidateStatus:null,page:null,pageNumber:1,
       expandedGroupId:'',groupPage:1,groupRows:null,search:'',preferencesKey:'',thicknessDefaults:{},filter:'all',missingThickness:false,moreOpen:false,selected:new Set(),
       reading:false,busy:false,waitStartedAt:0,waitLabel:'',waitStatus:null,jobId:'',jobKind:'',error:'',requestSerial:0,pollTimer:0,dialog:null,lastFocus:null,
-      sheetSelection:new Set(),sheetMappings:{},selectionInitialized:false,undo:null,active:false,destroyed:false,listeners:false,exportShopId:''
+      sheetSelection:new Set(),sheetMappings:{},selectionInitialized:false,undo:null,active:false,destroyed:false,listeners:false,exportShopId:'',customExportName:''
     };
 
     const commands=Commands.create({request:call,waitForJob:waitForMutation,newId:mutationId});
@@ -162,6 +162,7 @@
         await call('accept',{...candidate,revision:page.revision,fileKind:'product'});
         if(local.candidate!==candidate)return;
         local.session={...candidate,revision:Number(page.revision??candidate.revision)};
+        local.customExportName='';
         local.candidate=null;local.candidateStatus=null;local.page=page;local.pageNumber=1;local.filter='all';local.missingThickness=false;local.moreOpen=false;local.selected.clear();local.undo=null;local.setup=true;local.setupSession='';local.setupDirty=false;local.manual=false;local.search='';resetGroup();local.offerAttention=false;local.requestSerial++;
         if(previous)call('discard',{sessionId:previous.sessionId,ownerToken:previous.ownerToken}).catch(()=>{});
       }catch(error){if(contextSerial!==local.contextSerial)return;local.error=safeMessage(error,'校验失败，当前文件已保留。');}
@@ -230,7 +231,7 @@
       const session=local.session;
       beginWaiting('正在生成商品表');local.error='';scheduleRender();
       try{
-        const result=await call('startExport',{sessionId:local.session.sessionId,options:{ownerToken:local.session.ownerToken,expectedSessionRevision:local.session.revision,shopId:shop.id}});
+        const result=await call('startExport',{sessionId:local.session.sessionId,options:{ownerToken:local.session.ownerToken,expectedSessionRevision:local.session.revision,shopId:shop.id,filename:exportName()}});
         if(local.session!==session)return;local.jobId=text(result?.jobId);local.jobKind='export';
         if(result?.artifactId)await download(result.artifactId);
         else queuePoll(pollExport,350);
@@ -258,7 +259,9 @@
     function materials(){return active(getState()?.materials);}
     function exportShops(){return active(getState()?.shops);}
     function exportShop(){const state=getState()||{},shops=exportShops();return shops.find(shop=>text(shop.id)===text(local.exportShopId||state.activeShop))||(!local.exportShopId?shops[0]:null);}
-    function exportName(){const shop=exportShop();return shop?Model.exportFilename(shop.name):'';}
+    function exportName(){const shop=exportShop();return shop?Model.exportFilename(shop.name,new Date(),local.customExportName):'';}
+    function editExportName(value){if(isBusy())return;local.customExportName=text(value);local.error='';}
+    function resetExportName(){if(isBusy())return;local.customExportName='';scheduleRender();}
     function selectExportShop(id){if(isBusy())return;local.exportShopId=text(id);local.error='';scheduleRender();}
     function materialById(id){return array(getState()?.materials).find(item=>text(item.id)===text(id));}
     function thicknessSetup(){return !!local.session&&(local.setup||local.page?.thicknessConfigured===false);}
@@ -299,13 +302,14 @@
     function refreshContext(context={},settings={}){
       const previousWorkspace=text(local.context.workspaceId),previousEpoch=text(local.context.storageEpoch);local.context={...local.context,...context};
       if((previousWorkspace&&text(local.context.workspaceId)!==previousWorkspace)||(previousEpoch&&text(local.context.storageEpoch)!==previousEpoch)){
-        local.exportShopId='';
+        local.exportShopId='';local.customExportName='';
         commands.reset();clearPoll();local.contextSerial++;local.requestSerial++;resetGroup();ports.closeDialog?.(true);local.setup=false;local.setupSession='';local.setupDirty=false;local.search='';local.session=null;local.candidate=null;local.candidateStatus=null;local.page=null;local.selected.clear();local.busy=false;local.jobId='';local.jobKind='';local.undo=null;local.error='工作区已切换，请重新选择商品规格文件。';
       }
       loadPreferences();if(settings.render!==false)scheduleRender();return api;
     }
     async function restoreSession(session){
       if(!session?.sessionId||!session?.ownerToken)throw Error('文件会话信息不完整');
+      if(local.session?.sessionId!==session.sessionId)local.customExportName='';
       commands.reset();clearPoll();local.contextSerial++;local.requestSerial++;local.setup=false;local.setupSession='';local.setupDirty=false;local.manual=false;local.search='';resetGroup();local.offerAttention=false;local.busy=false;local.jobId='';local.session={...session};local.candidate=null;local.candidateStatus=null;local.page=null;local.pageNumber=1;local.filter='all';local.missingThickness=false;local.moreOpen=false;local.selected.clear();local.undo=null;local.error='';
       await refreshPage();if(local.page?.rulesStale)await recompute();return api;
     }
@@ -322,7 +326,7 @@
     function activate(context={}){if(local.destroyed)return api;local.active=true;refreshContext(context,{render:false});if(thicknessSetup())initializeSetup();ports.activate?.();if(local.session&&!local.page&&!local.busy)refreshPage();return api;}
     function deactivate(){ports.deactivate?.();if(local.reading){local.reading=false;local.busy=false;}local.active=false;local.requestSerial++;resetGroup();local.search='';local.filter='all';local.missingThickness=false;local.moreOpen=false;local.pageNumber=1;local.selected.clear();local.page=null;}
     function destroy(){commands.reset();clearPoll();local.contextSerial++;local.requestSerial++;local.session=null;local.candidate=null;local.destroyed=true;local.active=false;}
-    const api={state:local,exportShops,exportShop,exportName,selectExportShop,checkPending,target,scheduleRender,refreshPage,resetGroup,candidateReady,needsSheet,startImport,candidateSheets,sheetMapping,sheetIssues,chooseSheet,useCandidate,discardCandidate,cancelJob,applyReview,undo,exportFile,download,materials,materialById,thicknessSetup,summary,setupMaterials,submitUniform,searchProducts,recompute,refreshContext,restoreSession,isBusy,canQuit,inspect,activate,deactivate,destroy};
+    const api={state:local,exportShops,exportShop,exportName,editExportName,resetExportName,selectExportShop,checkPending,target,scheduleRender,refreshPage,resetGroup,candidateReady,needsSheet,startImport,candidateSheets,sheetMapping,sheetIssues,chooseSheet,useCandidate,discardCandidate,cancelJob,applyReview,undo,exportFile,download,materials,materialById,thicknessSetup,summary,setupMaterials,submitUniform,searchProducts,recompute,refreshContext,restoreSession,isBusy,canQuit,inspect,activate,deactivate,destroy};
     return api;
   }
   return {create};

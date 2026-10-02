@@ -17,7 +17,15 @@
   const number=Recognition.number;
   const array=value=>Array.isArray(value)?value:[];
   const active=list=>array(list).filter(item=>item&&!item.deleted&&item.active!==false);
-  function exportFilename(shopName,date=new Date()){
+  function exportFilename(shopName,date=new Date(),customName=''){
+    if(typeof customName==='string'&&customName.trim()){
+      let name=customName.trim().replace(/[<>:"/\\|?*\u0000-\u001f\u007f]/g,'_').replace(/[. ]+$/g,'').replace(/(?:\.xlsx)+$/i,'').replace(/[. ]+$/g,'');
+      // Keep the complete filename within common Windows/macOS byte limits.
+      let bounded='',bytes=0;for(const char of name){const point=char.codePointAt(0),size=point<=127?1:point<=2047?2:point<=65535?3:4;if(bytes+size>200||bounded.length+char.length>100)break;bounded+=char;bytes+=size;}
+      name=bounded.replace(/[. ]+$/g,'');
+      if(/^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(name))name='_'+name;
+      if(name)return `${name}.xlsx`;
+    }
     const name=text(shopName).trim().replace(/[<>:"/\\|?*\u0000-\u001f\u007f]/g,'_').replace(/[. ]+$/g,'').slice(0,80)||'商品转表';
     const day=[date.getFullYear(),String(date.getMonth()+1).padStart(2,'0'),String(date.getDate()).padStart(2,'0')].join('-');
     return `${name}-${day}.xlsx`;
